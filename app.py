@@ -849,8 +849,18 @@ def main():
         bal = account_sync.sync(force=True)
         if bal:
             print(f"[App] Kapital: {bal.get('mode')} equity=${float(bal.get('equity') or 0):.4f} ({bal.get('source')})")
-        elif not config.PAPER_TRADING:
-            print(f"[App] Ostrzezenie live balance: {account_sync._last_error}")
+        # UWAGA: `bal` to zawsze niepusty dict (snapshot() zwraca fallback nawet
+        # przy calkowitym niepowodzeniu), wiec sam `if bal` nigdy nie jest Falsy -
+        # poprzedni `elif not config.PAPER_TRADING` byl martwym kodem i realny
+        # powod niepowodzenia (np. zly klucz API) nigdy nie trafial do logow,
+        # tylko cichy "equity=$0.0000 (none)" bez zadnego wyjasnienia. Sprawdzamy
+        # teraz jawnie source != "blofin" (jedyny prawdziwy sukces synchronizacji).
+        if not config.PAPER_TRADING and (not bal or bal.get("source") != "blofin"):
+            err = (bal.get("error") if bal else None) or account_sync._last_error or "nieznany blad"
+            print(f"[App] OSTRZEZENIE: nie udalo sie pobrac realnego salda z konta Blofin - {err}")
+            print("[App] Kapital LIVE pozostaje na ostatniej lokalnie zapisanej wartosci, "
+                  "NIE jest to realne saldo gieldy. Sprawdz klucze API w Opcjach "
+                  "(przycisk 'Test connection') zanim zaczniesz handel LIVE.")
     except Exception as e:
         print(f"[App] Balance sync: {e}")
 

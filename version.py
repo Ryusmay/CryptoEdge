@@ -9,8 +9,8 @@ from pathlib import Path
 
 MAJOR = 19
 MINOR = 14
-PATCH = 3
-BUILT = "2026-08-21T19:40:32Z"
+PATCH = 4
+BUILT = "2026-08-21T22:03:29Z"
 
 ROOT = Path(__file__).resolve().parent
 
