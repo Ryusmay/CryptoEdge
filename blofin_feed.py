@@ -146,6 +146,92 @@ def _merge_ws_closed_candle(symbol: str, bar: str, data: dict) -> tuple:
     return out
 
 
+def _parse_kline_rows(rows: list, bar: str, limit: int) -> dict:
+    """Zamienia surowe wiersze Blofin (dowolna kolejnosc, moga sie
+    powtarzac) na kolumnowy slownik OHLCV: dedupe po timestampie, odrzuca
+    nie-domkniete swiece (flaga confirm na indeksie 8), sortuje rosnaco,
+    przycina do `limit` najnowszych i na koniec odrzuca ostatnia
+    potencjalnie wciaz-formujaca sie swiece przez drop_unclosed_candle.
+
+    Wydzielone 21.08.2026 z fetch_klines_ohlcv (bylo tam inline) - ten sam
+    kod obsluguje teraz zarowno pelny fetch calego okna, jak i parsowanie
+    samej delty przy doszywaniu z dysku (patrz _fetch_delta_kline_rows)."""
+    if not rows:
+        return {}
+    parsed = []
+    seen = set()
+    for row in rows:
+        try:
+            ts_v = int(float(row[0]))
+        except (IndexError, ValueError, TypeError):
+            continue
+        if ts_v in seen:
+            continue
+        seen.add(ts_v)
+        # Public candles include an explicit confirm flag at index 8.
+        # Never pass a known-open candle into indicators.
+        if len(row) > 8 and str(row[8]) == "0":
+            continue
+        parsed.append(row)
+    parsed.sort(key=lambda r: int(float(r[0])))
+    parsed = parsed[-limit:]
+
+    opens, closes, highs, lows, volumes, quote_volumes, timestamps = [], [], [], [], [], [], []
+    for row in parsed:
+        try:
+            item = (int(float(row[0])), float(row[1]), float(row[2]),
+                    float(row[3]), float(row[4]))
+            # row[5]=contracts, row[6]=base, row[7]=quote.
+            # Indicators and volume profiles use base volume so a contract
+            # specification change cannot silently rescale history.
+            base_vol = float(row[6]) if len(row) > 6 else float(row[5]) if len(row) > 5 else 0.0
+            quote_vol = float(row[7]) if len(row) > 7 else base_vol * item[4]
+        except (IndexError, ValueError, TypeError):
+            continue
+        timestamps.append(item[0])
+        opens.append(item[1])
+        highs.append(item[2])
+        lows.append(item[3])
+        closes.append(item[4])
+        volumes.append(base_vol)
+        quote_volumes.append(quote_vol)
+    data = {
+        "opens": opens, "closes": closes, "highs": highs, "lows": lows,
+        "volumes": volumes, "quote_volumes": quote_volumes,
+        "timestamps": timestamps, "candles_confirmed": True,
+    }
+    try:
+        from market_data import drop_unclosed_candle
+        iv = {"1m": "1m", "5m": "5m", "15m": "15m", "1H": "1h", "4H": "4h", "1D": "1d"}.get(bar, bar)
+        data = drop_unclosed_candle(data, iv)
+    except Exception:
+        if closes:
+            data = {k: (v[:-1] if isinstance(v, list) else v) for k, v in data.items()}
+    return data
+
+
+def _merge_parsed_klines(old: dict, new: dict, limit: int) -> dict:
+    """Laczy dwa juz sparsowane, kolumnowe slowniki swiec (stara historia -
+    zwykle z dysku/pamieci - plus swieza delta) po timestampie: nowe
+    wygrywaja przy kolizji (ostatnia swieca w starych danych mogla nie byc
+    jeszcze w pelni domknieta w momencie zapisu). Sortuje rosnaco i
+    przycina do `limit` najnowszych."""
+    fields = ("opens", "highs", "lows", "closes", "volumes", "quote_volumes")
+    by_ts: dict = {}
+    for source in (old, new):
+        ts_list = list((source or {}).get("timestamps") or [])
+        cols = {f: list((source or {}).get(f) or []) for f in fields}
+        for i, ts_v in enumerate(ts_list):
+            by_ts[ts_v] = tuple(cols[f][i] if i < len(cols[f]) else None for f in fields)
+    if not by_ts:
+        return {}
+    ordered = sorted(by_ts.items())[-int(limit):]
+    result = {"timestamps": [t for t, _ in ordered], "candles_confirmed": True}
+    for idx, f in enumerate(fields):
+        result[f] = [row[idx] for _, row in ordered]
+    return result
+
+
 class BlofinFeed:
     def __init__(self):
         self.session = requests.Session()
@@ -645,6 +731,47 @@ class BlofinFeed:
         return closes
 
     
+    def _fetch_delta_kline_rows(self, inst: str, bar: str, since_ts: int, cap: int) -> list:
+        """Doszywa TYLKO swiece nowsze niz since_ts (Blofin: `before` w
+        market/candles = rekordy nowsze niz podany ts, w przeciwienstwie do
+        `after` uzywanego w pelnym fetchu ponizej - zweryfikowane w
+        dokumentacji Blofin 21.08.2026), paginujac w przod az do `cap`
+        wierszy. Uzywane, zeby po restarcie NIE fetchowac calego okna od
+        zera, gdy dysk/pamiec ma juz wiekszosc historii - patrz uwaga przy
+        _KLINE_DISK_PERSIST_BARS.
+
+        Zwraca liste surowych wierszy - moze byc pusta ([]), co jest
+        POTWIERDZONYM "zero nowych swiec, cache byl juz aktualny". Zwraca
+        None TYLKO gdy pierwsze zapytanie nie powiodlo sie (siec/API) i nie
+        zdobylismy jeszcze zadnych wierszy - to sygnal dla wolajacego, zeby
+        spasc do pelnego fetchu ponizej, a NIE zakladac bezpodstawnie, ze
+        cache jest aktualny. Blad na kolejnej (nie pierwszej) stronie przy
+        wielostronicowej delcie zwraca to, co juz zdobyto - czesciowa delta
+        wciaz jest lepsza niz nic."""
+        max_per_req = 300
+        all_rows: list = []
+        cursor = int(since_ts)
+        while len(all_rows) < cap:
+            batch = min(cap - len(all_rows), max_per_req)
+            params = {"instId": inst, "bar": bar, "limit": str(batch), "before": str(cursor)}
+            raw = self._get("market/candles", params)
+            if raw is None:
+                return None if not all_rows else all_rows
+            chunk = list(raw.get("data") or [])
+            if not chunk:
+                break  # potwierdzone: nic nowego od cursor
+            all_rows.extend(chunk)
+            try:
+                newest = max(int(float(r[0])) for r in chunk if r)
+            except (ValueError, TypeError):
+                break
+            if newest <= cursor:
+                break  # brak postepu - unikamy niekonczacej sie petli
+            cursor = newest
+            if len(chunk) < batch:
+                break
+        return all_rows
+
     def fetch_klines_ohlcv(self, symbol: str, bar: str = "1H", limit: int = 120) -> dict:
         """
         Paginacja candles Blofin (max ~300/req) – after/before ts.
@@ -699,6 +826,34 @@ class BlofinFeed:
                 # prostu oddajemy dane bez (potencjalnie dziurawego) merge'u.
                 return data if gap else merged
 
+            # 21.08.2026: TTL wygasl i wiadro ma budzet (>=20%, inaczej
+            # zwrocilibysmy sie juz wyzej) - zanim zrobimy PELNY re-fetch
+            # calego `limit`, sprobuj doszyc tylko delte od ostatniej
+            # znanej swiecy (dysk lub pamiec). To wlasciwe ciecie wolumenu
+            # zapytan przy rozruchu: poprzedni krok (dopisanie 1H/15m do
+            # _KLINE_DISK_PERSIST_BARS) dawal dysk tylko jako "cos lepsze
+            # niz nic" - po wygasnieciu TTL (regula po kazdym realnym
+            # restarcie) i tak lecial pelny fetch. Tu fetchujemy realnie
+            # tylko brakujacy ogon.
+            if bar in _KLINE_DISK_PERSIST_BARS and isinstance(data, dict) and data.get("timestamps"):
+                last_ts = data["timestamps"][-1]
+                try:
+                    delta_rows = self._fetch_delta_kline_rows(inst, bar, last_ts, limit)
+                except Exception as exc:
+                    print(f"[Blofin] Delta fetch {inst} {bar} nieudany ({exc}) - pelny re-fetch")
+                    delta_rows = None
+                if delta_rows is not None:
+                    fresh = _parse_kline_rows(delta_rows, bar, limit) if delta_rows else {}
+                    merged_data = _merge_parsed_klines(data, fresh, limit)
+                    if merged_data.get("closes"):
+                        self.ohlc_cache[cache_key] = (time.time(), merged_data)
+                        disk_cache.save(cache_key, merged_data)
+                        result, _gap = _merge_ws_closed_candle(symbol, bar, merged_data)
+                        return result
+                # delta_rows is None (pierwsze zapytanie nieudane) albo
+                # merge nie dal uzytecznych danych - spadamy do pelnego
+                # fetchu ponizej jako bezpieczny fallback.
+
         max_per_req = 300  # bezpieczny limit Blofin
         all_rows = []
         remaining = limit
@@ -730,56 +885,10 @@ class BlofinFeed:
 
         if not all_rows:
             return {}
-        # sort rosnąco po ts + dedupe
-        parsed = []
-        seen = set()
-        for row in all_rows:
-            try:
-                ts_v = int(float(row[0]))
-            except (IndexError, ValueError, TypeError):
-                continue
-            if ts_v in seen:
-                continue
-            seen.add(ts_v)
-            # Public candles include an explicit confirm flag at index 8.
-            # Never pass a known-open candle into indicators.
-            if len(row) > 8 and str(row[8]) == "0":
-                continue
-            parsed.append(row)
-        parsed.sort(key=lambda r: int(float(r[0])))
-        parsed = parsed[-limit:]
-
-        opens, closes, highs, lows, volumes, quote_volumes, timestamps = [], [], [], [], [], [], []
-        for row in parsed:
-            try:
-                item = (int(float(row[0])), float(row[1]), float(row[2]),
-                        float(row[3]), float(row[4]))
-                # row[5]=contracts, row[6]=base, row[7]=quote.
-                # Indicators and volume profiles use base volume so a contract
-                # specification change cannot silently rescale history.
-                base_vol = float(row[6]) if len(row) > 6 else float(row[5]) if len(row) > 5 else 0.0
-                quote_vol = float(row[7]) if len(row) > 7 else base_vol * item[4]
-            except (IndexError, ValueError, TypeError):
-                continue
-            timestamps.append(item[0])
-            opens.append(item[1])
-            highs.append(item[2])
-            lows.append(item[3])
-            closes.append(item[4])
-            volumes.append(base_vol)
-            quote_volumes.append(quote_vol)
-        data = {
-            "opens": opens, "closes": closes, "highs": highs, "lows": lows,
-            "volumes": volumes, "quote_volumes": quote_volumes,
-            "timestamps": timestamps, "candles_confirmed": True,
-        }
-        try:
-            from market_data import drop_unclosed_candle
-            iv = {"1m": "1m", "5m": "5m", "15m": "15m", "1H": "1h", "4H": "4h", "1D": "1d"}.get(bar, bar)
-            data = drop_unclosed_candle(data, iv)
-        except Exception:
-            if closes:
-                data = {k: (v[:-1] if isinstance(v, list) else v) for k, v in data.items()}
+        # 21.08.2026: parsowanie (dedupe/sort/trim/drop_unclosed_candle)
+        # wydzielone do _parse_kline_rows - ta sama logika obsluguje teraz
+        # i pelny fetch (tutaj), i doszywanie delty (wyzej).
+        data = _parse_kline_rows(all_rows, bar, limit)
         if data.get("closes"):
             self.ohlc_cache[cache_key] = (time.time(), data)
             if bar in _KLINE_DISK_PERSIST_BARS:

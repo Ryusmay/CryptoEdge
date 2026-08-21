@@ -19,6 +19,24 @@ from signal_engine import SignalEngine
 
 
 class TestBlofinBookUnits(unittest.TestCase):
+    def setUp(self):
+        # Regresja 21.08.2026: test_candle_pagination_... uzywa realnego
+        # BlofinFeed() z bar="15m" - odkad 15m trafil do
+        # _KLINE_DISK_PERSIST_BARS, bez izolacji ten test cicho zapisywal
+        # ohlcv_X-USDT_15m_400.json do PRAWDZIWEGO F:\CryptoEdge\data\
+        # disk_cache\ (tego samego katalogu, ktorego uzywa zywy bot), co
+        # przy kolejnym uruchomieniu testow psulo asercje liczby zapytan
+        # (fetch_klines_ohlcv zaczynal doszywac delte z tego zanieczyszczenia
+        # zamiast robic pelny fetch). Izolujemy CACHE_DIR dla calej klasy.
+        import disk_cache
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._disk_cache_patcher = patch.object(disk_cache, "CACHE_DIR", Path(self._tmpdir.name))
+        self._disk_cache_patcher.start()
+
+    def tearDown(self):
+        self._disk_cache_patcher.stop()
+        self._tmpdir.cleanup()
+
     def test_contract_sizes_are_converted_to_base_before_usd_depth(self):
         feed = BlofinFeed()
         feed._get = lambda *a, **k: {"data": [{"bids": [["100", "10"]], "asks": [["101", "20"]]}]}

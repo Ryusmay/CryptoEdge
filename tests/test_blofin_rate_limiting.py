@@ -24,6 +24,28 @@ class TestBlofinFeedRateLimiting(unittest.TestCase):
     dzielonych modulowych singletonow (zeby testy nie byly zalezne od
     kolejnosci/siebie nawzajem)."""
 
+    def setUp(self):
+        # Regresja 21.08.2026: odkad 1H/15m (obok juz istniejacych 4H/1D/1W)
+        # trafily do _KLINE_DISK_PERSIST_BARS, kazdy test w tej klasie, ktory
+        # tworzy prawdziwy BlofinFeed() i woła fetch_klines_ohlcv z jednym z
+        # tych barow, moze CICHO zapisac (albo odczytac) prawdziwy plik w
+        # F:\CryptoEdge\data\disk_cache\ - tym samym katalogu, ktorego uzywa
+        # zywy bot. Zauwazone jak konkretny objaw: test z bar="1H" limit=1
+        # zostawil na dysku ohlcv_BTC-USDT_1H_1.json z fikcyjnymi danymi.
+        # Zamiast lataniowac to per-test, izolujemy CACHE_DIR dla calej
+        # klasy - kazdy test dostaje swiezy, pusty tymczasowy katalog i nic
+        # nie przecieka do prawdziwego cache'u ani miedzy testami.
+        import tempfile
+        from pathlib import Path
+        import disk_cache
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._disk_cache_patcher = patch.object(disk_cache, "CACHE_DIR", Path(self._tmpdir.name))
+        self._disk_cache_patcher.start()
+
+    def tearDown(self):
+        self._disk_cache_patcher.stop()
+        self._tmpdir.cleanup()
+
     def _isolated_bucket(self, capacity=2.0, refill_per_sec=1000.0):
         # refill bardzo szybki domyslnie, zeby testy "normalnej sciezki" nie
         # byly przypadkowo zablokowane przez powolny refill - testy
@@ -119,6 +141,27 @@ class TestApiKeyPermissionsBestEffort(unittest.TestCase):
 
 
 class TestTradingBucketGatesPrivateGet(unittest.TestCase):
+    def setUp(self):
+        # Regresja 21.08.2026: ta klasa (nie TestBlofinFeedRateLimiting -
+        # zla klasa dostala izolacje w pierwszym podejsciu, patrz commit
+        # historii) zawiera wiekszosc testow fetch_klines_ohlcv z barami
+        # 1H/4H/15m. Odkad 1H/15m trafily do _KLINE_DISK_PERSIST_BARS (obok
+        # juz istniejacych 4H/1D/1W), testy tworzace prawdziwy BlofinFeed()
+        # bez izolacji CACHE_DIR cicho zapisywaly (i odczytywaly!) prawdziwe
+        # pliki w F:\CryptoEdge\data\disk_cache\ - tym samym katalogu, ktorego
+        # uzywa zywy bot. Konkretny, powtarzajacy sie objaw: ohlcv_BTC-USDT
+        # _1H_1.json z fikcyjnymi danymi testowymi.
+        import tempfile
+        from pathlib import Path
+        import disk_cache
+        self._tmpdir = tempfile.TemporaryDirectory()
+        self._disk_cache_patcher = patch.object(disk_cache, "CACHE_DIR", Path(self._tmpdir.name))
+        self._disk_cache_patcher.start()
+
+    def tearDown(self):
+        self._disk_cache_patcher.stop()
+        self._tmpdir.cleanup()
+
     def test_trading_bucket_gates_private_get_separately_from_public(self):
         bucket = MagicMock()
         bucket.acquire.return_value = False
@@ -366,6 +409,68 @@ class TestTradingBucketGatesPrivateGet(unittest.TestCase):
                     result = feed.fetch_klines_ohlcv("BTC", bar=bar, limit=limit)
             self.assertEqual(0, mock_get.call_count, f"{bar}: nie powinno byc zadnego REST fetchu")
             self.assertEqual([7.0], result["closes"], f"{bar}: powinno oddac dane z dysku")
+
+    def test_stale_cached_klines_fetch_only_delta_and_merge_with_history(self):
+        # 21.08.2026 (krok 2): gdy TTL wygasl, ale w cache/dysku juz jest
+        # historia dla bara z _KLINE_DISK_PERSIST_BARS, fetch_klines_ohlcv
+        # NIE powinien robic pelnego re-fetchu calego `limit` - tylko
+        # doszyc nowe swiece (`before`) i skleic je ze starymi. To wlasciwe
+        # ciecie wolumenu zapytan przy rozruchu (krok 1 - dopisanie 1H/15m
+        # do _KLINE_DISK_PERSIST_BARS - dawal dysk tylko jako "cos lepsze
+        # niz nic", ale po wygasnieciu TTL i tak lecial pelny fetch).
+        import time as time_mod
+        feed = BlofinFeed()
+        old_data = {
+            "opens": [1.0, 2.0], "highs": [1.0, 2.0], "lows": [1.0, 2.0],
+            "closes": [1.0, 2.0], "volumes": [10.0, 20.0], "quote_volumes": [10.0, 20.0],
+            "timestamps": [1_000_000, 2_000_000],
+        }
+        feed.ohlc_cache["ohlcv_BTC-USDT_4H_120"] = (time_mod.time() - 999999, old_data)  # TTL dawno wygasl
+        bucket = MagicMock()
+        bucket.level.return_value = 0.9  # wysoko - nie <20%, wiec probujemy delte zamiast oddac stare
+        bucket.acquire.return_value = True
+        new_row = [str(3_000_000), "3", "3", "3", "3", "30"]
+        payload = {"code": "0", "data": [new_row]}
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", return_value=_ok_response(payload)) as mock_get:
+            result = feed.fetch_klines_ohlcv("BTC", bar="4H", limit=120)
+        self.assertEqual(1, mock_get.call_count, "powinna byc tylko JEDNA zapytanie delty, nie pelna paginacja")
+        params_used = mock_get.call_args.kwargs["params"]
+        self.assertEqual("2000000", params_used["before"])
+        self.assertNotIn("after", params_used)
+        # stara historia + nowa swieca, posortowane, bez duplikatow
+        self.assertEqual([1_000_000, 2_000_000, 3_000_000], result["timestamps"])
+        self.assertEqual([1.0, 2.0, 3.0], result["closes"])
+
+    def test_delta_fetch_falls_back_to_full_fetch_when_delta_request_fails(self):
+        # Delta fetch nie powinien nigdy CICHO zaniedbac danych - jesli
+        # pierwsze zapytanie o delte sie nie powiedzie, wolajacy MUSI spasc
+        # do normalnego pelnego fetchu (z `after`), a nie zwrocic pustych
+        #/niepelnych danych do silnika sygnalow.
+        import time as time_mod
+        feed = BlofinFeed()
+        old_data = {
+            "opens": [1.0], "highs": [1.0], "lows": [1.0], "closes": [1.0],
+            "volumes": [10.0], "quote_volumes": [10.0], "timestamps": [1_000_000],
+        }
+        feed.ohlc_cache["ohlcv_BTC-USDT_4H_120"] = (time_mod.time() - 999999, old_data)
+        bucket = MagicMock()
+        bucket.level.return_value = 0.9
+        bucket.acquire.return_value = True
+        full_row = [str(5_000_000), "5", "5", "5", "5", "50"]
+        payload = {"code": "0", "data": [full_row]}
+        # _fetch_delta_kline_rows zwraca None (pierwsze zapytanie o delte
+        # nieudane) - fetch_klines_ohlcv MUSI wtedy spasc do zwyklej,
+        # pelnej paginacji ponizej (ta sama sciezka _get -> session.get co
+        # zawsze, wiec mockujemy tylko session.get na normalny fetch).
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed, "_fetch_delta_kline_rows", return_value=None) as mock_delta, \
+             patch.object(feed.session, "get", return_value=_ok_response(payload)) as mock_get:
+            result = feed.fetch_klines_ohlcv("BTC", bar="4H", limit=120)
+        mock_delta.assert_called_once()
+        self.assertGreaterEqual(mock_get.call_count, 1)
+        self.assertEqual([5_000_000], result["timestamps"])
+        self.assertEqual([5.0], result["closes"])
 
     def test_klines_for_short_bars_are_not_persisted_to_disk(self):
         import tempfile
