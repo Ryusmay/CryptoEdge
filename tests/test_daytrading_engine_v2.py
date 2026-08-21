@@ -157,6 +157,34 @@ class TestDayTradingEngineV2Cascade(unittest.TestCase):
         self.assertEqual("SHORT", result["bias_4h"])
         self.assertIn("V2_4H_ANCHOR_NO_1D", result["reasons"])
 
+    def test_short_1d_history_with_insufficient_indicators_falls_back_to_4h_anchor(self):
+        # Regresja 21.08.2026: dla 1D z JAKIMIS swiecami, ale za malo na
+        # wskazniki (np. 46 < 200 wymagane pod EMA200 - typowe dla nowszych
+        # par/akcji jak AAPL/AMD/ASML), compute_indicators zwraca PUSTY dict
+        # {} (nie None). `{} is not None` == True, wiec kod mylnie wchodzil
+        # w galaz "mam dzialajace 1D", liczyl bias z pustego slownika
+        # (=NEUTRAL) i twardo odrzucal przez V2_1D_NO_BIAS - fallback na
+        # kotwice 4h (napisany dokladnie po ten przypadek) nigdy sie nie
+        # uruchamial. To odroznia ten test od
+        # test_missing_1d_data_does_not_crash_and_falls_back_to_4h_anchor_by_default
+        # powyzej, ktory testuje ZUPELNY brak swiec 1D (d1={}), nie "za malo".
+        swing = _down_swing_1h()
+        m15 = _15m_trigger_series(zone_near=110.0, direction="SHORT")
+        self._set_frames("BTC", d1=_flat_ohlcv(46), h4=_flat_ohlcv(300), h1=swing, m15=m15)
+
+        def fake_compute_indicators(ohlcv, tf="1h"):
+            if tf == "1d":
+                return {}  # za malo swiec na wskazniki, ale d1_closes byl niepusty
+            return indicator("down", atr=1.0)
+
+        with patch("daytrading_engine_v2.compute_indicators", side_effect=fake_compute_indicators):
+            result = self.engine.evaluate({"symbol": "BTC", "price": 108.0})
+        self.assertEqual("SHORT", result["direction"])
+        self.assertNotEqual("V2_1D_NO_BIAS", result.get("reject_reason"))
+        self.assertIsNone(result["bias_1d"])
+        self.assertEqual("SHORT", result["bias_4h"])
+        self.assertIn("V2_4H_ANCHOR_NO_1D", result["reasons"])
+
     def test_missing_1d_data_with_neutral_4h_gives_no_bias_reason(self):
         swing = _down_swing_1h()
         m15 = _15m_trigger_series(zone_near=110.0, direction="SHORT")

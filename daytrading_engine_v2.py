@@ -220,7 +220,16 @@ class DayTradingEngineV2:
 
         # 1) 1D bias (pkt 1) / kotwica 4h gdy 1D niedostepny (pkt "nowsze monety")
         bias_4h = _bias_from_indicators(ind_4h)
-        if ind_1d is not None:
+        # UWAGA: `ind_1d is not None` bylo zle - compute_indicators() zwraca
+        # PUSTY dict {} (nie None) gdy 1D ma jakies swiece, ale za malo na
+        # wskazniki (np. < 200 pod EMA200 - typowe dla nowszych par/akcji
+        # jak AAPL/AMD/ASML). `{} is not None` == True, wiec kod wchodzil w
+        # galaz "mam 1D", liczyl bias z pustego slownika (=NEUTRAL) i od razu
+        # odrzucal przez V2_1D_NO_BIAS - fallback na kotwice 4h ponizej
+        # (napisany DOKLADNIE po to) nigdy sie nie uruchamial dla tego
+        # przypadku, tylko dla zupelnego braku danych 1D (0 swiec). Sprawdzenie
+        # samej trescia (`if ind_1d:`) obejmuje oba przypadki poprawnie.
+        if ind_1d:
             bias_1d = _bias_from_indicators(ind_1d)
             if bias_1d == "NEUTRAL":
                 return self._neutral(symbol, price, "V2_1D_NO_BIAS", {"bias_1d": bias_1d})
