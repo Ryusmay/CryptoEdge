@@ -146,6 +146,10 @@ class BlofinFeed:
         self.available = True
         self.fail_count = 0
         self._instrument_registry = None
+        # 21.08.2026: nieblokujacy cooldown po dlugim (realnym) banie Blofin
+        # za zbyt czeste odpytywanie limitu - patrz _get(). 0.0 = brak
+        # aktywnego cooldownu.
+        self._rate_limited_until = 0.0
 
     def _contract_value(self, symbol: str) -> float:
         """Return base-asset value of one BloFin contract.
@@ -423,6 +427,29 @@ class BlofinFeed:
 
 
     def _get(self, path: str, params: dict = None, timeout: int = 12) -> Optional[dict]:
+        # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
+        # (godzina) na publicznym endpoincie. Uzytkownik potwierdzil (z
+        # wlasnej wiedzy o Blofin): to nie przypadkowo zawyzony naglowek,
+        # tylko REALNY, godzinny ban za zbyt czeste odpytywanie limitu.
+        # Konsekwencja: podczas takiego bana NIE WOLNO probowac dalej co
+        # chwile - kazde kolejne zapytanie moze ban tylko przedluzyc/pogorszyc
+        # (typowe dla anti-abuse na gieldach). Dlatego DLUGIE oczekiwania
+        # (powyzej BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S) NIE sa obslugiwane
+        # blokujacym time.sleep() + retry - zamiast tego wchodzimy w
+        # nieblokujacy cooldown (_rate_limited_until): przez caly zadany
+        # przez serwer czas _get() zwraca None natychmiast, BEZ wysylania
+        # jakiegokolwiek zapytania, wiec watek skanujacy (bot_loop, osobny od
+        # UI) nie zamraza sie (dalej robi swoje: warmup/backfill/UI zostaje
+        # responsywne), a serwer nie dostaje ANI JEDNEGO zapytania podczas
+        # bana. Krotkie throttle'e (typowy, chwilowy 429) dalej sa
+        # obslugiwane od razu, blokujacym sleep+retry jak dotychczas - to
+        # tania, bezpieczna sciezka dla normalnego, drobnego przypadku.
+        now = time.time()
+        if now < self._rate_limited_until:
+            self.last_error = (
+                f"429 rate limit - Blofin cooldown jeszcze {self._rate_limited_until - now:.0f}s"
+            )
+            return None
         # Proaktywnie: czekaj na token PRZED wyslaniem zapytania, zamiast
         # odpalac je i dostawac 429 po fakcie (za pozno - zapytanie juz
         # zuzylo budzet limitu po stronie Blofin).
@@ -437,32 +464,24 @@ class BlofinFeed:
                 self.fail_count += 1
                 # Retry-After z naglowka gdy dostepny (dokladny czas, ktory
                 # serwer sam podaje), fallback 12s tylko gdy brak naglowka.
-                # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
-                # (godzina) na publicznym endpointzie i kod bezwarunkowo ufal tej
-                # wartosci, czyli watek skanujacy (bot_loop w app.py, osobny od
-                # UI) zamrazal sie na cala godzine z pojedynczego, pojedynczego
-                # naglowka - zero widocznosci dla uzytkownika poza grzebaniem w
-                # console.log, zero mozliwosci odzyskania sie wczesniej. Serwer
-                # MOZE podac cokolwiek (defensywnie, przez pomylke, po
-                # eskalacji za duzo 429 z rzedu) - nie jest to kontrakt, ktoremu
-                # wolno bezwarunkowo ufac bez sufitu. Realnie sleepujemy co
-                # najwyzej BLOFIN_MAX_RATE_LIMIT_SLEEP_S; jesli serwer chcial
-                # wiecej, kolejne proby i tak nadejda w nastepnych cyklach
-                # skanu (PUBLIC_BUCKET dalej pilnuje pacingu), zamiast jednego
-                # zablokowanego sleepu bez powrotu.
                 wait_s, from_header = _retry_after_seconds(r.headers, default=12.0)
                 try:
-                    max_sleep = float(getattr(config, "BLOFIN_MAX_RATE_LIMIT_SLEEP_S", 60.0))
+                    short_max = float(getattr(config, "BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S", 30.0))
                 except (TypeError, ValueError):
-                    max_sleep = 60.0
-                sleep_s = min(wait_s, max_sleep) if max_sleep > 0 else wait_s
-                capped_note = f", ograniczone do {sleep_s:.0f}s" if sleep_s < wait_s else ""
-                print(
-                    f"[Blofin] Rate limit – czekam {wait_s:.0f}s"
-                    + (" (Retry-After)" if from_header else "")
-                    + capped_note
-                )
-                time.sleep(sleep_s)
+                    short_max = 30.0
+                if from_header and wait_s > short_max:
+                    # Dlugi, prawdopodobnie realny ban - wchodzimy w
+                    # nieblokujacy cooldown, ZERO kolejnych zapytan przez
+                    # caly ten czas (patrz komentarz nad funkcja).
+                    self._rate_limited_until = now + wait_s
+                    print(
+                        f"[Blofin] Rate limit – Blofin prosi o {wait_s:.0f}s (Retry-After), "
+                        f"wstrzymuje WSZYSTKIE zapytania publiczne do tego czasu bez ponawiania "
+                        f"i bez blokowania watku (realny ban, nie przypadkowy naglowek)"
+                    )
+                    return None
+                print(f"[Blofin] Rate limit – czekam {wait_s:.0f}s" + (" (Retry-After)" if from_header else ""))
+                time.sleep(wait_s)
                 PUBLIC_BUCKET.acquire()
                 r = self.session.get(url, params=params or {}, timeout=timeout)
             if r.status_code in (403, 451):

@@ -269,16 +269,23 @@ DAYTRADING_V2_HARD_TIME_STOP_HOURS = 48.0
 STALE_DATA_SECONDS = 45          # odmowa handlu gdy dane starsze niz 45s
 
 # 21.08.2026: realny incydent - Blofin zwrocil na publicznym endpoincie
-# naglowek Retry-After: 3600 (godzina), a blofin_feed.py._get() bezwarunkowo
-# mu ufal - watek skanujacy (bot_loop, osobny od UI, wiec UI zostawalo
-# responsywne, ale skan/handel calkowicie zamrozony) zasypial na cala
-# godzine z pojedynczego naglowka serwera, bez zadnej widocznosci dla
-# uzytkownika poza recznym grzebaniem w console.log i bez mozliwosci
-# odzyskania sie wczesniej. Retry-After to sugestia serwera, nie kontrakt,
-# ktoremu wolno ufac bez sufitu - realny sleep jest ograniczony do tej
-# wartosci; jesli serwer chcial wiecej, kolejne proby i tak nadejda w
-# nastepnych cyklach skanu (PUBLIC_BUCKET dalej pilnuje pacingu miedzy nimi).
-BLOFIN_MAX_RATE_LIMIT_SLEEP_S = 60.0
+# naglowek Retry-After: 3600 (godzina). Uzytkownik potwierdzil z wlasnej
+# wiedzy o Blofin: to REALNY, godzinny ban za zbyt czeste odpytywanie
+# limitu, nie przypadkowo zawyzona wartosc naglowka - wiec dalsze zapytania
+# w trakcie tego okna moga ban tylko przedluzyc/pogorszyc (typowe dla
+# anti-abuse). blofin_feed.py._get() rozroznia teraz dwa przypadki wg tego
+# progu: Retry-After <= BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S -> typowy,
+# chwilowy throttle, obslugiwany jak dotychczas (krotki blokujacy sleep +
+# jedna ponowna proba). Retry-After > tego progu -> traktowany jako realny
+# ban: wchodzimy w NIEBLOKUJACY cooldown (_rate_limited_until) na CALY
+# zadany przez serwer czas (nie skracany!) - przez ten czas _get() zwraca
+# None natychmiast, bez wysylania ANI JEDNEGO kolejnego zapytania, wiec
+# watek skanujacy (bot_loop, osobny od UI) sie nie zamraza, a serwer nie
+# dostaje wiecej ruchu podczas bana. 30s to bezpieczna granica - wszystkie
+# dotychczasowe, realnie zaobserwowane throttle'e byly rzedu kilkunastu
+# sekund (patrz PUBLIC_BUCKET), a 3600s z tego incydentu jest o dwa rzedy
+# wielkosci wyzej - miedzy nimi nie ma dwuznacznosci.
+BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S = 30.0
 
 # --- Paper Trading ---
 PAPER_TRADING = True                 # True = DEMO (paper), False = LIVE

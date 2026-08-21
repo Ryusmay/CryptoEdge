@@ -616,41 +616,72 @@ class TestRetryAfterHeader(unittest.TestCase):
             feed._get("market/instruments")
         mock_sleep.assert_called_once_with(12.0)
 
-    def test_extreme_retry_after_is_capped_not_obeyed_blindly(self):
+    def test_long_retry_after_enters_nonblocking_cooldown_no_sleep_no_retry(self):
         # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
-        # (godzina) na publicznym endpoincie, a watek skanujacy (osobny od
-        # UI) zasnal na cala godzine z pojedynczego naglowka, bez sufitu i
-        # bez widocznosci dla uzytkownika. Retry-After to sugestia serwera,
-        # nie kontrakt - patrz BLOFIN_MAX_RATE_LIMIT_SLEEP_S w config.py.
-        import config
+        # (godzina) na publicznym endpoincie. Uzytkownik potwierdzil z
+        # wlasnej wiedzy o Blofin: to REALNY ban za zbyt czeste odpytywanie
+        # limitu, nie przypadkowo zawyzona wartosc - wiec kolejne zapytania
+        # W TRAKCIE bana moga go tylko przedluzyc/pogorszyc. Dlugie
+        # Retry-After (> BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S) NIE moze wiec
+        # skutkowac blokujacym sleep+retry (nawet skroconym) - musi wejsc w
+        # nieblokujacy cooldown: zero sleep, zero drugiego zapytania teraz.
         feed = BlofinFeed()
         bucket = MagicMock()
         bucket.acquire.return_value = True
-        responses = [_rate_limited_response(retry_after=3600), _ok_response({"code": "0", "data": []})]
         with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
-             patch.object(feed.session, "get", side_effect=responses), \
+             patch.object(feed.session, "get", return_value=_rate_limited_response(retry_after=3600)) as mock_get, \
              patch("blofin_feed.time.sleep") as mock_sleep:
-            feed._get("market/instruments")
-        mock_sleep.assert_called_once_with(config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S)
-        self.assertLess(
-            config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S, 3600.0,
-            "sufit musi byc realnie mniejszy niz to, co serwer zazadal w tym incydencie",
-        )
+            result = feed._get("market/instruments")
+        self.assertIsNone(result)
+        mock_sleep.assert_not_called()
+        mock_get.assert_called_once()  # tylko PIERWSZE zapytanie, zero ponawiania
 
-    def test_retry_after_below_cap_still_uses_the_real_server_value(self):
-        # Sufit nie ma obcinac normalnych, rozsadnych odpowiedzi serwera -
-        # tylko ekstremalne przypadki jak w tescie powyzej.
+    def test_cooldown_blocks_further_public_calls_for_the_full_server_duration(self):
+        # Podczas aktywnego cooldownu KOLEJNE wywolania _get() nie moga
+        # wyslac ANI JEDNEGO zapytania do Blofin - to jest sedno naprawy
+        # (serwer prosil o godzine ciszy, wiec dajemy mu ja, zamiast
+        # odpytywac co chwile skroconym sleepem).
+        feed = BlofinFeed()
+        bucket = MagicMock()
+        bucket.acquire.return_value = True
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", return_value=_rate_limited_response(retry_after=3600)) as mock_get:
+            feed._get("market/instruments")  # wchodzi w cooldown
+            mock_get.reset_mock()
+            for _ in range(5):
+                result = feed._get("market/klines")
+                self.assertIsNone(result)
+            mock_get.assert_not_called()
+
+    def test_cooldown_expires_and_calls_resume_normally(self):
+        feed = BlofinFeed()
+        bucket = MagicMock()
+        bucket.acquire.return_value = True
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", return_value=_rate_limited_response(retry_after=3600)):
+            feed._get("market/instruments")  # wchodzi w cooldown
+        feed._rate_limited_until = time.time() - 1.0  # symuluj uplyw czasu
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", return_value=_ok_response({"code": "0", "data": []})) as mock_get:
+            result = feed._get("market/instruments")
+        self.assertIsNotNone(result)
+        mock_get.assert_called_once()
+
+    def test_short_retry_after_still_uses_blocking_sleep_and_retry(self):
+        # Progu > 30s NIE osiagnieto - to zwykly, chwilowy throttle, dalej
+        # obslugiwany tak jak zawsze (krotki blokujacy sleep + jedna proba).
         import config
         feed = BlofinFeed()
         bucket = MagicMock()
         bucket.acquire.return_value = True
-        below_cap = config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S - 5.0
-        responses = [_rate_limited_response(retry_after=below_cap), _ok_response({"code": "0", "data": []})]
+        below_threshold = config.BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S - 5.0
+        responses = [_rate_limited_response(retry_after=below_threshold), _ok_response({"code": "0", "data": []})]
         with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
              patch.object(feed.session, "get", side_effect=responses), \
              patch("blofin_feed.time.sleep") as mock_sleep:
-            feed._get("market/instruments")
-        mock_sleep.assert_called_once_with(below_cap)
+            result = feed._get("market/instruments")
+        mock_sleep.assert_called_once_with(below_threshold)
+        self.assertIsNotNone(result)
 
 
 if __name__ == "__main__":
