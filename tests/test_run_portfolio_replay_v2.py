@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -88,6 +89,38 @@ class TestRunPortfolioReplayV2Orchestration(unittest.TestCase):
         self.assertEqual(220, split["test_start"])  # floor 220 z shortest_len=500, requested_bars=288
         self.assertLess(split["is_end"], split["oos_start"])
         self.assertGreaterEqual(split["oos_start"] - split["is_end"], 2 * 12)
+
+    def test_report_archives_candle_bundles_alongside_report(self):
+        # Regresja 21.08.2026: raport zapisywal tylko juz przetworzone wyniki
+        # (trades/metrics), nigdy surowych swiec - a cache data/replay/ jest
+        # keyowany tylko po symbol+days, wiec kolejny replay dla tych samych
+        # parametrow go nadpisuje. Efekt: raport z przeszlosci byl bezuzyteczny
+        # do pozniejszej offline'owej analizy, bo swiece juz nie istnialy.
+        # UWAGA: sprawdzamy istnienie plikow WEWNATRZ bloku TemporaryDirectory
+        # (nie przez _run_isolated) - jego __exit__ kasuje cale drzewo tmp,
+        # wiec sprawdzenie po powrocie z _run_isolated zawsze failowaloby.
+        request = ReplayRequest(symbols=("BTC", "ETH"), universe_mode="MANUAL",
+                                days=1, oos_fraction=0.3, counterfactual_audit=False)
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            with patch.object(historical_replay, "CACHE_DIR", base / "data" / "replay"), \
+                 patch.object(historical_replay, "REPORT_DIR", base / "reports" / "replay"), \
+                 patch.object(daytrading_backtester, "production_signal_provider_v2", _fake_signal_provider), \
+                 patch.object(daytrading_backtester, "htf_bias_provider_v2", _fake_htf_bias), \
+                 patch.object(daytrading_backtester, "htf_trail_anchor_provider_v2", _fake_htf_anchor), \
+                 patch.object(daytrading_backtester, "portfolio_replay_v2", _fake_portfolio_replay):
+                report = run_portfolio_replay_v2(FakeFeedV2(), request)
+
+            self.assertIn("candles_archive", report)
+            archive_dir = Path(report["candles_archive"]["dir"])
+            self.assertEqual({"BTC", "ETH"}, set(report["candles_archive"]["symbols"]))
+            for symbol in ("BTC", "ETH"):
+                bundle_file = archive_dir / f"{symbol}.json"
+                self.assertTrue(bundle_file.exists(), f"brak zarchiwizowanego bundle dla {symbol}")
+                saved = json.loads(bundle_file.read_text(encoding="utf-8"))
+                self.assertIn("bundle", saved)
+                self.assertIn("5m", saved["bundle"])
+                self.assertIn("downloaded_at", saved)
 
     def test_no_bundles_downloaded_gives_clean_error_not_crash(self):
         class AlwaysFailFeed(FakeFeedV2):

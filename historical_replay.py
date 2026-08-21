@@ -497,6 +497,28 @@ def run_historical_replay(feed, request: ReplayRequest,
 # bez utraty sensu calego cwiczenia (portfelowej konkurencji).
 # ============================================================
 
+
+def _archive_bundles(bundles: Dict[str, dict], report_stem: str) -> Path:
+    """Trwala kopia pobranych swiec (bundle + funding) obok raportu.
+
+    UWAGA (21.08.2026): cache w data/replay/{SYMBOL}_{days}d.json jest
+    keyowany TYLKO po symbolu i liczbie dni, wiec kolejny replay dla tych
+    samych parametrow go nadpisuje (przesuniete okno czasowe) - a sam
+    raport reports/replay/*.json nigdy nie przechowywal surowych swiec,
+    tylko juz przetworzone wyniki (trades/metrics). Efekt: raport z
+    wczorajszego replayu byl bezuzyteczny do pozniejszej offline'owej
+    analizy, bo swiece, na ktorych powstal, juz nie istnialy. Ta funkcja
+    zapisuje dokladna kopie kazdego pobranego bundle'a (ten sam format co
+    data/replay/{SYMBOL}_{days}d.json) w katalogu powiazanym z konkretnym
+    plikiem raportu, zeby przetrwala niezaleznie od tego, co pozniej stanie
+    sie z ulotnym cache.
+    """
+    archive_dir = REPORT_DIR / "bundles" / report_stem
+    for symbol, payload in bundles.items():
+        _atomic_json(archive_dir / f"{symbol}.json", payload)
+    return archive_dir
+
+
 def run_portfolio_replay_v2(feed, request: "ReplayRequest",
                             progress: Callable[[str], None] | None = None) -> dict:
     from daytrading_backtester import (
@@ -591,7 +613,18 @@ def run_portfolio_replay_v2(feed, request: "ReplayRequest",
                        "oos_end": oos_end, "purge_bars": purge}
     report["finished_at"] = datetime.now(timezone.utc).isoformat()
     stamp = started.strftime("%Y%m%d_%H%M%S")
-    path = REPORT_DIR / f"daytrading_v2_portfolio_replay_{request.days}d_{stamp}.json"
+    report_stem = f"daytrading_v2_portfolio_replay_{request.days}d_{stamp}"
+    path = REPORT_DIR / f"{report_stem}.json"
+    archive_dir = _archive_bundles(bundles, report_stem)
+    report["candles_archive"] = {
+        "dir": str(archive_dir),
+        "symbols": sorted(bundles.keys()),
+        "format": "jeden plik JSON na symbol, ten sam schemat co data/replay/{SYMBOL}_{days}d.json "
+                  "(bundle: {tf: {timestamps, opens, highs, lows, closes, volumes}}, funding: [...])",
+        "note": "Trwala kopia niezalezna od ulotnego cache data/replay/ (ten jest nadpisywany "
+                "kolejnymi runami dla tych samych dni) - powiazana z tym raportem, zeby swiece z "
+                "tego backtestu dalo sie pozniej odtworzyc/przeanalizowac offline.",
+    }
     _atomic_json(path, report)
     report["report_path"] = str(path)
     _notify(progress, "Portfelowy replay V2 zakończony")
