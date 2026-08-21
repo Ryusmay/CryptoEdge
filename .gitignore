@@ -2,3 +2,8 @@
 logs/
 __pycache__/
 *.pyc
+data/disk_cache/
+*.zip
+.pytest_cache/
+.ruff_cache/
+reports/
