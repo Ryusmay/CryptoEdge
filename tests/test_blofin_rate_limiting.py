@@ -616,6 +616,42 @@ class TestRetryAfterHeader(unittest.TestCase):
             feed._get("market/instruments")
         mock_sleep.assert_called_once_with(12.0)
 
+    def test_extreme_retry_after_is_capped_not_obeyed_blindly(self):
+        # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
+        # (godzina) na publicznym endpoincie, a watek skanujacy (osobny od
+        # UI) zasnal na cala godzine z pojedynczego naglowka, bez sufitu i
+        # bez widocznosci dla uzytkownika. Retry-After to sugestia serwera,
+        # nie kontrakt - patrz BLOFIN_MAX_RATE_LIMIT_SLEEP_S w config.py.
+        import config
+        feed = BlofinFeed()
+        bucket = MagicMock()
+        bucket.acquire.return_value = True
+        responses = [_rate_limited_response(retry_after=3600), _ok_response({"code": "0", "data": []})]
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", side_effect=responses), \
+             patch("blofin_feed.time.sleep") as mock_sleep:
+            feed._get("market/instruments")
+        mock_sleep.assert_called_once_with(config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S)
+        self.assertLess(
+            config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S, 3600.0,
+            "sufit musi byc realnie mniejszy niz to, co serwer zazadal w tym incydencie",
+        )
+
+    def test_retry_after_below_cap_still_uses_the_real_server_value(self):
+        # Sufit nie ma obcinac normalnych, rozsadnych odpowiedzi serwera -
+        # tylko ekstremalne przypadki jak w tescie powyzej.
+        import config
+        feed = BlofinFeed()
+        bucket = MagicMock()
+        bucket.acquire.return_value = True
+        below_cap = config.BLOFIN_MAX_RATE_LIMIT_SLEEP_S - 5.0
+        responses = [_rate_limited_response(retry_after=below_cap), _ok_response({"code": "0", "data": []})]
+        with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", side_effect=responses), \
+             patch("blofin_feed.time.sleep") as mock_sleep:
+            feed._get("market/instruments")
+        mock_sleep.assert_called_once_with(below_cap)
+
 
 if __name__ == "__main__":
     unittest.main()

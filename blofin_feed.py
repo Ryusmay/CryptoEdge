@@ -437,9 +437,32 @@ class BlofinFeed:
                 self.fail_count += 1
                 # Retry-After z naglowka gdy dostepny (dokladny czas, ktory
                 # serwer sam podaje), fallback 12s tylko gdy brak naglowka.
+                # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
+                # (godzina) na publicznym endpointzie i kod bezwarunkowo ufal tej
+                # wartosci, czyli watek skanujacy (bot_loop w app.py, osobny od
+                # UI) zamrazal sie na cala godzine z pojedynczego, pojedynczego
+                # naglowka - zero widocznosci dla uzytkownika poza grzebaniem w
+                # console.log, zero mozliwosci odzyskania sie wczesniej. Serwer
+                # MOZE podac cokolwiek (defensywnie, przez pomylke, po
+                # eskalacji za duzo 429 z rzedu) - nie jest to kontrakt, ktoremu
+                # wolno bezwarunkowo ufac bez sufitu. Realnie sleepujemy co
+                # najwyzej BLOFIN_MAX_RATE_LIMIT_SLEEP_S; jesli serwer chcial
+                # wiecej, kolejne proby i tak nadejda w nastepnych cyklach
+                # skanu (PUBLIC_BUCKET dalej pilnuje pacingu), zamiast jednego
+                # zablokowanego sleepu bez powrotu.
                 wait_s, from_header = _retry_after_seconds(r.headers, default=12.0)
-                print(f"[Blofin] Rate limit – czekam {wait_s:.0f}s" + (" (Retry-After)" if from_header else ""))
-                time.sleep(wait_s)
+                try:
+                    max_sleep = float(getattr(config, "BLOFIN_MAX_RATE_LIMIT_SLEEP_S", 60.0))
+                except (TypeError, ValueError):
+                    max_sleep = 60.0
+                sleep_s = min(wait_s, max_sleep) if max_sleep > 0 else wait_s
+                capped_note = f", ograniczone do {sleep_s:.0f}s" if sleep_s < wait_s else ""
+                print(
+                    f"[Blofin] Rate limit – czekam {wait_s:.0f}s"
+                    + (" (Retry-After)" if from_header else "")
+                    + capped_note
+                )
+                time.sleep(sleep_s)
                 PUBLIC_BUCKET.acquire()
                 r = self.session.get(url, params=params or {}, timeout=timeout)
             if r.status_code in (403, 451):

@@ -268,6 +268,18 @@ DAYTRADING_V2_TIME_STOP_MIN_R = 0.35
 DAYTRADING_V2_HARD_TIME_STOP_HOURS = 48.0
 STALE_DATA_SECONDS = 45          # odmowa handlu gdy dane starsze niz 45s
 
+# 21.08.2026: realny incydent - Blofin zwrocil na publicznym endpoincie
+# naglowek Retry-After: 3600 (godzina), a blofin_feed.py._get() bezwarunkowo
+# mu ufal - watek skanujacy (bot_loop, osobny od UI, wiec UI zostawalo
+# responsywne, ale skan/handel calkowicie zamrozony) zasypial na cala
+# godzine z pojedynczego naglowka serwera, bez zadnej widocznosci dla
+# uzytkownika poza recznym grzebaniem w console.log i bez mozliwosci
+# odzyskania sie wczesniej. Retry-After to sugestia serwera, nie kontrakt,
+# ktoremu wolno ufac bez sufitu - realny sleep jest ograniczony do tej
+# wartosci; jesli serwer chcial wiecej, kolejne proby i tak nadejda w
+# nastepnych cyklach skanu (PUBLIC_BUCKET dalej pilnuje pacingu miedzy nimi).
+BLOFIN_MAX_RATE_LIMIT_SLEEP_S = 60.0
+
 # --- Paper Trading ---
 PAPER_TRADING = True                 # True = DEMO (paper), False = LIVE
 LIVE_EXECUTION_ENABLED = False      # True dopiero gdy podłączymy realne zlecenia Blofin
