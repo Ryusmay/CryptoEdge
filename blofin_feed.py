@@ -46,9 +46,23 @@ _KLINE_CACHE_TTL_S = {
 _KLINE_CACHE_TTL_S_WS_CONNECTED = {
     "5m": 300, "15m": 900, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800,
 }
-# Dlugie interwaly persystujemy na dysk (przetrwaja restart) - krotkie
-# zmieniaja sie za szybko, zeby cokolwiek dac po restarcie.
-_KLINE_DISK_PERSIST_BARS = ("4H", "1D", "1W")
+# Dlugie interwaly persystujemy na dysk (przetrwaja restart). 5m/1m
+# faktycznie zmieniaja sie za szybko, zeby dysk cokolwiek dal po restarcie.
+#
+# 21.08.2026: 1H i 15m dopisane - to WLASNIE te dwa interwaly Warmup
+# backfilluje na starcie (patrz warmup.py: WARMUP_CANDLES_1H=180,
+# WARMUP_CANDLES_15M=120, do DAYTRADING_V2_MAX_CANDIDATES kandydatow), a
+# do tej pory byly jedynymi wykluczonymi z dysku - kazdy restart bota
+# odpytywal Blofin od zera po cala historie 1H/15m dla kazdego kandydata,
+# mimo ze 180 barow 1H to 7,5 dnia danych, z ktorych po typowym przestoju
+# (minuty-godziny) zdecydowana wiekszosc jest wciaz aktualna. To NIE
+# eliminuje zapytan (TTL po restarcie i tak zwykle wygasl, wiec fetch
+# leci od nowa na pelny `limit` - patrz uwaga w fetch_klines_ohlcv), ale
+# Warmup od razu ma cos z dysku zamiast czekac w pustce na pierwszy live
+# fetch. Prawdziwe ciecie wolumenu zapytan (doszywanie tylko delty od
+# ostatniego timestampu z dysku) to osobny, wiekszy krok - do zrobienia
+# pozniej.
+_KLINE_DISK_PERSIST_BARS = ("1H", "15m", "4H", "1D", "1W")
 
 
 def _retry_after_seconds(headers, default: float = 12.0) -> tuple:

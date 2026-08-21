@@ -346,6 +346,27 @@ class TestTradingBucketGatesPrivateGet(unittest.TestCase):
         self.assertEqual(0, mock_get.call_count)
         self.assertEqual([42.0], result["closes"])
 
+    def test_klines_for_1h_and_15m_are_now_seeded_from_disk_cache_when_memory_empty(self):
+        # Regresja 21.08.2026: 1H i 15m to wlasnie interwaly, ktore
+        # warmup.py backfilluje na starcie (WARMUP_CANDLES_1H/15M) - do tej
+        # pory byly jedynymi wykluczonymi z _KLINE_DISK_PERSIST_BARS, wiec
+        # kazdy restart odpytywal Blofin od zera zamiast skorzystac z
+        # dysku, tak jak juz dzialo dla 4H/1D/1W.
+        import tempfile
+        from pathlib import Path
+        import disk_cache
+        for bar, limit in (("1H", 120), ("15m", 90)):
+            with tempfile.TemporaryDirectory() as td, patch.object(disk_cache, "CACHE_DIR", Path(td)):
+                disk_cache.save(f"ohlcv_BTC-USDT_{bar}_{limit}", {"opens": [7.0], "closes": [7.0]})
+                feed = BlofinFeed()
+                bucket = MagicMock()
+                bucket.level.return_value = 0.1  # ponizej 20% - oddaje to, co przed chwila zaladowane z dysku
+                with patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+                     patch.object(feed.session, "get") as mock_get:
+                    result = feed.fetch_klines_ohlcv("BTC", bar=bar, limit=limit)
+            self.assertEqual(0, mock_get.call_count, f"{bar}: nie powinno byc zadnego REST fetchu")
+            self.assertEqual([7.0], result["closes"], f"{bar}: powinno oddac dane z dysku")
+
     def test_klines_for_short_bars_are_not_persisted_to_disk(self):
         import tempfile
         from pathlib import Path
