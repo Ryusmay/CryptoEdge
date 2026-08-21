@@ -1,0 +1,40 @@
+========================================
+  CryptoEdge Application
+========================================
+
+--- START ---
+Dwuklik: CryptoEdge.bat
+
+lub:
+  python -m pip install -r requirements.txt
+  python app.py
+
+Panel PySide6 otwiera sie w natywnym oknie (nie w przegladarce).
+
+--- KONTROLA ---
+Przyciski w oknie: Pause / Resume / Close All
+
+--- STOP ---
+Zamknij okno krzyzykiem albo Ctrl+C
+
+
+# --- Analiza logow ---
+python analyze_logs.py
+python analyze_logs.py --days 1
+python analyze_logs.py --symbol VELVET
+python analyze_logs.py --trades-only
+python analyze_logs.py --signals-only --days 0.5
+
+# --- Walidacja strategii ---
+python event_backtester.py --help
+python walk_forward.py --help
+python monte_carlo.py --help
+
+# --- Testy ---
+python run_tests.py
+
+# Backtest V2 (domyslny silnik)
+python run_historical_replay.py --engine v2 --days 90 --symbols BTC ETH SOL
+python run_historical_replay.py --engine v2 --days 90 --universe liquid --liquid-limit 20
+# V1
+python run_historical_replay.py --engine v1 --days 90 --symbols BTC ETH SOL
