@@ -24,6 +24,7 @@ import control_center
 import secrets_store
 import settings_store
 import theme
+import version
 from historical_replay import ReplayRequest, run_portfolio_replay_v2
 
 BASE = Path(__file__).resolve().parent
@@ -2780,6 +2781,42 @@ class MainWindow(QMainWindow):
         mode_warning.setWordWrap(True)
         mode_card.body.addWidget(mode_warning)
         layout.addWidget(mode_card)
+
+        # 22.08.2026 ("dalej"): referencyjny mockup mial karte "Limity
+        # ryzyka" (dzienny limit straty / max margin na pozycje / max
+        # jednoczesnych pozycji) i linie "Build" w "Polaczenie" - obu nigdzie
+        # nie bylo w realnym SET. Te wartosci NIE sa kluczami
+        # settings_store.DEFAULTS (nie sa edytowalne z UI, tylko stale
+        # config.py), wiec karta jest czysto informacyjna/tylko-do-odczytu -
+        # dokladnie tak jak mockup je pokazywal (plain <span>, zero <input>).
+        # "Max margin / pozycje" to nie osobna stala - to wprost z komentarza
+        # przy RISK_PER_TRADE w config.py ("legacy; sizing = kapital /
+        # MAX_POSITIONS"), wiec liczone jako 100/MAX_POSITIONS%, nie zmyslone.
+        # "Cold start" (auto-analiza przy starcie apki) i status WebSocket
+        # SWIADOMIE pominiete - cold start nie jest jeszcze zaimplementowany
+        # (patrz komentarz w analysis_page()), a pokazanie przelacznika dla
+        # nieistniejacej funkcji byloby myslace.
+        risk_card = Card("RISK LIMITS & SYSTEM · read-only")
+        risk_form = QFormLayout()
+        daily_loss_pct = float(getattr(config, "DAILY_LOSS_LIMIT", 0) or 0) * 100.0
+        max_positions = int(getattr(config, "MAX_POSITIONS", 0) or 0)
+        per_position_pct = (100.0 / max_positions) if max_positions else 0.0
+        risk_form.addRow("Daily loss limit", QLabel(percent(-daily_loss_pct, 1, False), objectName="V2Mono"))
+        risk_form.addRow("Max concurrent positions", QLabel(str(max_positions), objectName="V2Mono"))
+        risk_form.addRow("Margin per position (equal-weight)", QLabel(percent(per_position_pct, 1, False), objectName="V2Mono"))
+        risk_form.addRow("Leverage", QLabel(f"{getattr(config, 'LEVERAGE', '—')}x", objectName="V2Mono"))
+        risk_form.addRow("Hide console on UI start", QLabel("TAK" if getattr(config, "HIDE_CONSOLE_ON_UI_START", False) else "NIE", objectName="V2Mono"))
+        risk_form.addRow("Build", QLabel(f"{version.tag()} · PySide6", objectName="V2Mono"))
+        risk_card.body.addLayout(risk_form)
+        risk_note = QLabel(
+            "These values come from config.py (not settings_store) - change them by editing config.py and "
+            "restarting CryptoEdge, not from this page.",
+            objectName="Muted",
+        )
+        risk_note.setWordWrap(True)
+        risk_card.body.addWidget(risk_note)
+        layout.addWidget(risk_card)
+
         cards = QGridLayout()
         groups = [
             ("Trading Mode", ["PAPER_TRADING", "STARTING_CAPITAL", "MIN_SIGNAL_STRENGTH", "AGGRESSIVE_MODE"]),

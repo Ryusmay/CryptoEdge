@@ -575,5 +575,43 @@ class TestUiHistoryV2(unittest.TestCase):
         self.assertIn("self._filter_history_table(self.history_search.text())", refresh_src)
 
 
+class TestUiSettingsV2(unittest.TestCase):
+    """Testy statyczne dla SET - 22.08.2026 ("dalej"): karta RISK LIMITS &
+    SYSTEM (read-only, z config.py, nie settings_store - nie sa edytowalne
+    z UI)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = UI_PATH.read_text(encoding="utf-8")
+
+    def test_version_module_imported(self):
+        self.assertIn("import version", self.source)
+
+    def test_settings_page_has_read_only_risk_card(self):
+        page_src = self.source[self.source.index("    def settings_page(self):"):self.source.index("    def history_page(self):")]
+        self.assertIn('risk_card = Card("RISK LIMITS & SYSTEM · read-only")', page_src)
+        self.assertIn('getattr(config, "DAILY_LOSS_LIMIT", 0)', page_src)
+        self.assertIn('getattr(config, "MAX_POSITIONS", 0)', page_src)
+        self.assertIn("getattr(config, 'LEVERAGE', ", page_src)
+        self.assertIn('getattr(config, "HIDE_CONSOLE_ON_UI_START", False)', page_src)
+        self.assertIn("version.tag()", page_src)
+
+    def test_risk_card_does_not_expose_settings_store_keys(self):
+        # Te wartosci NIE sa w settings_store.DEFAULTS - musza zostac
+        # jawnie tylko-do-odczytu (QLabel), nie edytowalnym polem (self.
+        # _settings_fields), zeby nie sugerowac falszywej edytowalnosci.
+        page_src = self.source[self.source.index('risk_card = Card("RISK LIMITS & SYSTEM · read-only")'):self.source.index("cards = QGridLayout()")]
+        self.assertNotIn("self._settings_fields[", page_src)
+        self.assertIn('QLabel(percent(-daily_loss_pct, 1, False), objectName="V2Mono")', page_src)
+
+    def test_margin_per_position_derived_from_max_positions_not_hardcoded(self):
+        # "Max margin / pozycje" nie jest osobna stala w config.py - to
+        # 100/MAX_POSITIONS (patrz komentarz przy RISK_PER_TRADE: "legacy;
+        # sizing = kapital / MAX_POSITIONS"). Test pilnuje, zeby to zostalo
+        # policzone, a nie zmyslone jako staly tekst.
+        page_src = self.source[self.source.index('risk_card = Card("RISK LIMITS & SYSTEM · read-only")'):self.source.index("cards = QGridLayout()")]
+        self.assertIn("per_position_pct = (100.0 / max_positions) if max_positions else 0.0", page_src)
+
+
 if __name__ == "__main__":
     unittest.main()
