@@ -530,6 +530,13 @@ LOG_DIR_MAX_MB = 80              # gdy folder logs/ wiekszy — kasuj najstarsze
 # Konsola (logs/console.log) — osobna rotacja po rozmiarze
 CONSOLE_LOG_MAX_MB = 5           # po przekroczeniu: console_YYYYMMDD_HHMMSS.log
 CONSOLE_LOG_KEEP = 8             # ile zrotowanych console_*.log zostawic
+# 22.08.2026: caly output konsoli i tak leci do logs/console.log (patrz
+# console_capture.py), wiec samo okno cmd/powershell obok natywnego UI
+# PySide6 jest zbedne - dwa otwarte okna zamiast jednego. Po starcie UI
+# okno konsoli jest ukrywane (Windows, ShowWindow SW_HIDE) - nic sie nie
+# gubi, log nadal pelny na dysku. False = zostaw okno konsoli widoczne
+# (np. do zywego podgladu bez zagladania do pliku).
+HIDE_CONSOLE_ON_UI_START = True
 
 STOP_ENGINE_TP_PCT = 5.0   # przy STOP: TP dla pozycji nie-na-plusie (% PnL z dzwignia)
 STOP_ENGINE_MAX_PRICE_AGE_S = 60.0  # jesli last_price_map starszy niz to (sek.), nie decyduj o zamknieciu na "plusie" wg tych cen - zbyt ryzykowne

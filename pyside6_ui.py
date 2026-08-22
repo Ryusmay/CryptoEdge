@@ -3768,4 +3768,15 @@ def run_pyside6_ui(runtime):
     app.setStyle("Fusion")
     window = MainWindow(runtime)
     window.show()
+    # 22.08.2026: natywne UI dziala - okno konsoli obok niego jest juz
+    # zbedne (caly log i tak w logs/console.log). Chowamy je DOPIERO tutaj,
+    # czyli po udanym starcie okna PySide6 - gdyby import/start UI wyzej
+    # sie wywalil, konsola zostaje widoczna z pelnym tracebackiem.
+    if bool(getattr(config, "HIDE_CONSOLE_ON_UI_START", True)):
+        try:
+            from console_capture import hide_console_window
+            if hide_console_window():
+                print("[App] Okno konsoli ukryte (log dalej w logs/console.log).")
+        except Exception as e:
+            print(f"[App] Nie udalo sie ukryc konsoli: {e}")
     return app.exec()

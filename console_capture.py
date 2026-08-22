@@ -5,6 +5,7 @@ Dziala przy starcie i w trakcie zapisu.
 """
 from __future__ import annotations
 
+import ctypes
 import os
 import sys
 import threading
@@ -148,6 +149,28 @@ def _write_log(data: str) -> None:
                 _bytes_written = len(header)
             except Exception:
                 pass
+
+
+def hide_console_window() -> bool:
+    """Ukryj okno konsoli (Windows, ShowWindow SW_HIDE).
+
+    Bezpieczny no-op poza Windows, oraz gdy GetConsoleWindow() nie zwroci
+    uchwytu (np. proces juz uruchomiony bez okna - pythonw, sc.exe, itp.).
+    Caly output nadal leci do logs/console.log przez _Tee powyzej (i do
+    prawdziwego stdout/stderr, ktore po prostu nie maja juz widocznego
+    okna) - ukrycie okna nic nie gubi, tylko chowa je z pulpitu/paska zadan.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if not hwnd:
+            return False
+        SW_HIDE = 0
+        ctypes.windll.user32.ShowWindow(hwnd, SW_HIDE)
+        return True
+    except Exception:
+        return False
 
 
 def install() -> Path:
