@@ -2397,19 +2397,8 @@ class MainWindow(QMainWindow):
         right.setContentsMargins(0, 0, 0, 0)
         right.setSpacing(8)
         self.analysis_labels = {}
-        sections = [
-            ("WHY", "pros", 70),
-            ("WHY NOT", "cons", 70),
-            ("MTF MATRIX", "mtf", 80),
-            ("INDICATORS", "indicators", 90),
-            ("LIQUIDITY / ORDER BOOK", "liquidity", 60),
-            ("PLAN · ENTRY/SL/TP/R:R", "plan", 70),
-            ("Expected Net R", "expectancy", 70),
-            ("FIBONACCI CONFLUENCE", "fib", 90),
-            ("Engine Router", "router", 90),
-            ("Decision Telemetry", "telemetry", 70),
-        ]
-        for title, key, min_height in sections:
+        top_sections = [("WHY", "pros", 70), ("WHY NOT", "cons", 70)]
+        for title, key, min_height in top_sections:
             card = Card(title)
             label = QLabel("—", objectName="AnalysisValue")
             label.setWordWrap(True)
@@ -2419,16 +2408,86 @@ class MainWindow(QMainWindow):
             card.body.addWidget(label)
             self.analysis_labels[key] = label
             right.addWidget(card)
-        # "decision"/"path" nie maja wlasnej karty (spec: naglowek juz pokazuje
-        # symbol/side/score + pigulke Accepted/Rejected) - ale refresh_analysis()
-        # nadal robi labels["decision"].setText(...)/labels["path"].setText(...),
-        # wiec musza istniec jako realne QLabel, inaczej KeyError. Trzymane
-        # jako ukryte (nie dodane do layoutu) - stan i tak jest widoczny w
-        # naglowku (analysis_status_banner) i to on jest zrodlem prawdy dla usera.
+
+        # 22.08.2026: "kontynuuj ale lab w wiekszosci przebuduj" - MTF MATRIX
+        # i INDICATORS byly jedynymi dwiema kartami w LAB bez zadnego realnego
+        # widgetu (tylko wielolinijkowy tekst w QLabel), mimo ze to najbardziej
+        # skanowalne dane w calej stronie - reszta V2 (DESK/SCAN) ma juz
+        # GateBadge/MiniBar/RiskRing/Sparkline zamiast plaskiego tekstu.
+        # Dostaja realne komponenty: 4 pigulki per-interwal (kolor z faktycznego
+        # kierunku w mtf_summary, patrz signal_engine.py
+        # `f"{direction}/{'tick' if pass else 'cross'}"`) + pigulka TREND +
+        # MiniBar na RSI (natywnie 0-100). Oryginalne QLabel (labels["mtf"]/
+        # labels["indicators"]) zyja dalej jako ukryte, dokladnie tak jak
+        # labels["decision"]/["path"] juz byly - refresh_analysis() nadal robi
+        # te same .setText() bez ZADNEJ zmiany logiki/NA-handling (spec: "czysty
+        # rebuild layoutu/stylu, nie logiki" - ten sam warunek co przy
+        # pierwszej przebudowie LAB, patrz komentarz w analysis_page() wyzej).
+        breakdown = Card("SIGNAL BREAKDOWN")
+        mtf_row = QHBoxLayout()
+        mtf_row.setSpacing(6)
+        self.mtf_pills = {}
+        for tf in ("15M", "1H", "4H", "1D"):
+            pill = QLabel(f"{tf}\nNA", objectName="MTFPill")
+            pill.setAlignment(Qt.AlignCenter)
+            pill.setMinimumWidth(64)
+            self.mtf_pills[tf] = pill
+            mtf_row.addWidget(pill)
+        breakdown.body.addLayout(mtf_row)
+        indicator_row = QHBoxLayout()
+        indicator_row.setSpacing(10)
+        self.indicator_trend_pill = QLabel("TREND —", objectName="MTFPill")
+        self.indicator_trend_pill.setAlignment(Qt.AlignCenter)
+        self.indicator_trend_pill.setMinimumWidth(90)
+        indicator_row.addWidget(self.indicator_trend_pill)
+        rsi_col = QVBoxLayout()
+        rsi_col.setSpacing(2)
+        rsi_head = QHBoxLayout()
+        rsi_head.addWidget(QLabel("RSI", objectName="Muted"))
+        self.indicator_rsi_value = QLabel("—", objectName="V2Mono")
+        rsi_head.addWidget(self.indicator_rsi_value)
+        rsi_head.addStretch()
+        rsi_col.addLayout(rsi_head)
+        self.indicator_rsi_bar = MiniBar(theme.CYAN)
+        rsi_col.addWidget(self.indicator_rsi_bar)
+        indicator_row.addLayout(rsi_col, 1)
+        breakdown.body.addLayout(indicator_row)
+        right.addWidget(breakdown)
+
+        rest_sections = [
+            ("LIQUIDITY / ORDER BOOK", "liquidity", 60),
+            ("PLAN · ENTRY/SL/TP/R:R", "plan", 70),
+            ("Expected Net R", "expectancy", 70),
+            ("FIBONACCI CONFLUENCE", "fib", 90),
+            ("Engine Router", "router", 90),
+            ("Decision Telemetry", "telemetry", 70),
+        ]
+        for title, key, min_height in rest_sections:
+            card = Card(title)
+            label = QLabel("—", objectName="AnalysisValue")
+            label.setWordWrap(True)
+            label.setMinimumHeight(min_height)
+            label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            card.body.addWidget(label)
+            self.analysis_labels[key] = label
+            right.addWidget(card)
+        # "decision"/"path"/"mtf"/"indicators" nie maja (juz) wlasnej widocznej
+        # karty z plaskim tekstem - "decision"/"path" bo naglowek juz pokazuje
+        # symbol/side/score + pigulke Accepted/Rejected, "mtf"/"indicators" bo
+        # ich dane teraz plyna do self.mtf_pills / indicator_trend_pill / RSI
+        # MiniBar w karcie SIGNAL BREAKDOWN powyzej. refresh_analysis() nadal
+        # robi labels["mtf"].setText(...)/labels["indicators"].setText(...) bez
+        # zmian, wiec te QLabel wciaz musza istniec, inaczej KeyError. Trzymane
+        # jako ukryte - ten sam wzorzec co decision/path.
         self.analysis_labels["decision"] = QLabel(self)
         self.analysis_labels["decision"].hide()
         self.analysis_labels["path"] = QLabel(self)
         self.analysis_labels["path"].hide()
+        self.analysis_labels["mtf"] = QLabel(self)
+        self.analysis_labels["mtf"].hide()
+        self.analysis_labels["indicators"] = QLabel(self)
+        self.analysis_labels["indicators"].hide()
         right.addStretch()
         right_scroll.setWidget(right_content)
         body.addWidget(right_scroll, 38)
@@ -3248,6 +3307,20 @@ class MainWindow(QMainWindow):
             mtf_text = mtf
         else:
             mtf_text = "NA (brak danych multi-timeframe dla tego cyklu)"
+        # SIGNAL BREAKDOWN pigulki (patrz analysis_page()) - czytaja ten sam
+        # `mtf` co powyzej, czysto dodatkowo, bez zadnej zmiany logiki/tekstu
+        # mtf_text (ktory dalej idzie do ukrytego labels["mtf"] - testy
+        # NA-handling patrza na TEN blok, nie na pigulki, i zostaja bez zmian).
+        if hasattr(self, "mtf_pills"):
+            for tf_key, pill_key in (("15m", "15M"), ("1h", "1H"), ("4h", "4H"), ("1d", "1D")):
+                raw = mtf.get(tf_key) if isinstance(mtf, dict) else None
+                if raw in (None, "", "—"):
+                    self._style_pill(self.mtf_pills[pill_key], f"{pill_key}\nNA", None)
+                    continue
+                raw_text = str(raw)
+                norm = direction(raw_text.split("/", 1)[0])
+                up = True if norm == "LONG" else False if norm == "SHORT" else None
+                self._style_pill(self.mtf_pills[pill_key], f"{pill_key}\n{raw_text}", up)
         liquidity = row.get("liquidity") or {}
         fib = row.get("trend_fib") or {}
         pros = row.get("pros") or row.get("reasons") or row.get("for") or []
@@ -3268,6 +3341,21 @@ class MainWindow(QMainWindow):
         ]
         indicator_lines = [f"{name:<6} {value}" for name, value in indicator_fields if value not in (None, "—")]
         labels["indicators"].setText("\n".join(indicator_lines) or "Wskaźniki jeszcze się liczą dla tego cyklu.")
+        # SIGNAL BREAKDOWN: pigulka TREND + MiniBar RSI (patrz analysis_page()) -
+        # czysto dodatkowo, czytaja te same row.get("trend")/row.get("rsi") co
+        # indicator_fields powyzej, bez zmiany tekstu labels["indicators"].
+        if hasattr(self, "indicator_trend_pill"):
+            trend_raw = row.get("trend")
+            norm = direction(str(trend_raw)) if trend_raw not in (None, "", "—") else "NEUTRAL"
+            up = True if norm == "LONG" else False if norm == "SHORT" else None
+            self._style_pill(self.indicator_trend_pill, f"TREND {trend_raw or '—'}".upper(), up)
+        if hasattr(self, "indicator_rsi_bar"):
+            try:
+                rsi_f = float(row.get("rsi"))
+            except (TypeError, ValueError):
+                rsi_f = None
+            self.indicator_rsi_bar.set_percent(rsi_f if rsi_f is not None else 0.0)
+            self.indicator_rsi_value.setText(number(rsi_f, 1) if rsi_f is not None else "—")
         liquidity_lines = []
         if liquidity.get("score") is not None:
             liquidity_lines.append(f"Score  {number(liquidity.get('score'), 1)} · Grade {liquidity.get('grade', '—')}")
@@ -3331,6 +3419,28 @@ class MainWindow(QMainWindow):
         ]
         label.setTextFormat(Qt.RichText)
         label.setText("<br>".join(lines))
+
+    @staticmethod
+    def _style_pill(label: QLabel, text: str, up) -> None:
+        """Wspolny styl pigulek MTF/TREND w karcie SIGNAL BREAKDOWN (patrz
+        analysis_page()). `up` to bool|None, NIE string z tekstu - unika
+        literowek/rozjazdu ('Long' vs 'LONG') i wymusza jawna, 3-wartosciowa
+        decyzje w wywolujacym: True=bull/pass -> ta sama zielona trojka co
+        GateBadge("OPEN"), False=bear/fail -> ta sama czerwona trojka co
+        GateBadge("BLOCK"), None=nieznane/NA -> osobna, wyraznie szara trojka
+        (MUTED/PANEL2/LINE2), zeby NIGDY nie sugerowac kierunku tam, gdzie
+        danych po prostu nie ma (bezpieczny domyslny wyglad dla live-tradingu)."""
+        if up is True:
+            text_color, bg, border = theme.gate_tone("OPEN")
+        elif up is False:
+            text_color, bg, border = theme.gate_tone("BLOCK")
+        else:
+            text_color, bg, border = theme.MUTED, theme.PANEL2, theme.LINE2
+        label.setText(text)
+        label.setStyleSheet(
+            f"color:{text_color}; background:{bg}; border:1px solid {border}; "
+            f"border-radius:2px; padding:3px 6px; font-weight:700; font-size:10px;"
+        )
 
     def select_analysis_symbol(self, symbol: str):
         symbol = str(symbol or "").upper()

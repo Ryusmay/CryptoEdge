@@ -488,6 +488,56 @@ class TestUiLabV2(unittest.TestCase):
         self.assertIn('elif isinstance(mtf, str) and mtf.strip():', mtf_src)
         self.assertIn("mtf_text = mtf", mtf_src)
 
+    # --- 22.08.2026 "lab w wiekszosci przebuduj": SIGNAL BREAKDOWN card ---
+    # (MTF pigulki + TREND pigulka + RSI MiniBar zamiast plaskiego tekstu).
+    # Testy ponizej nie zastepuja tych powyzej (NA-handling logika w
+    # refresh_analysis() jest 1:1 bez zmian) - dokladaja pokrycie dla nowych,
+    # czysto dodatkowych widgetow.
+
+    def test_signal_breakdown_card_has_four_mtf_pills(self):
+        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
+        self.assertIn('breakdown = Card("SIGNAL BREAKDOWN")', page_src)
+        self.assertIn("self.mtf_pills = {}", page_src)
+        self.assertIn('for tf in ("15M", "1H", "4H", "1D"):', page_src)
+
+    def test_signal_breakdown_has_trend_pill_and_rsi_minibar(self):
+        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
+        self.assertIn("self.indicator_trend_pill = QLabel(", page_src)
+        self.assertIn("self.indicator_rsi_bar = MiniBar(theme.CYAN)", page_src)
+        self.assertIn("self.indicator_rsi_value = QLabel(", page_src)
+
+    def test_mtf_and_indicators_labels_still_exist_hidden_for_refresh_analysis_compat(self):
+        # refresh_analysis() dalej wola labels["mtf"].setText(...)/
+        # labels["indicators"].setText(...) bez zadnej zmiany - te QLabel
+        # musza wiec dalej istniec (jako ukryte), inaczej KeyError na starcie.
+        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
+        self.assertIn('self.analysis_labels["mtf"] = QLabel(self)', page_src)
+        self.assertIn('self.analysis_labels["mtf"].hide()', page_src)
+        self.assertIn('self.analysis_labels["indicators"] = QLabel(self)', page_src)
+        self.assertIn('self.analysis_labels["indicators"].hide()', page_src)
+
+    def test_style_pill_helper_maps_up_true_false_none_to_open_block_muted(self):
+        style_src = self.source[self.source.index("    def _style_pill("):self.source.index("    def select_analysis_symbol(self, symbol: str):")]
+        self.assertIn('theme.gate_tone("OPEN")', style_src)
+        self.assertIn('theme.gate_tone("BLOCK")', style_src)
+        self.assertIn("theme.MUTED, theme.PANEL2, theme.LINE2", style_src)
+
+    def test_refresh_analysis_updates_mtf_pills_without_touching_mtf_text_logic(self):
+        # Blok pigulek MTF czyta ten sam `mtf`, ale jest zagrodzony
+        # hasattr(self, "mtf_pills") i umieszczony PO obliczeniu mtf_text -
+        # zero ryzyka zmiany istniejacej logiki NA-handling powyzej.
+        refresh_src = self.source[self.source.index("    def refresh_analysis(self):"):self.source.index("    @staticmethod\n    def _analysis_status_tone")]
+        self.assertIn('if hasattr(self, "mtf_pills"):', refresh_src)
+        self.assertIn("self._style_pill(self.mtf_pills[pill_key]", refresh_src)
+        mtf_block = refresh_src[refresh_src.index('        else:\n            mtf_text = "NA (brak danych multi-timeframe dla tego cyklu)"'):refresh_src.index("if hasattr(self, \"mtf_pills\"):") + 40]
+        self.assertIn('mtf_text = "NA (brak danych multi-timeframe dla tego cyklu)"', mtf_block)
+
+    def test_refresh_analysis_updates_trend_pill_and_rsi_bar(self):
+        refresh_src = self.source[self.source.index("    def refresh_analysis(self):"):self.source.index("    @staticmethod\n    def _analysis_status_tone")]
+        self.assertIn('if hasattr(self, "indicator_trend_pill"):', refresh_src)
+        self.assertIn('if hasattr(self, "indicator_rsi_bar"):', refresh_src)
+        self.assertIn("self.indicator_rsi_bar.set_percent(", refresh_src)
+
 
 if __name__ == "__main__":
     unittest.main()
