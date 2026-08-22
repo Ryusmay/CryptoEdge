@@ -15,6 +15,7 @@ from typing import Callable, Dict, Iterable
 
 from daytrading_backtester import production_signal_provider, replay_daytrading
 from daytrading_engine import STABLES
+from blofin_feed import _bar_duration_ms, _merge_parsed_klines
 import config
 
 
@@ -161,6 +162,7 @@ def download_bundle(feed, symbol: str, days: int, force: bool = False,
     """Get closed BloFin candles and funding, reusing an on-disk cache."""
     symbol = symbol.upper().replace("-USDT", "").replace("USDT", "")
     cache = _cache_path(symbol, days)
+    stale_bundle: dict = {}
     if cache.exists() and not force:
         try:
             cached = json.loads(cache.read_text(encoding="utf-8"))
@@ -172,14 +174,41 @@ def download_bundle(feed, symbol: str, days: int, force: bool = False,
             if cache_complete and _cache_is_fresh(cached):
                 _notify(progress, f"{symbol}: używam cache {days} dni")
                 return cached
+            if cache_complete:
+                # 21.08.2026: cache jest KOMPLETNY, ale przekroczyl
+                # CACHE_MAX_AGE_HOURS (24h) - do tej pory byl wtedy
+                # ignorowany w calosci i caly bundle (wszystkie 5
+                # interwalow, w tym 5m/15m - dziesiatki tysiecy swiec na
+                # symbol) lecial na nowo od zera. Trzymamy go jako baze
+                # pod doszycie delty ponizej zamiast wyrzucac.
+                stale_bundle = cached_bundle
         except (OSError, UnicodeError, json.JSONDecodeError):
             pass
 
     bundle = {}
     for tf, (bar, per_day) in TIMEFRAMES.items():
         count = _required_bars(days, per_day, tf)
-        _notify(progress, f"{symbol}: pobieranie BloFin {tf} ({count} świec)")
-        data = feed.fetch_klines_ohlcv(symbol, bar=bar, limit=count) or {}
+        old = stale_bundle.get(tf)
+        old_timestamps = list((old or {}).get("timestamps") or [])
+        if old_timestamps:
+            # Mamy przestarzala, ale kompletna baze dla tego interwalu -
+            # doszywamy REST-em tylko szacowany brakujacy ogon (od ostatniej
+            # znanej swiecy do teraz), zamiast fetchowac cale `count` od
+            # nowa. fetch_klines_ohlcv sam potrafi doszyc delte na WLASNYM
+            # cache'u (patrz blofin_feed._KLINE_DISK_PERSIST_BARS), ale to
+            # dziala tylko gdy trafi w identyczny (symbol,bar,limit) klucz -
+            # replay zwykle prosi o wieksze `limit` niz normalny live fetch,
+            # wiec bez tego i tak dostalby pelne okno. Tu liczymy delte
+            # jawnie, na podstawie WLASNEGO (replay'owego) stale cache'u.
+            gap_ms = int(datetime.now(timezone.utc).timestamp() * 1000) - int(old_timestamps[-1])
+            bar_ms = _bar_duration_ms(bar)
+            fetch_count = min(count, max(20, int(gap_ms / bar_ms) + 20)) if bar_ms else count
+            _notify(progress, f"{symbol}: {tf} doszywanie delty (~{fetch_count} świec zamiast {count})")
+            fresh = feed.fetch_klines_ohlcv(symbol, bar=bar, limit=fetch_count) or {}
+            data = _merge_parsed_klines(old, fresh, count) if fresh.get("closes") else old
+        else:
+            _notify(progress, f"{symbol}: pobieranie BloFin {tf} ({count} świec)")
+            data = feed.fetch_klines_ohlcv(symbol, bar=bar, limit=count) or {}
         available = len(data.get("closes") or [])
         minimum = max({"5m": 220, "15m": 365, "1h": 120, "4h": 200, "1d": 120}[tf], int(count * 0.90))
         if available < minimum:

@@ -234,5 +234,76 @@ class TestHistoricalReplayParallelExecution(unittest.TestCase):
         self.assertEqual(tag(), report["bot_version"])
 
 
+class TestDownloadBundleDeltaOnStaleCache(unittest.TestCase):
+    """Regresja 21.08.2026: przestarzaly (>24h, CACHE_MAX_AGE_HOURS), ale
+    KOMPLETNY cache w data/replay/ byl do tej pory ignorowany w calosci -
+    kazdy re-run tego samego replaya po >24h robil pelny fetch WSZYSTKICH
+    5 interwalow od zera (w tym 5m/15m - dziesiatki tysiecy swiec/symbol).
+    Teraz stary cache jest baza pod doszycie tylko brakujacego ogona."""
+
+    def _recent_bundle(self, days: int):
+        # Kazdy interwal konczy sie ~2 bary przed "teraz", zeby gap_ms
+        # wyszedl mały i fetch_count w download_bundle byl realnie duzo
+        # mniejszy niz pelne wymagane okno - to wlasnie dowodzimy w tescie.
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        bundle = {}
+        for tf, (bar, per_day) in historical_replay.TIMEFRAMES.items():
+            n = historical_replay._required_bars(days, per_day, tf)
+            bar_ms = historical_replay._bar_duration_ms(bar)
+            end_ts = now_ms - 2 * bar_ms
+            data = _synthetic_bar(n, seed=hash(tf) % 10_000)
+            data["timestamps"] = [end_ts - (n - 1 - i) * bar_ms for i in range(n)]
+            bundle[tf] = data
+        return bundle
+
+    def test_stale_but_complete_cache_fetches_only_delta_not_full_window(self):
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            with patch.object(historical_replay, "CACHE_DIR", base):
+                days = 1
+                old_bundle = self._recent_bundle(days)
+                stale_payload = {
+                    "source": "BloFin", "symbol": "ZZZ", "requested_days": days,
+                    "downloaded_at": (datetime.now(timezone.utc) - timedelta(hours=48)).isoformat(),
+                    "bundle": old_bundle, "funding": [],
+                }
+                historical_replay._atomic_json(historical_replay._cache_path("ZZZ", days), stale_payload)
+
+                calls = []
+
+                class DeltaFeed:
+                    last_error = None
+
+                    def fetch_klines_ohlcv(self, symbol, bar="5m", limit=120):
+                        calls.append((bar, limit))
+                        bar_ms = historical_replay._bar_duration_ms(bar)
+                        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+                        n = min(limit, 30)
+                        data = _synthetic_bar(n, seed=12345)
+                        data["timestamps"] = [now_ms - (n - 1 - i) * bar_ms for i in range(n)]
+                        return data
+
+                    def fetch_funding_rate_history(self, symbol, limit=50):
+                        return []
+
+                payload = historical_replay.download_bundle(DeltaFeed(), "ZZZ", days)
+
+        self.assertTrue(calls, "fetch_klines_ohlcv powinien byc wywolany dla doszycia delty")
+        for bar, limit in calls:
+            full_count = historical_replay._required_bars(
+                days, historical_replay.TIMEFRAMES[
+                    next(tf for tf, (b, _) in historical_replay.TIMEFRAMES.items() if b == bar)
+                ][1], next(tf for tf, (b, _) in historical_replay.TIMEFRAMES.items() if b == bar))
+            self.assertLess(limit, full_count,
+                            f"{bar}: zadano {limit} swiec, pelne okno to {full_count} - delta powinna byc mniejsza")
+        # Zmergowany bundle zawiera zarowno stara historie, jak i nowa delte,
+        # posortowane i bez duplikatow (dlugosc >= dlugosci starych danych).
+        for tf, (bar, per_day) in historical_replay.TIMEFRAMES.items():
+            self.assertGreaterEqual(len(payload["bundle"][tf]["closes"]), len(old_bundle[tf]["closes"]))
+            ts = payload["bundle"][tf]["timestamps"]
+            self.assertEqual(ts, sorted(ts))
+            self.assertEqual(len(ts), len(set(ts)))
+
+
 if __name__ == "__main__":
     unittest.main()
