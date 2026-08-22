@@ -420,6 +420,30 @@ class TestUiScanV2(unittest.TestCase):
         method_src = method_src[:method_src.index("\n    def ", 50)]
         self.assertIn("risk.can_open_position(dict(row))", method_src)
 
+    def test_scan_page_has_gate_chips_and_stat_strip(self):
+        # 22.08.2026: OPEN/WAIT/BLOCK chips + stat strip z mockupu "Krypto
+        # Terminal Control Room" (SCAN) - user: "kontynuuj" przebudowe UI.
+        # Ten sam wzorzec co juz istniejacy side_filter (checkable buttons +
+        # ScanFilterProxy.filterAcceptsRow), nie osobna, nowa architektura.
+        scan_page_src = self.source[self.source.index("class ScanPage(QWidget):"):self.source.index("class MainWindow(QMainWindow):")]
+        for name in ("ALL", "OPEN", "WAIT", "BLOCK"):
+            self.assertIn(f'"{name}"', scan_page_src)
+        self.assertIn("self.gate_buttons: dict[str, QPushButton] = {}", scan_page_src)
+        self.assertIn("self.gate_stat_strip = QLabel(", scan_page_src)
+        self.assertIn("def _on_gate_clicked(self, name: str):", scan_page_src)
+        self.assertIn("self.proxy.set_gate_filter(name)", scan_page_src)
+        # Stat strip liczony z PELNEGO 'rows' (przed proxy filter), nie z
+        # samego modelu po filtrach - inaczej pokazuje sam siebie kolko w
+        # kolko po kazdym kliknieciu chipa.
+        apply_state_src = scan_page_src[scan_page_src.index('    def apply_state(self, data: "DataAdapter"):'):scan_page_src.index("    def _on_search_changed(self, text: str):")]
+        self.assertIn("for row in rows:", apply_state_src)
+        self.assertIn("self.gate_stat_strip.setText(", apply_state_src)
+
+    def test_scan_filter_proxy_has_gate_filter(self):
+        proxy_src = self.source[self.source.index("class ScanFilterProxy(QSortFilterProxyModel):"):self.source.index("class ScanItemDelegate(QStyledItemDelegate):")]
+        self.assertIn("def set_gate_filter(self, gate: str) -> None:", proxy_src)
+        self.assertIn('if self._gate_filter != "ALL" and row.get("gate") != self._gate_filter:', proxy_src)
+
 
 class TestUiLabV2(unittest.TestCase):
     """Testy statyczne dla LAB - krok 5 kolejnosci wdrozenia. LAB reuzywa

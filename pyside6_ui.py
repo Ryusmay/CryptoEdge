@@ -1502,6 +1502,7 @@ class ScanFilterProxy(QSortFilterProxyModel):
         super().__init__(parent)
         self._search = ""
         self._side_filter = "BOTH"
+        self._gate_filter = "ALL"
 
     def set_search(self, text: str) -> None:
         self._search = str(text or "").strip().upper()
@@ -1511,12 +1512,22 @@ class ScanFilterProxy(QSortFilterProxyModel):
         self._side_filter = side
         self.invalidateFilter()
 
+    def set_gate_filter(self, gate: str) -> None:
+        # 22.08.2026: OPEN/WAIT/BLOCK chips z mockupu "Krypto Terminal
+        # Control Room" (SCAN) - ten sam wzorzec co side_filter powyzej,
+        # dziala na juz zaladowanym zestawie wierszy (nie zmienia SAMEGO
+        # zestawu jak universe_filter - patrz docstring klasy).
+        self._gate_filter = gate
+        self.invalidateFilter()
+
     def filterAcceptsRow(self, source_row: int, source_parent) -> bool:
         model = self.sourceModel()
         row = model.row_dict(source_row)
         if self._search and self._search not in str(row.get("sym") or "").upper():
             return False
         if self._side_filter != "BOTH" and row.get("side") != self._side_filter:
+            return False
+        if self._gate_filter != "ALL" and row.get("gate") != self._gate_filter:
             return False
         return True
 
@@ -1633,6 +1644,27 @@ class ScanPage(QWidget):
             top_row.addWidget(btn)
         left.addLayout(top_row)
 
+        # 22.08.2026: GATE chips (OPEN/WAIT/BLOCK/ALL) + stat strip z
+        # mockupu "Krypto Terminal Control Room" (SCAN) - user: "kontynuuj"
+        # przebudowe UI. Stat strip liczy sie z PELNEGO zestawu wierszy
+        # danego universe_filter (przed filtrem gate/side/search), zeby
+        # pokazywac prawdziwy rozklad calego uniwersum, nie tylko tego co
+        # akurat widac po stronie/szukaniu.
+        gate_row = QHBoxLayout()
+        self.gate_buttons: dict[str, QPushButton] = {}
+        for name in ("ALL", "OPEN", "WAIT", "BLOCK"):
+            btn = QPushButton(name)
+            btn.setCheckable(True)
+            btn.setChecked(name == "ALL")
+            btn.clicked.connect(lambda _checked, n=name: self._on_gate_clicked(n))
+            self.gate_buttons[name] = btn
+            gate_row.addWidget(btn)
+        gate_row.addStretch()
+        self.gate_stat_strip = QLabel("OPEN 0 · WAIT 0 · BLOCK 0")
+        self.gate_stat_strip.setObjectName("Muted")
+        gate_row.addWidget(self.gate_stat_strip)
+        left.addLayout(gate_row)
+
         self.model = ScanTableModel()
         self.proxy = ScanFilterProxy()
         self.proxy.setSourceModel(self.model)
@@ -1691,6 +1723,15 @@ class ScanPage(QWidget):
         self.model.set_rows(rows)
         feed = data.feed_status()
         self.footer.setText(f"FEED: {feed} | uniwersum: {len(rows)}")
+        # Liczone z PELNEGO 'rows' (przed proxy filter gate/side/search) -
+        # ma pokazywac prawdziwy rozklad calego uniwersum tego
+        # universe_filter, nie tylko to co akurat widac po filtrach.
+        counts = {"OPEN": 0, "WAIT": 0, "BLOCK": 0}
+        for row in rows:
+            gate = str(row.get("gate") or "").upper()
+            if gate in counts:
+                counts[gate] += 1
+        self.gate_stat_strip.setText(f"OPEN {counts['OPEN']} · WAIT {counts['WAIT']} · BLOCK {counts['BLOCK']}")
 
     def _on_search_changed(self, text: str):
         self.proxy.set_search(text)
@@ -1705,6 +1746,11 @@ class ScanPage(QWidget):
         for n, btn in self.side_buttons.items():
             btn.setChecked(n == name)
         self.proxy.set_side_filter(name)
+
+    def _on_gate_clicked(self, name: str):
+        for n, btn in self.gate_buttons.items():
+            btn.setChecked(n == name)
+        self.proxy.set_gate_filter(name)
 
     def _on_row_clicked(self, proxy_index):
         source_index = self.proxy.mapToSource(proxy_index)
