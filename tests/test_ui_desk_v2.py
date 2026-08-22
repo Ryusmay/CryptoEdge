@@ -147,19 +147,33 @@ class TestUiDeskV2(unittest.TestCase):
         unconditional_src = impl_src[:gated_start]
         self.assertIn("self.desk_page.sync_mode_buttons(current_mode == \"DEMO\")", unconditional_src)
 
-    def test_menu_has_start_and_lifecycle_actions(self):
-        # Pigulki ANALIZA/HANDEL w gornym pasku V2 sa tylko wskaznikami stanu
-        # (StatePill = QLabel, bez obslugi klikniecia) - "..." to jedyne
-        # miejsce, z ktorego mozna faktycznie uruchomic analize/handel w
-        # layoucie DESK/SCAN/LAB. Start* musza byc obecne, nie tylko stop/pauza.
-        menu_src = self.source[self.source.index("    def _show_v2_menu(self):"):]
+    def test_engine_buttons_visible_in_top_bar_have_start_and_lifecycle_actions(self):
+        # 22.08.2026: Pigulki ANALIZA/HANDEL w gornym pasku V2 sa tylko
+        # wskaznikami stanu (StatePill = QLabel, bez obslugi klikniecia) -
+        # engine_specs w build_top_v2() to teraz jedyne miejsce, z ktorego
+        # mozna faktycznie uruchomic analize/handel w layoucie DESK/SCAN/LAB.
+        # Zastapilo dawne ukryte menu "..." (_show_v2_menu, usuniete) -
+        # user: "przyciski start, pauza itp moga byc widoczne zeby szybciej
+        # nimi operowac". Start* musza byc obecne, nie tylko stop/pauza.
+        top_v2_src = self.source[self.source.index("    def build_top_v2(self) -> QWidget:"):self.source.index("    def _go_v2(self, name: str):")]
+        self.assertIn("engine_specs = [", top_v2_src)
         for label, callback in (
             ("Start analysis", "self.start_analysis"), ("Start trading", "self.start_trading"),
             ("Pause", "self.pause"), ("Resume", "self.resume"),
             ("Stop trading", "self.stop_trading"), ("Stop bot", "self.stop_engine"),
             ("Close all", "self.close_all"),
         ):
-            self.assertIn(f'"{label}", {callback}', menu_src)
+            self.assertIn(f'"{label}"', top_v2_src)
+            self.assertIn(callback, top_v2_src)
+        self.assertIn("btn.clicked.connect(slot)", top_v2_src)
+        self.assertNotIn("_show_v2_menu", top_v2_src)
+
+    def test_show_v2_menu_and_stray_menu_button_are_gone(self):
+        # Regresja: dawne QMenu ("...") i jego przycisk musza byc naprawde
+        # usuniete, nie zostawione jako martwy kod obok nowych, widocznych
+        # przyciskow silnika - inaczej dwa rozne UI do tej samej akcji.
+        self.assertNotIn("def _show_v2_menu(self):", self.source)
+        self.assertNotIn("_v2_menu_button", self.source)
 
     def test_start_analysis_does_not_hard_depend_on_old_shell_only_pills(self):
         # start_analysis() jest teraz wywolywane rowniez z menu V2, gdzie

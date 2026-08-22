@@ -893,7 +893,9 @@ class WhyNoTradeChip(QFrame):
 
 
 class DeskPage(QWidget):
-    """Strona DESK (UI_DESK_V2): 22/48/30 - pozycje+equity | wykres | kandydaci.
+    """Strona DESK (UI_DESK_V2): 28/44/28 - pozycje+equity | wykres | kandydaci.
+    (22.08.2026: bylo 22/48/30 - user chcial wiekszy panel OPEN POSITIONS,
+    patrz komentarz przy root.addWidget(left_widget, 28) w _build().)
     Jedyna strona, ktora 'musi dzialac w paperze' (cytat ze specyfikacji) -
     reuzywa istniejace EquityChart/MarketChart/ChartLoadTask, nie duplikuje ich."""
 
@@ -973,7 +975,12 @@ class DeskPage(QWidget):
 
         left_widget = QWidget()
         left_widget.setLayout(left)
-        root.addWidget(left_widget, 22)
+        # 22.08.2026: 22 -> 28 (user: "otwarte pozycje jeszcze wieksze") -
+        # OPEN POSITIONS jest jedyna karta w lewej kolumnie z stretch=1
+        # (patrz left.addWidget(positions_card, 1) nizej), wiec caly
+        # dodatkowy szerokosc trafia bezposrednio do niej, nie do
+        # mode/equity/stats. center 48->44, right 30->28 oddaja roznice.
+        root.addWidget(left_widget, 28)
 
         center = QVBoxLayout()
         center.setSpacing(6)
@@ -995,7 +1002,7 @@ class DeskPage(QWidget):
         center.addLayout(tf_row)
         center_widget = QWidget()
         center_widget.setLayout(center)
-        root.addWidget(center_widget, 48)
+        root.addWidget(center_widget, 44)
 
         right = QVBoxLayout()
         right.setSpacing(10)
@@ -1025,7 +1032,7 @@ class DeskPage(QWidget):
 
         right_widget = QWidget()
         right_widget.setLayout(right)
-        root.addWidget(right_widget, 30)
+        root.addWidget(right_widget, 28)
 
         self._selected_timeframe = "15m"
         self._current_chart_symbol: str | None = None
@@ -1652,8 +1659,11 @@ class MainWindow(QMainWindow):
 
     def build_top_v2(self) -> QWidget:
         """Kompaktowy pasek: logo/tryb, ANALIZA/HANDEL jako StatePill (nie
-        osobne START/STOP), BTC/ETH, uptime, pigulka rezimu, menu '...', pod
-        tym 5 przyciskow nawigacji DESK/SCAN/LAB/REPLAY/SET."""
+        osobne START/STOP), BTC/ETH, uptime, pigulka rezimu, widoczne
+        przyciski silnika (Start analysis/Start trading/Pause/Resume/
+        Stop trading/Stop bot/Close all - 22.08.2026, bylo ukryte menu
+        '...'), pod tym 6 przyciskow nawigacji DESK/SCAN/LAB/REPLAY/
+        HISTORY/SET."""
         top = QFrame(objectName="V2TopBar")
         outer = QVBoxLayout(top)
         outer.setContentsMargins(14, 8, 14, 0)
@@ -1684,12 +1694,39 @@ class MainWindow(QMainWindow):
         self.regime_pill_v2 = QLabel("—")
         self.regime_pill_v2.setObjectName("V2RegimePill")
         bar.addWidget(self.regime_pill_v2)
-        menu_btn = QPushButton("…")
-        menu_btn.setFixedWidth(34)
-        menu_btn.setToolTip("Start analysis / start trading, pause, stop, close all")
-        menu_btn.clicked.connect(self._show_v2_menu)
-        self._v2_menu_button = menu_btn
-        bar.addWidget(menu_btn)
+        # 22.08.2026: przyciski silnika widoczne bezposrednio w pasku zamiast
+        # ukrytego menu "..." - user: "przyciski start, pauza itp moga byc
+        # widoczne zeby szybciej nimi operowac". Reuzywaja dokladnie tych
+        # samych metod co dawne QMenu (self.start_analysis/self.start_trading/
+        # self.pause/self.resume/self.stop_trading/self.stop_engine) - zero
+        # nowej logiki, tylko szybszy dostep z jednego klikniecia zamiast dwoch.
+        # "Start analysis" zostaje widoczny (nie usuniety) - cold-start (auto-
+        # analiza przy uruchomieniu apki) NIE jest jeszcze zaimplementowany,
+        # wiec to nadal jedyny sposob na realne uruchomienie analizy.
+        self._engine_buttons: dict[str, QPushButton] = {}
+        engine_specs = [
+            ("start_analysis", "Start analysis", self.start_analysis, None),
+            ("start_trading", "Start trading", self.start_trading, "Good"),
+            ("pause", "Pause", self.pause, None),
+            ("resume", "Resume", self.resume, "Primary"),
+            ("stop_trading", "Stop trading", self.stop_trading, "Danger"),
+            ("stop_bot", "Stop bot", self.stop_engine, "Danger"),
+            # "Close all" bylo w starym menu "..." dostepne z KAZDEJ strony
+            # V2 (bo top bar jest wspolny) - zostaje widoczne tutaj rowniez,
+            # zeby nie stracic globalnej dostepnosci tej awaryjnej akcji przy
+            # przejsciu na SCAN/LAB/REPLAY/HISTORY/SET. DeskPage ma WLASNY,
+            # osobny "CLOSE ALL" (self.close_all_btn/_on_close_all) w karcie
+            # OPEN POSITIONS - to nie duplikat logiki, oba wolaja finalnie
+            # self.close_all(), tylko z dwoch róznych, wygodnych miejsc.
+            ("close_all", "Close all", self.close_all, "Danger"),
+        ]
+        for key, label, slot, obj_name in engine_specs:
+            btn = QPushButton(label)
+            if obj_name:
+                btn.setObjectName(obj_name)
+            btn.clicked.connect(slot)
+            self._engine_buttons[key] = btn
+            bar.addWidget(btn)
         outer.addLayout(bar)
 
         nav_row = QHBoxLayout()
@@ -1729,24 +1766,6 @@ class MainWindow(QMainWindow):
         # metoda na widgecie strony.
         self._go_v2("LAB")
         self.select_analysis_symbol(symbol)
-
-    def _show_v2_menu(self):
-        # QMenu: Start analysis, Start trading, Pause, Resume, Stop trading,
-        # Stop bot, Close all. Start* reuzywaja dokladnie te same metody co
-        # stary shell (self.start_analysis/self.start_trading) - to jedyny
-        # sposob na uruchomienie bota z layoutu DESK/SCAN/LAB, bo pigulki
-        # ANALIZA/HANDEL w gornym pasku to tylko wskazniki stanu, nie przyciski.
-        menu = QMenu(self)
-        menu.addAction("Start analysis", self.start_analysis)
-        menu.addAction("Start trading", self.start_trading)
-        menu.addSeparator()
-        menu.addAction("Pause", self.pause)
-        menu.addAction("Resume", self.resume)
-        menu.addAction("Stop trading", self.stop_trading)
-        menu.addAction("Stop bot", self.stop_engine)
-        menu.addSeparator()
-        menu.addAction("Close all", self.close_all)
-        menu.exec(self._v2_menu_button.mapToGlobal(self._v2_menu_button.rect().bottomLeft()))
 
     def build_top(self) -> QWidget:
         top = QFrame(objectName="Top")
