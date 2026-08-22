@@ -952,6 +952,47 @@ class Sparkline(QWidget):
         painter.drawPath(path)
 
 
+class RiskRing(QWidget):
+    """Kolowy wskaznik zuzycia marginu (USED margin / EQUITY, %) - ten sam
+    pierscien co panel 'Ryzyko i konto' w mockupie 'Krypto Terminal Control
+    Room'. 22.08.2026: user chce dalszy ciag przebudowy UI ('kontynuuj') -
+    to pierwsza czesc tamtego panelu, ktora byla naprawde brakujaca (real
+    FREE/USED juz istnialy jako liczby w stats_card - patrz DeskPage._build,
+    brakowalo tylko wizualnego wskaznika %). Prosty QPainter donut, ten sam
+    wzorzec co MiniBar/Sparkline - 0 zaleznosci, zero nowego zrodla danych
+    (liczone z DataAdapter.account(), ktore DeskPage juz pobiera co pelny
+    skan - patrz apply_state())."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._pct = 0.0
+        self.setMinimumSize(56, 56)
+        self.setMaximumSize(56, 56)
+        self.setToolTip("Uzyty margin / Equity")
+
+    def set_percent(self, pct: float):
+        self._pct = max(0.0, min(100.0, float(pct or 0)))
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        side = min(self.width(), self.height())
+        pen_width = 6
+        rect = QRectF(pen_width / 2, pen_width / 2, side - pen_width, side - pen_width)
+        painter.setPen(QPen(QColor(theme.LINE), pen_width))
+        painter.drawArc(rect, 0, 360 * 16)
+        # Zielony/amber/czerwony wg progow - te same, subiektywnie
+        # rozsadne progi co gdzie indziej w tym pliku (np. margin call).
+        color = theme.SHORT if self._pct >= 80 else (theme.WAIT if self._pct >= 50 else theme.LONG)
+        painter.setPen(QPen(QColor(color), pen_width, Qt.SolidLine, Qt.RoundCap))
+        span = int(-360 * 16 * (self._pct / 100.0))
+        painter.drawArc(rect, 90 * 16, span)
+        painter.setPen(QColor(theme.TEXT))
+        painter.setFont(QFont(theme.MONO, 11, QFont.Bold))
+        painter.drawText(self.rect(), Qt.AlignCenter, f"{round(self._pct)}%")
+
+
 class WatchlistTile(QFrame):
     """Jeden kafelek watchlisty (SYM / cena / 24h / sparkline). Realne dane
     z PriceTickerTask (Binance/Bybit perp tickery + CoinGecko fallback - ten
@@ -1091,11 +1132,19 @@ class DeskPage(QWidget):
         left.addWidget(self.equity_kpi)
 
         stats_card = Card()
+        stats_outer = QHBoxLayout()
+        # 22.08.2026: RiskRing dodany obok FREE/USED/DAILY PNL - odpowiednik
+        # pierscienia "Ryzyko i konto" z mockupu, liczony z tych samych
+        # account()['margin']/['equity'], ktore ta karta i tak juz pokazuje
+        # jako liczby (patrz apply_state() nizej) - zero nowego zrodla danych.
+        self.risk_ring = RiskRing()
+        stats_outer.addWidget(self.risk_ring)
         stats_row = QHBoxLayout()
         self.free_label = self._stat_pair(stats_row, "FREE")
         self.used_label = self._stat_pair(stats_row, "USED")
         self.daily_label = self._stat_pair(stats_row, "DAILY PNL")
-        stats_card.body.addLayout(stats_row)
+        stats_outer.addLayout(stats_row, 1)
+        stats_card.body.addLayout(stats_outer)
         left.addWidget(stats_card)
 
         self.positions_count = QLabel("0/0")
@@ -1237,6 +1286,9 @@ class DeskPage(QWidget):
         self.used_label.setText(number(account.get("margin"), 2, "$"))
         daily = account.get("daily")
         self.daily_label.setText(number(daily, 2, "+$" if (daily or 0) >= 0 else "$"))
+        equity = float(account.get("equity") or 0)
+        margin = float(account.get("margin") or 0)
+        self.risk_ring.set_percent((margin / equity * 100.0) if equity > 0 else 0.0)
 
         positions = data.positions()
         max_pos = int(getattr(config, "MAX_POSITIONS", 10) or 10)

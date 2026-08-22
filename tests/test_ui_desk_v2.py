@@ -271,6 +271,20 @@ class TestUiDeskV2(unittest.TestCase):
     def test_watchlist_classes_exist(self):
         self.assertTrue({"Sparkline", "WatchlistTile", "WatchlistPanel"} <= self.top_level_classes)
 
+    def test_risk_ring_class_exists_and_wired_into_stats_card(self):
+        # 22.08.2026: odpowiednik pierscienia "Ryzyko i konto" z mockupu -
+        # liczony z tych samych account()['margin']/['equity'], ktore
+        # stats_card i tak juz pokazuje jako FREE/USED liczby - zero
+        # nowego zrodla danych.
+        self.assertIn("RiskRing", self.top_level_classes)
+        desk_start = self.source.index("class DeskPage(QWidget):")
+        desk_end = self.source.index("class MainWindow(QMainWindow):")
+        desk_src = self.source[desk_start:desk_end]
+        self.assertIn("self.risk_ring = RiskRing()", desk_src)
+        apply_state_start = desk_src.index("    def apply_state(self, data: \"DataAdapter\"):")
+        apply_state_src = desk_src[apply_state_start:desk_src.index("    def apply_tick(self, prices: dict):")]
+        self.assertIn("self.risk_ring.set_percent((margin / equity * 100.0) if equity > 0 else 0.0)", apply_state_src)
+
     def test_watchlist_panel_wired_into_desk_page(self):
         # Watchlist musi zyc NAD glownym 3-kolumnowym layoutem (outer =
         # QVBoxLayout), nie wewnatrz jednej z kolumn - patrz user: "watchlist
