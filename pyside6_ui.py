@@ -2876,12 +2876,44 @@ class MainWindow(QMainWindow):
         (self.closed_table/self.side_performance/self.performance_summary)
         i refresh_performance() ze starego performance_page() (osiagalnego
         tylko z UI_DESK_V2=False) - tu tylko nowy, plaski layout V2Table
-        zamiast starego page()+Card z domyslnym QTableWidget stylem."""
+        zamiast starego page()+Card z domyslnym QTableWidget stylem.
+        22.08.2026 ("kontynuuj"): referencyjny mockup mial u gory pasek KPI
+        (Transakcje/Winrate/Śr. R/Suma PnL) + filtr po symbolu - HISTORY byla
+        jedyna zakladka V2 bez zadnego wyszukiwania (DESK/SCAN juz maja).
+        Dolozony pasek KPI (TRADES/WIN RATE/NET PNL, reuzywa klase KPI z
+        risk_page()) i pole szukania po symbolu (setRowHidden, bo closed_table
+        to QTableWidget, nie QAbstractTableModel jak SCAN). "Śr. R" i
+        "Transakcje (30d)" swiadomie pominiete - DataAdapter.closed() nie ma
+        date-window (tylko ALL-TIME) ani spojnego pola risk-multiple per trade
+        w obu sciezkach DEMO/LIVE, wiec pokazanie ich byloby zmyslone/mylace."""
         widget = QWidget()
         widget.setObjectName("DeskV2Root")
-        root = QHBoxLayout(widget)
-        root.setContentsMargins(10, 10, 10, 10)
+        outer = QVBoxLayout(widget)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(10)
+
+        kpi_row = QHBoxLayout()
+        kpi_row.setSpacing(10)
+        self.history_kpis = {}
+        for key in ("TRADES (ALL-TIME)", "WIN RATE", "NET PNL"):
+            kpi = KPI(key)
+            self.history_kpis[key] = kpi
+            kpi_row.addWidget(kpi)
+        outer.addLayout(kpi_row)
+
+        search_row = QHBoxLayout()
+        search_row.addWidget(QLabel("SYMBOL", objectName="V2CardTitle"))
+        self.history_search = QLineEdit()
+        self.history_search.setPlaceholderText("Szukaj symbolu w historii… (np. BTC)")
+        self.history_search.setMaximumWidth(240)
+        self.history_search.textChanged.connect(self._filter_history_table)
+        search_row.addWidget(self.history_search)
+        search_row.addStretch()
+        outer.addLayout(search_row)
+
+        root = QHBoxLayout()
         root.setSpacing(10)
+        outer.addLayout(root, 1)
 
         left = QVBoxLayout()
         left.setSpacing(10)
@@ -2922,6 +2954,21 @@ class MainWindow(QMainWindow):
         right_widget.setLayout(right)
         root.addWidget(right_widget, 70)
         return widget
+
+    def _filter_history_table(self, text: str) -> None:
+        """Filtr po symbolu dla CLOSED POSITIONS (patrz history_page()) -
+        prosty substring/case-insensitive przez setRowHidden, bo closed_table
+        to QTableWidget (nie QAbstractTableModel jak SCAN, wiec brak
+        QSortFilterProxyModel). Wolane zarowno z QLineEdit.textChanged, jak i
+        z konca refresh_performance() (zeby filtr przetrwal kolejne odswiezenie
+        danych, a nie znikal po kazdym cyklu)."""
+        if not hasattr(self, "closed_table"):
+            return
+        needle = (text or "").strip().upper()
+        for row in range(self.closed_table.rowCount()):
+            item = self.closed_table.item(row, 2)  # kolumna SYMBOL
+            symbol = item.text().upper() if item else ""
+            self.closed_table.setRowHidden(row, bool(needle) and needle not in symbol)
 
     def go(self, index: int):
         self.stack.setCurrentIndex(index)
@@ -3656,7 +3703,18 @@ class MainWindow(QMainWindow):
             pnl = sum(float(row.get("pnl") or 0) for row in rows)
             wr = len(wins) / len(rows) * 100 if rows else 0
             self.add_row(self.side_performance, [side, len(rows), len(wins), len(losses), percent(wr, 1, False), number(pnl, 4, "$")], {0: "green" if side == "LONG" else "red" if side == "SHORT" else "cyan", 5: "green" if pnl >= 0 else "red"})
+            if side == "TOTAL" and hasattr(self, "history_kpis"):
+                # Pasek KPI na HISTORY (patrz history_page()) - czyta te same
+                # juz obliczone TOTAL statystyki, zero nowego zapytania/liczenia.
+                self.history_kpis["TRADES (ALL-TIME)"].update_value(str(len(rows)))
+                self.history_kpis["WIN RATE"].update_value(percent(wr, 1, False), tone="green" if wr >= 50 else "amber" if rows else "")
+                self.history_kpis["NET PNL"].update_value(number(pnl, 2, "+$" if pnl >= 0 else "$"), tone="green" if pnl >= 0 else "red")
         self.performance_summary.setText(f"Profit factor  {number(metrics.get('profit_factor'), 2)}\nExpectancy  {number(metrics.get('expectancy'), 4)}\nNet PnL  {number(metrics.get('net_pnl'), 4, '$')}\nMetrics are shown only when emitted by the runtime.")
+        if hasattr(self, "history_search"):
+            # Filtr po symbolu ma przetrwac kolejny cykl odswiezenia (bez
+            # tego kazde refresh_performance() czyscilo setRowHidden razem z
+            # setRowCount(0) na poczatku tej metody).
+            self._filter_history_table(self.history_search.text())
 
     @staticmethod
     def event_level(event: dict) -> str:

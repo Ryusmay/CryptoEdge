@@ -539,5 +539,41 @@ class TestUiLabV2(unittest.TestCase):
         self.assertIn("self.indicator_rsi_bar.set_percent(", refresh_src)
 
 
+class TestUiHistoryV2(unittest.TestCase):
+    """Testy statyczne dla HISTORY - 22.08.2026 ("kontynuuj"): pasek KPI
+    (TRADES/WIN RATE/NET PNL) + filtr po symbolu, jedyna zakladka V2 bez
+    zadnego wyszukiwania przed ta zmiana."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.source = UI_PATH.read_text(encoding="utf-8")
+
+    def test_history_page_has_kpi_strip_and_search_box(self):
+        page_src = self.source[self.source.index("    def history_page(self):"):self.source.index("    def _filter_history_table(self, text: str) -> None:")]
+        self.assertIn("self.history_kpis = {}", page_src)
+        self.assertIn('for key in ("TRADES (ALL-TIME)", "WIN RATE", "NET PNL"):', page_src)
+        self.assertIn("self.history_search = QLineEdit()", page_src)
+        self.assertIn("self.history_search.textChanged.connect(self._filter_history_table)", page_src)
+
+    def test_filter_history_table_hides_by_symbol_column(self):
+        filter_src = self.source[self.source.index("    def _filter_history_table(self, text: str) -> None:"):self.source.index("    def go(self, index: int):")]
+        # Kolumna 2 = SYMBOL (patrz naglowki closed_table w history_page()).
+        self.assertIn("item = self.closed_table.item(row, 2)", filter_src)
+        self.assertIn("self.closed_table.setRowHidden(row, bool(needle) and needle not in symbol)", filter_src)
+
+    def test_refresh_performance_updates_history_kpis_from_total_row(self):
+        refresh_src = self.source[self.source.index("    def refresh_performance(self):"):self.source.index("    @staticmethod\n    def event_level")]
+        self.assertIn('if side == "TOTAL" and hasattr(self, "history_kpis"):', refresh_src)
+        self.assertIn('self.history_kpis["TRADES (ALL-TIME)"].update_value(str(len(rows)))', refresh_src)
+        self.assertIn('self.history_kpis["NET PNL"].update_value(', refresh_src)
+
+    def test_refresh_performance_reapplies_search_filter_after_reload(self):
+        # Bez tego kazdy cykl odswiezenia czyscilby setRowHidden razem z
+        # setRowCount(0), i wpisany filtr znikalby po chwili.
+        refresh_src = self.source[self.source.index("    def refresh_performance(self):"):self.source.index("    @staticmethod\n    def event_level")]
+        self.assertIn('if hasattr(self, "history_search"):', refresh_src)
+        self.assertIn("self._filter_history_table(self.history_search.text())", refresh_src)
+
+
 if __name__ == "__main__":
     unittest.main()

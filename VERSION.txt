@@ -1,4 +1,4 @@
-19.23.0
-tag=v19.23.0
-built=2026-08-22T02:33:45Z
-zip=cryptoedge_bot_v19.23.0.zip
+19.24.0
+tag=v19.24.0
+built=2026-08-22T02:41:22Z
+zip=cryptoedge_bot_v19.24.0.zip
