@@ -178,4 +178,16 @@ def qss() -> str:
         background:{PANEL}; border:0; gridline-color:{LINE};
         selection-background-color:#143448; alternate-background-color:{PANEL2};
     }}
+
+    /* 22.08.2026: WatchlistPanel/WatchlistTile (DESK) - realne ceny + live
+    sparkline dla BTC/ETH/SOL/XRP, patrz pyside6_ui.py. Reuzywa te same
+    tokeny (LONG/SHORT/MUTED/PANEL2/LINE) co reszta panelu, nie nowa paleta. */
+    QFrame#WLTile {{
+        background:{PANEL2}; border:1px solid {LINE}; border-radius:2px;
+    }}
+    QLabel#WLSym {{ color:{MUTED}; font-size:11px; font-weight:700; letter-spacing:0.5px; }}
+    QLabel#WLPrice {{ font-family:'{MONO}'; color:{TEXT}; font-size:14px; font-weight:600; }}
+    QLabel#WLChg {{ font-family:'{MONO}'; font-size:11px; font-weight:700; color:{MUTED}; }}
+    QLabel#WLChg[tone='up'] {{ color:{LONG}; }}
+    QLabel#WLChg[tone='down'] {{ color:{SHORT}; }}
     """

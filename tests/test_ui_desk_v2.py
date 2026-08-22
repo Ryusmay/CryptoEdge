@@ -247,11 +247,47 @@ class TestUiDeskV2(unittest.TestCase):
         self.assertIn("if changed:", impl_v2_src)
 
     def test_price_ticker_updates_both_old_and_v2_labels_safely(self):
-        ticker_src = self.source[self.source.index("    def _on_price_ticker_updated(self, prices: dict):"):]
+        # 22.08.2026: sygnatura rozszerzona o drugi dict "changes" (24h %)
+        # dla WatchlistPanel - patrz test_watchlist_panel_wired_into_desk_page.
+        ticker_src = self.source[self.source.index("    def _on_price_ticker_updated(self, prices: dict, changes: dict):"):]
         ticker_src = ticker_src[:ticker_src.index("\n\n    def ", 50)]
         self.assertIn('hasattr(self, "btc_ticker_v2")', ticker_src)
         self.assertIn('hasattr(self, "desk_page")', ticker_src)
         self.assertIn("self.desk_page.apply_tick(prices)", ticker_src)
+        self.assertIn("self.desk_page.apply_watchlist_tick(prices, changes)", ticker_src)
+
+    def test_price_ticker_task_covers_four_majors_with_24h_change(self):
+        # 22.08.2026: user chcial watchlist z realnymi cenami - rozszerzone
+        # z BTC/ETH o SOL/XRP + 24h change (drugi dict "changes"), ten sam
+        # pojedynczy fetch_all_tickers() request co wczesniej (zero nowych
+        # wywolan sieciowych), patrz WatchlistPanel.SYMBOLS.
+        task_src = self.source[self.source.index("class PriceTickerTask(QRunnable):"):self.source.index("class ChartLoadSignals(QObject):")]
+        self.assertIn('SYMBOLS = ("BTC", "ETH", "SOL", "XRP")', task_src)
+        self.assertIn("binance_change_24h", task_src)
+        self.assertIn("bybit_change_24h", task_src)
+        self.assertIn("self.signals.updated.emit(prices, changes)", task_src)
+        self.assertIn("updated = Signal(dict, dict)", self.source)
+
+    def test_watchlist_classes_exist(self):
+        self.assertTrue({"Sparkline", "WatchlistTile", "WatchlistPanel"} <= self.top_level_classes)
+
+    def test_watchlist_panel_wired_into_desk_page(self):
+        # Watchlist musi zyc NAD glownym 3-kolumnowym layoutem (outer =
+        # QVBoxLayout), nie wewnatrz jednej z kolumn - patrz user: "watchlist
+        # zmiejszyc do 4 par" + finalna wersja mockupu "Krypto Terminal
+        # Control Room" (watchlist tiles ponad grid2/grid3).
+        desk_start = self.source.index("class DeskPage(QWidget):")
+        desk_end = self.source.index("class MainWindow(QMainWindow):")
+        desk_src = self.source[desk_start:desk_end]
+        self.assertIn("outer = QVBoxLayout(self)", desk_src)
+        self.assertIn("self.watchlist_panel = WatchlistPanel()", desk_src)
+        self.assertIn("outer.addWidget(self.watchlist_panel)", desk_src)
+        self.assertIn("outer.addLayout(root, 1)", desk_src)
+        # apply_watchlist_tick() musi byc osobna sciezka od apply_tick()
+        # (ten drugi ma wlasny, dawno ustalony kontrakt: ceny/PnL w tabeli
+        # OTWARTYCH POZYCJI, nie watchlista).
+        self.assertIn("def apply_watchlist_tick(self, prices: dict, changes: dict):", desk_src)
+        self.assertIn("self.watchlist_panel.apply_tick(prices, changes)", desk_src)
 
     def test_data_adapter_has_v2_methods(self):
         adapter_methods = {

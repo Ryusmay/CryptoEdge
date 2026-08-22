@@ -674,19 +674,27 @@ class MarketChart(QWidget):
 
 
 class PriceTickerSignals(QObject):
-    updated = Signal(dict)
+    updated = Signal(dict, dict)
 
 
 class PriceTickerTask(QRunnable):
-    """BTC/ETH co 1s z Binance/Bybit/CoinGecko (Blofin celowo pomijany -
-    to osobne, szybkie zrodlo niezalezne od wolnego cyklu bota/analizy)."""
+    """BTC/ETH/SOL/XRP co 1s z Binance/Bybit/CoinGecko (Blofin celowo
+    pomijany - to osobne, szybkie zrodlo niezalezne od wolnego cyklu bota/
+    analizy). 22.08.2026: rozszerzone z BTC/ETH o SOL/XRP + 24h change
+    (drugi dict 'changes') dla WatchlistPanel na DESK - fetch_all_tickers()
+    zawsze zwracal dane dla WSZYSTKICH par w jednym requescie, wczesniej po
+    prostu wyciagalismy z niego tylko BTC/ETH."""
+
+    SYMBOLS = ("BTC", "ETH", "SOL", "XRP")
+
     def __init__(self, feeder):
         super().__init__()
         self.feeder = feeder
         self.signals = PriceTickerSignals()
 
     def run(self):
-        prices = {"BTC": None, "ETH": None}
+        prices = {sym: None for sym in self.SYMBOLS}
+        changes = {sym: None for sym in self.SYMBOLS}
         if self.feeder is not None:
             try:
                 bn = self.feeder.binance.fetch_all_tickers() or {}
@@ -697,18 +705,27 @@ class PriceTickerTask(QRunnable):
             except Exception:
                 by = {}
             cg = None
-            for sym in ("BTC", "ETH"):
-                price = (bn.get(sym) or {}).get("binance_price") or (by.get(sym) or {}).get("bybit_price")
-                if price is None:
+            for sym in self.SYMBOLS:
+                bn_entry, by_entry = bn.get(sym) or {}, by.get(sym) or {}
+                price = bn_entry.get("binance_price") or by_entry.get("bybit_price")
+                change = bn_entry.get("binance_change_24h")
+                if change is None:
+                    change = by_entry.get("bybit_change_24h")
+                if price is None or change is None:
                     try:
                         if cg is None:
                             cg = self.feeder._refresh_coingecko_top() or {}
-                        price = (cg.get(sym) or {}).get("price")
+                        cg_entry = cg.get(sym) or {}
+                        if price is None:
+                            price = cg_entry.get("price")
+                        if change is None:
+                            change = cg_entry.get("change_24h")
                     except Exception:
                         pass
                 prices[sym] = price
+                changes[sym] = change
         try:
-            self.signals.updated.emit(prices)
+            self.signals.updated.emit(prices, changes)
         except RuntimeError:
             # Okno/aplikacja zdazyla sie zamknac zanim to zadanie w tle
             # skonczylo prace (zadanie odpalane co 1s, wiec zawsze jest jakies
@@ -892,6 +909,125 @@ class WhyNoTradeChip(QFrame):
         self._bar.set_percent(pct)
 
 
+class Sparkline(QWidget):
+    """Lekki, zaleznosciowo-wolny mini-wykres linii (bez osi/etykiet) - ten
+    sam wzorzec QPainter co EquityChart, tylko mniejszy i bez legendy.
+    22.08.2026: dodany dla WatchlistTile (patrz nizej) zamiast PyQtGraph -
+    to jest maly, 30px inline sparkline w kafelku, nie pelny interaktywny
+    wykres, wiec 0 zaleznosci > nowa biblioteka. PyQtGraph zostaje jako
+    opcja na pozniej dla czegos wiekszego (np. pelny real-time wykres w LAB),
+    patrz rekomendacja stacku."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._points: list[float] = []
+        self.setMinimumHeight(28)
+        self.setMaximumHeight(34)
+
+    def set_points(self, points: list[float]):
+        self._points = [float(p) for p in points if p is not None]
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pts = self._points
+        if len(pts) < 2:
+            return
+        lo, hi = min(pts), max(pts)
+        span = (hi - lo) or 1.0
+        w, h = self.width(), self.height()
+        step = w / (len(pts) - 1)
+        up = pts[-1] >= pts[0]
+        color = QColor(theme.LONG if up else theme.SHORT)
+        path = QPainterPath()
+        for i, value in enumerate(pts):
+            x = i * step
+            y = h - ((value - lo) / span) * h
+            if i == 0:
+                path.moveTo(x, y)
+            else:
+                path.lineTo(x, y)
+        painter.setPen(QPen(color, 1.4))
+        painter.drawPath(path)
+
+
+class WatchlistTile(QFrame):
+    """Jeden kafelek watchlisty (SYM / cena / 24h / sparkline). Realne dane
+    z PriceTickerTask (Binance/Bybit perp tickery + CoinGecko fallback - ten
+    sam feed, ktory juz zasilal BTC/ETH w top barze, patrz
+    MainWindow._on_price_ticker_updated), NIE z bota - bot handluje inny,
+    znacznie szersze uniwersum (patrz DataAdapter.scanner()/candidates()).
+    Sparkline to zywy bufor ostatnich ~90 tickow (co ~1s), NIE historyczne
+    swiece - rosnie od zera przy kazdym starcie apki (patrz update_price)."""
+
+    HISTORY_MAX = 90
+
+    def __init__(self, symbol: str, parent=None):
+        super().__init__(parent)
+        self.symbol = symbol
+        self.setObjectName("WLTile")
+        self._history: list[float] = []
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 6)
+        layout.setSpacing(2)
+        head = QHBoxLayout()
+        self._sym_label = QLabel(symbol)
+        self._sym_label.setObjectName("WLSym")
+        self._chg_label = QLabel("—")
+        self._chg_label.setObjectName("WLChg")
+        head.addWidget(self._sym_label)
+        head.addStretch()
+        head.addWidget(self._chg_label)
+        layout.addLayout(head)
+        self._price_label = QLabel("—")
+        self._price_label.setObjectName("WLPrice")
+        layout.addWidget(self._price_label)
+        self._spark = Sparkline()
+        layout.addWidget(self._spark)
+
+    def update_price(self, price: float | None, change_24h: float | None):
+        if price is not None:
+            self._price_label.setText(number(price, 4 if price < 10 else 2))
+            self._history.append(float(price))
+            if len(self._history) > self.HISTORY_MAX:
+                del self._history[: len(self._history) - self.HISTORY_MAX]
+            self._spark.set_points(self._history)
+        if change_24h is not None:
+            up = change_24h >= 0
+            self._chg_label.setText(percent(change_24h))
+            self._chg_label.setProperty("tone", "up" if up else "down")
+            self._chg_label.style().unpolish(self._chg_label)
+            self._chg_label.style().polish(self._chg_label)
+
+
+class WatchlistPanel(Card):
+    """Panel WATCHLIST na DESK - realne ceny + live sparkline dla glownych
+    par. 22.08.2026: user chcial watchlist z realnymi cenami + sparkline
+    zamiast order booka (ktorego DESK i tak nigdy nie mial), trymowana do
+    4 par (BTC/ETH/SOL/XRP) - ten sam dobor co finalna wersja mockupu
+    'Krypto Terminal Control Room'. Zasilana z tego samego 1s
+    PriceTickerTask, ktory juz aktualizowal BTC/ETH w top barze - patrz
+    MainWindow._on_price_ticker_updated / DeskPage.apply_watchlist_tick."""
+
+    SYMBOLS = ("BTC", "ETH", "SOL", "XRP")
+
+    def __init__(self, parent=None):
+        super().__init__("WATCHLIST", parent)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.tiles: dict[str, WatchlistTile] = {}
+        for symbol in self.SYMBOLS:
+            tile = WatchlistTile(symbol)
+            self.tiles[symbol] = tile
+            row.addWidget(tile)
+        self.body.addLayout(row)
+
+    def apply_tick(self, prices: dict, changes: dict):
+        for symbol, tile in self.tiles.items():
+            tile.update_price(prices.get(symbol), changes.get(symbol))
+
+
 class DeskPage(QWidget):
     """Strona DESK (UI_DESK_V2): 28/44/28 - pozycje+equity | wykres | kandydaci.
     (22.08.2026: bylo 22/48/30 - user chcial wiekszy panel OPEN POSITIONS,
@@ -908,8 +1044,19 @@ class DeskPage(QWidget):
         self._build()
 
     def _build(self):
-        root = QHBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(10, 10, 10, 10)
+        outer.setSpacing(10)
+
+        # 22.08.2026: WATCHLIST ponad glownym 3-kolumnowym layoutem - realne
+        # ceny + live sparkline dla BTC/ETH/SOL/XRP (patrz WatchlistPanel),
+        # zamiast order booka, ktorego DESK i tak nigdy nie mial. Zasilany z
+        # tego samego 1s PriceTickerTask co BTC/ETH w top barze - patrz
+        # apply_watchlist_tick() nizej / MainWindow._on_price_ticker_updated.
+        self.watchlist_panel = WatchlistPanel()
+        outer.addWidget(self.watchlist_panel)
+
+        root = QHBoxLayout()
         root.setSpacing(10)
 
         left = QVBoxLayout()
@@ -1034,8 +1181,17 @@ class DeskPage(QWidget):
         right_widget.setLayout(right)
         root.addWidget(right_widget, 28)
 
+        outer.addLayout(root, 1)
+
         self._selected_timeframe = "15m"
         self._current_chart_symbol: str | None = None
+
+    def apply_watchlist_tick(self, prices: dict, changes: dict):
+        """Wolane z MainWindow._on_price_ticker_updated (ten sam ~1s tick,
+        ktory juz aktualizowal BTC/ETH w top barze) - NIE apply_tick()
+        (osobna, istniejaca sciezka: ceny/PnL w tabeli OTWARTYCH POZYCJI,
+        nie watchlista)."""
+        self.watchlist_panel.apply_tick(prices, changes)
 
     def sync_mode_buttons(self, demo: bool):
         """Trzyma DEMO/LIVE w synchronizacji z realnym trybem. Wolane
@@ -2720,7 +2876,7 @@ class MainWindow(QMainWindow):
         task.signals.updated.connect(self._on_price_ticker_updated)
         self.chart_pool.start(task)
 
-    def _on_price_ticker_updated(self, prices: dict):
+    def _on_price_ticker_updated(self, prices: dict, changes: dict):
         self._price_ticker_inflight = False
         btc, eth = prices.get("BTC"), prices.get("ETH")
         if hasattr(self, "btc_ticker_label"):
@@ -2733,6 +2889,10 @@ class MainWindow(QMainWindow):
             self.eth_ticker_v2.setText(f"ETH {number(eth, 2) if eth is not None else '—'}")
         if hasattr(self, "desk_page"):
             self.desk_page.apply_tick(prices)
+            # 22.08.2026: SOL/XRP + 24h change (watchlist tiles) - osobna
+            # metoda od apply_tick() powyzej, ktora ma wlasny, dawno
+            # ustalony kontrakt (ceny/PnL w tabeli OTWARTYCH POZYCJI).
+            self.desk_page.apply_watchlist_tick(prices, changes)
 
     def _refresh_impl(self):
         st, account = self.data.state(), self.data.account()
