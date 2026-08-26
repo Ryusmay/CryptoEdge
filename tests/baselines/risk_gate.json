@@ -1,10 +1,10 @@
 {
   "meta": {
-    "cases": 88,
-    "approved": 58,
-    "rejected": 30,
+    "cases": 120,
+    "approved": 75,
+    "rejected": 45,
     "raised": 0,
-    "distinct_reasons": 20
+    "distinct_reasons": 29
   },
   "config": {
     "hash": "bee6af3c6d61120d",
@@ -35,6 +35,8 @@
     "CLUSTER_RISK(BTC_BETA:2.00%>1.25%)",
     "DAILY_PROJECTED_LOSS(200.0000>40.0000)",
     "DAILY_PROJECTED_LOSS(4000.0000>40.0000)",
+    "DAY_NON_NATIVE_SOURCE",
+    "DAY_SETUP_NOT_CONFIRMED",
     "HEAT_LONG(6>=6)",
     "HEAT_LONG(7>=6)",
     "INVALID_DIRECTION",
@@ -47,10 +49,17 @@
     "OK",
     "Pauza (STOP/PAUSE) – kliknij START",
     "RISK_REDUCE_ONLY",
+    "STRAT_NA_NO_MTF(L0/S0<2)",
+    "STRAT_NA_RANGE_WEAK(0.40<0.68)",
+    "STRAT_NA_RANGE_WEAK(0.60<0.68)",
+    "STRAT_NA_WEAK",
+    "STRAT_PRIMARY_CONFLICT",
+    "STRAT_PRIMARY_FAIL",
     "TEST_HALT",
     "Za slaby sygnal reversal (0.30<0.32)",
     "Za slaby sygnal trend (0.00<0.48)",
     "Za slaby sygnal trend (0.30<0.48)",
+    "Za slaby sygnal trend (0.40<0.48)",
     "Za slaby sygnal trend (0.47<0.48)"
   ],
   "results": [
@@ -58,528 +67,840 @@
       "case": "baseline_ok",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "direction_empty",
       "approved": false,
       "reason": "INVALID_DIRECTION",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "direction_garbage",
       "approved": false,
       "reason": "INVALID_DIRECTION",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "direction_lowercase",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "price_zero",
       "approved": false,
       "reason": "INVALID_PRICE",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "price_negative",
       "approved": false,
       "reason": "INVALID_PRICE",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "price_none",
       "approved": false,
       "reason": "INVALID_PRICE",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "price_nan",
       "approved": false,
       "reason": "INVALID_PRICE",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "price_inf",
       "approved": false,
       "reason": "INVALID_PRICE",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "strength_none",
       "approved": false,
       "reason": "INVALID_STRENGTH",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_nan",
       "approved": false,
       "reason": "INVALID_STRENGTH",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_text",
       "approved": false,
       "reason": "INVALID_STRENGTH",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.00",
       "approved": false,
       "reason": "Za slaby sygnal trend (0.00<0.48)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.30",
       "approved": false,
       "reason": "Za slaby sygnal trend (0.30<0.48)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.47",
       "approved": false,
       "reason": "Za slaby sygnal trend (0.47<0.48)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.48",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.50",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.60",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.75",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_0.95",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_trend_1.00",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_v2_low_is_skipped_by_design",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_reversal_0.30",
       "approved": false,
       "reason": "Za slaby sygnal reversal (0.30<0.32)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_reversal_0.60",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "strength_reversal_0.90",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "engine_daytrading_v2",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "engine_reversal",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "engine_trend",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "engine_swing",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "engine_empty",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "reversal_weak",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "reversal_strong",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "net_r_negative",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "net_r_zero",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "net_r_tiny",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "net_r_prior_only",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 81.25
     },
     {
       "case": "net_r_low_sample",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 81.25
     },
     {
       "case": "net_r_prior_only_ok",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 81.25
     },
     {
       "case": "net_r_nan",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "net_r_missing",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "sl_missing",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "sl_equal_price",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 130.2083
     },
     {
       "case": "sl_hair_tight",
       "approved": false,
       "reason": "NON_POSITIVE_NET_R(-23.92<=0)",
+      "size_mult": null,
       "size_usd": 800.0
     },
     {
       "case": "sl_tight",
       "approved": false,
       "reason": "NON_POSITIVE_NET_R(-0.40<=0)",
+      "size_mult": null,
       "size_usd": 800.0
     },
     {
       "case": "sl_normal",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "sl_wide",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 33.3333
     },
     {
       "case": "sl_very_wide",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 0.0
     },
     {
       "case": "sl_inverted_for_long",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "sl_short_normal",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "sl_short_inverted",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "planned_notional_0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "planned_notional_10",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "planned_notional_500",
       "approved": false,
       "reason": "CLUSTER_RISK(BTC_BETA:2.00%>1.25%)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "planned_notional_5000",
       "approved": false,
       "reason": "DAILY_PROJECTED_LOSS(200.0000>40.0000)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "planned_notional_100000",
       "approved": false,
       "reason": "DAILY_PROJECTED_LOSS(4000.0000>40.0000)",
+      "size_mult": null,
       "size_usd": 125.0
+    },
+    {
+      "case": "strat_fail_no_mtf",
+      "approved": false,
+      "reason": "STRAT_PRIMARY_FAIL",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_mtf_majority",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_mtf_below_min",
+      "approved": false,
+      "reason": "STRAT_PRIMARY_FAIL",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_mtf_wrong_direction",
+      "approved": false,
+      "reason": "STRAT_PRIMARY_FAIL",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_soft_primary_mtf_fallback",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_soft_primary_soft_pass",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_soft_strat_soft_align",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_fail_soft_unknown_marker",
+      "approved": false,
+      "reason": "STRAT_PRIMARY_FAIL",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_pass_same_direction",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_pass_conflict_no_mtf",
+      "approved": false,
+      "reason": "STRAT_PRIMARY_CONFLICT",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_pass_conflict_with_mtf",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.5,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_pass_no_direction",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_pass_short_signal_same_direction",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_na_mtf_majority",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_na_no_mtf_strong",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 81.7539
+    },
+    {
+      "case": "strat_na_no_mtf_medium",
+      "approved": false,
+      "reason": "STRAT_NA_NO_MTF(L0/S0<2)",
+      "size_mult": null,
+      "size_usd": 39.841
+    },
+    {
+      "case": "strat_na_no_mtf_weak",
+      "approved": false,
+      "reason": "Za slaby sygnal trend (0.40<0.48)",
+      "size_mult": null,
+      "size_usd": 33.75
+    },
+    {
+      "case": "strat_na_range_below_threshold",
+      "approved": false,
+      "reason": "STRAT_NA_RANGE_WEAK(0.60<0.68)",
+      "size_mult": null,
+      "size_usd": 26.544
+    },
+    {
+      "case": "strat_na_range_at_threshold",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 33.8776
+    },
+    {
+      "case": "strat_na_range_above_threshold",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 46.2093
+    },
+    {
+      "case": "strat_na_range_with_mtf",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 18.3756
+    },
+    {
+      "case": "strat_na_weak_via_reversal",
+      "approved": false,
+      "reason": "STRAT_NA_WEAK",
+      "size_mult": null,
+      "size_usd": 82.3529
+    },
+    {
+      "case": "strat_na_reversal_above_min",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 225.0
+    },
+    {
+      "case": "strat_na_range_weak_via_reversal",
+      "approved": false,
+      "reason": "STRAT_NA_RANGE_WEAK(0.40<0.68)",
+      "size_mult": null,
+      "size_usd": 82.3529
+    },
+    {
+      "case": "day_setup_missing",
+      "approved": false,
+      "reason": "DAY_SETUP_NOT_CONFIRMED",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_setup_unknown",
+      "approved": false,
+      "reason": "DAY_SETUP_NOT_CONFIRMED",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_5m_confirmed_non_native",
+      "approved": false,
+      "reason": "DAY_NON_NATIVE_SOURCE",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_5m_confirmed_native",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_15m_confirmed_non_native",
+      "approved": false,
+      "reason": "DAY_NON_NATIVE_SOURCE",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_15m_confirmed_native",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_confirmed_non_native",
+      "approved": false,
+      "reason": "DAY_NON_NATIVE_SOURCE",
+      "size_mult": null,
+      "size_usd": 153.1065
+    },
+    {
+      "case": "day_intraday_confirmed_native",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 153.1065
     },
     {
       "case": "state_halted",
       "approved": false,
       "reason": "TEST_HALT",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_paused",
       "approved": false,
       "reason": "Pauza (STOP/PAUSE) – kliknij START",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_capital_zero",
       "approved": false,
       "reason": "Kapital zbyt niski",
+      "size_mult": null,
       "size_usd": 0.0
     },
     {
       "case": "state_capital_below_one",
       "approved": false,
       "reason": "Kapital zbyt niski",
+      "size_mult": null,
       "size_usd": 0.0
     },
     {
       "case": "state_capital_tiny",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 0.0
     },
     {
       "case": "state_open_0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_open_1",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_open_5",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_open_9",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_open_10",
       "approved": false,
       "reason": "Max pozycji (10)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_open_11",
       "approved": false,
       "reason": "Max pozycji (10)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_regime_TREND_UP",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_regime_TREND_DOWN",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_regime_RANGE",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_regime_PANIC",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_regime_UNKNOWN",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_same_direction_0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_same_direction_3",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_same_direction_6",
       "approved": false,
       "reason": "HEAT_LONG(6>=6)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_same_direction_7",
       "approved": false,
       "reason": "HEAT_LONG(7>=6)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_same_direction_10",
       "approved": false,
       "reason": "Max pozycji (10)",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_opposite_directions",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_reduce_only",
       "approved": false,
       "reason": "RISK_REDUCE_ONLY",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_reduce_only_lowercase",
       "approved": false,
       "reason": "RISK_REDUCE_ONLY",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_+0.0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_-10.0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_-35.0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_-39.9",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_-40.0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "state_daily_pnl_-50.0",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "panic_reversal",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "panic_daytrading_weak",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     },
     {
       "case": "panic_daytrading_strong",
       "approved": true,
       "reason": "OK",
+      "size_mult": null,
       "size_usd": 125.0
     }
   ]

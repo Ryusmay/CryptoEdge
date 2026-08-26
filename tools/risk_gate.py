@@ -123,6 +123,104 @@ def build_corpus() -> list[dict]:
     return cases
 
 
+def build_strategy_corpus() -> list[dict]:
+    """Filtr strategii primary (4h) + fallback MTF.
+
+    Ta galaz byla dotad calkowicie niepokryta: w baseline nie bylo ani jednego
+    powodu STRAT_*, bo caly korpus jechal na DAYTRADING_V2, a warunek wejscia
+    brzmi `not is_day and not is_v2`. Zeby ja obudzic, trzeba jawnie zejsc
+    z V2 - stad `strategy_mode` inne niz DAYTRADING_V2 w kazdym przypadku.
+
+    Pokrywa tez mnozniki `_size_mult` (0.6 przy STRAT_FAIL + MTF, 0.5 przy
+    konflikcie kierunku + MTF). Sa one zapisywane do baseline, bo bez nich
+    nie da sie udowodnic, ze przeniesienie mutacji sygnalu niczego nie
+    przesunelo.
+    """
+    cases: list[dict] = []
+
+    def add(name, signal=None, state=None):
+        base = {"engine": "trend", "strategy_mode": "SWING", "strength": 0.75,
+                "trend_score": 0.75}
+        base.update(signal or {})
+        cases.append({"case": name, "signal": _signal(**base),
+                      "state": _state(**(state or {}))})
+
+    def mtf(long_votes=0, short_votes=0):
+        return {"long_votes": long_votes, "short_votes": short_votes}
+
+    # --- strat obecny, ocena 4h nieudana ---
+    add("strat_fail_no_mtf", {"strategy": {"pass": False}})
+    add("strat_fail_mtf_majority",
+        {"strategy": {"pass": False}, "mtf": mtf(long_votes=2)})
+    add("strat_fail_mtf_below_min",
+        {"strategy": {"pass": False}, "mtf": mtf(long_votes=1)})
+    add("strat_fail_mtf_wrong_direction",
+        {"strategy": {"pass": False}, "mtf": mtf(short_votes=3)})
+    for marker in ("PRIMARY_MTF_FALLBACK", "PRIMARY_SOFT_PASS", "STRAT_SOFT_ALIGN"):
+        add(f"strat_fail_soft_{marker.lower()}",
+            {"strategy": {"pass": False}, "reasons": [marker]})
+    add("strat_fail_soft_unknown_marker",
+        {"strategy": {"pass": False}, "reasons": ["SOMETHING_ELSE"]})
+    # --- strat obecny, ocena udana ---
+    add("strat_pass_same_direction",
+        {"strategy": {"pass": True, "direction": "LONG"}})
+    add("strat_pass_conflict_no_mtf",
+        {"strategy": {"pass": True, "direction": "SHORT"}})
+    add("strat_pass_conflict_with_mtf",
+        {"strategy": {"pass": True, "direction": "SHORT"}, "mtf": mtf(long_votes=2)})
+    add("strat_pass_no_direction",
+        {"strategy": {"pass": True}})
+    add("strat_pass_short_signal_same_direction",
+        {"direction": "SHORT", "sl_price": 104.0,
+         "strategy": {"pass": True, "direction": "SHORT"}})
+    # --- brak oceny 4h (STRAT_PRIMARY_NA) ---
+    add("strat_na_mtf_majority", {"mtf": mtf(long_votes=2)})
+    add("strat_na_no_mtf_strong", {"strength": 0.75, "trend_score": 0.75})
+    add("strat_na_no_mtf_medium", {"strength": 0.52, "trend_score": 0.52})
+    add("strat_na_no_mtf_weak", {"strength": 0.40, "trend_score": 0.40})
+    add("strat_na_range_below_threshold",
+        {"market_regime": "RANGE", "strength": 0.60, "trend_score": 0.60},
+        {"regime": "RANGE"})
+    add("strat_na_range_at_threshold",
+        {"market_regime": "RANGE", "strength": 0.68, "trend_score": 0.68},
+        {"regime": "RANGE"})
+    add("strat_na_range_above_threshold",
+        {"market_regime": "RANGE", "strength": 0.80, "trend_score": 0.80},
+        {"regime": "RANGE"})
+    add("strat_na_range_with_mtf",
+        {"market_regime": "RANGE", "strength": 0.50, "trend_score": 0.50,
+         "mtf": mtf(long_votes=3)},
+        {"regime": "RANGE"})
+    # STRAT_NA_WEAK jest osiagalny TYLKO przez reversal. Dla trendu bramka
+    # sily (MIN_SIGNAL_STRENGTH=0.48) odrzuca wczesniej, wiec porownanie
+    # `strength < min_str` na koncu galezi nigdy by nie padlo. Reversal ma
+    # wlasny, nizszy prog (REVERSAL_MIN_STRENGTH=0.32) i tamtedy przechodzi.
+    add("strat_na_weak_via_reversal",
+        {"engine": "reversal", "strength": 0.40, "reversal_score": 0.40,
+         "mtf": mtf(long_votes=3)})
+    add("strat_na_reversal_above_min",
+        {"engine": "reversal", "strength": 0.60, "reversal_score": 0.60,
+         "mtf": mtf(long_votes=3)})
+    add("strat_na_range_weak_via_reversal",
+        {"engine": "reversal", "strength": 0.40, "reversal_score": 0.40,
+         "market_regime": "RANGE"},
+        {"regime": "RANGE"})
+    # --- galaz DAYTRADING (nie V2) ---
+    def add_day(name, signal):
+        base = {"engine": "daytrading", "strategy_mode": "DAYTRADING",
+                "strength": 0.75, "trend_score": 0.75}
+        base.update(signal)
+        cases.append({"case": name, "signal": _signal(**base), "state": _state()})
+
+    add_day("day_setup_missing", {})
+    add_day("day_setup_unknown", {"setup": "cos_innego"})
+    for setup in ("intraday_5m_confirmed", "intraday_15m_confirmed", "intraday_confirmed"):
+        add_day(f"day_{setup}_non_native", {"setup": setup})
+        add_day(f"day_{setup}_native",
+                {"setup": setup, "signal_source": "BLOFIN_NATIVE"})
+    return cases
+
+
 def build_state_corpus() -> list[dict]:
     """Ten sam poprawny sygnal, rozny stan konta i portfela."""
     cases: list[dict] = []
@@ -216,6 +314,10 @@ def evaluate(case: dict) -> dict:
         )
         out["approved"] = bool(approved)
         out["reason"] = str(reason)
+        # can_open_position mutuje sygnal w miejscu. Mnoznik rozmiaru jest
+        # jedynym widocznym skutkiem galezi, ktore NIE odrzucaja - bez niego
+        # bramka przepuscilaby zmiane 0.6 na 0.5 bez slowa.
+        out["size_mult"] = _round(signal.get("_size_mult"))
     except Exception as exc:
         out["approved"] = None
         out["reason"] = f"RAISED:{type(exc).__name__}: {str(exc)[:120]}"
@@ -228,7 +330,7 @@ def evaluate(case: dict) -> dict:
 
 
 def run_gate() -> dict:
-    cases = build_corpus() + build_state_corpus()
+    cases = build_corpus() + build_strategy_corpus() + build_state_corpus()
     results = [evaluate(case) for case in cases]
     reasons = sorted({str(r.get("reason") or "") for r in results})
     approved = sum(1 for r in results if r.get("approved") is True)
@@ -264,7 +366,7 @@ def compare(baseline: dict, current: dict) -> list[str]:
         if after is None:
             problems.append(f"  - USUNIETY PRZYPADEK {name}: {before.get('reason')}")
             continue
-        for field in ("approved", "reason", "size_usd"):
+        for field in ("approved", "reason", "size_mult", "size_usd"):
             if before.get(field) != after.get(field):
                 problems.append(
                     f"  ~ {name}.{field}: {before.get(field)!r} -> {after.get(field)!r}")
