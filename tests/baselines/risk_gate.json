@@ -1,0 +1,586 @@
+{
+  "meta": {
+    "cases": 88,
+    "approved": 58,
+    "rejected": 30,
+    "raised": 0,
+    "distinct_reasons": 20
+  },
+  "config": {
+    "hash": "bee6af3c6d61120d",
+    "keys": 531,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "reasons": [
+    "CLUSTER_RISK(BTC_BETA:2.00%>1.25%)",
+    "DAILY_PROJECTED_LOSS(200.0000>40.0000)",
+    "DAILY_PROJECTED_LOSS(4000.0000>40.0000)",
+    "HEAT_LONG(6>=6)",
+    "HEAT_LONG(7>=6)",
+    "INVALID_DIRECTION",
+    "INVALID_PRICE",
+    "INVALID_STRENGTH",
+    "Kapital zbyt niski",
+    "Max pozycji (10)",
+    "NON_POSITIVE_NET_R(-0.40<=0)",
+    "NON_POSITIVE_NET_R(-23.92<=0)",
+    "OK",
+    "Pauza (STOP/PAUSE) – kliknij START",
+    "RISK_REDUCE_ONLY",
+    "TEST_HALT",
+    "Za slaby sygnal reversal (0.30<0.32)",
+    "Za slaby sygnal trend (0.00<0.48)",
+    "Za slaby sygnal trend (0.30<0.48)",
+    "Za slaby sygnal trend (0.47<0.48)"
+  ],
+  "results": [
+    {
+      "case": "baseline_ok",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "direction_empty",
+      "approved": false,
+      "reason": "INVALID_DIRECTION",
+      "size_usd": 125.0
+    },
+    {
+      "case": "direction_garbage",
+      "approved": false,
+      "reason": "INVALID_DIRECTION",
+      "size_usd": 125.0
+    },
+    {
+      "case": "direction_lowercase",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "price_zero",
+      "approved": false,
+      "reason": "INVALID_PRICE",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "price_negative",
+      "approved": false,
+      "reason": "INVALID_PRICE",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "price_none",
+      "approved": false,
+      "reason": "INVALID_PRICE",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "price_nan",
+      "approved": false,
+      "reason": "INVALID_PRICE",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "price_inf",
+      "approved": false,
+      "reason": "INVALID_PRICE",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "strength_none",
+      "approved": false,
+      "reason": "INVALID_STRENGTH",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_nan",
+      "approved": false,
+      "reason": "INVALID_STRENGTH",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_text",
+      "approved": false,
+      "reason": "INVALID_STRENGTH",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.00",
+      "approved": false,
+      "reason": "Za slaby sygnal trend (0.00<0.48)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.30",
+      "approved": false,
+      "reason": "Za slaby sygnal trend (0.30<0.48)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.47",
+      "approved": false,
+      "reason": "Za slaby sygnal trend (0.47<0.48)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.48",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.50",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.60",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.75",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_0.95",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_trend_1.00",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_v2_low_is_skipped_by_design",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_reversal_0.30",
+      "approved": false,
+      "reason": "Za slaby sygnal reversal (0.30<0.32)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_reversal_0.60",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "strength_reversal_0.90",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "engine_daytrading_v2",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "engine_reversal",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "engine_trend",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "engine_swing",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "engine_empty",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "reversal_weak",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "reversal_strong",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "net_r_negative",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "net_r_zero",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "net_r_tiny",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "net_r_prior_only",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 81.25
+    },
+    {
+      "case": "net_r_low_sample",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 81.25
+    },
+    {
+      "case": "net_r_prior_only_ok",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 81.25
+    },
+    {
+      "case": "net_r_nan",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "net_r_missing",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "sl_missing",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "sl_equal_price",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 130.2083
+    },
+    {
+      "case": "sl_hair_tight",
+      "approved": false,
+      "reason": "NON_POSITIVE_NET_R(-23.92<=0)",
+      "size_usd": 800.0
+    },
+    {
+      "case": "sl_tight",
+      "approved": false,
+      "reason": "NON_POSITIVE_NET_R(-0.40<=0)",
+      "size_usd": 800.0
+    },
+    {
+      "case": "sl_normal",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "sl_wide",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 33.3333
+    },
+    {
+      "case": "sl_very_wide",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 0.0
+    },
+    {
+      "case": "sl_inverted_for_long",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "sl_short_normal",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "sl_short_inverted",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "planned_notional_0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "planned_notional_10",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "planned_notional_500",
+      "approved": false,
+      "reason": "CLUSTER_RISK(BTC_BETA:2.00%>1.25%)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "planned_notional_5000",
+      "approved": false,
+      "reason": "DAILY_PROJECTED_LOSS(200.0000>40.0000)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "planned_notional_100000",
+      "approved": false,
+      "reason": "DAILY_PROJECTED_LOSS(4000.0000>40.0000)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_halted",
+      "approved": false,
+      "reason": "TEST_HALT",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_paused",
+      "approved": false,
+      "reason": "Pauza (STOP/PAUSE) – kliknij START",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_capital_zero",
+      "approved": false,
+      "reason": "Kapital zbyt niski",
+      "size_usd": 0.0
+    },
+    {
+      "case": "state_capital_below_one",
+      "approved": false,
+      "reason": "Kapital zbyt niski",
+      "size_usd": 0.0
+    },
+    {
+      "case": "state_capital_tiny",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 0.0
+    },
+    {
+      "case": "state_open_0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_open_1",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_open_5",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_open_9",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_open_10",
+      "approved": false,
+      "reason": "Max pozycji (10)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_open_11",
+      "approved": false,
+      "reason": "Max pozycji (10)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_regime_TREND_UP",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_regime_TREND_DOWN",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_regime_RANGE",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_regime_PANIC",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_regime_UNKNOWN",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_same_direction_0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_same_direction_3",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_same_direction_6",
+      "approved": false,
+      "reason": "HEAT_LONG(6>=6)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_same_direction_7",
+      "approved": false,
+      "reason": "HEAT_LONG(7>=6)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_same_direction_10",
+      "approved": false,
+      "reason": "Max pozycji (10)",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_opposite_directions",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_reduce_only",
+      "approved": false,
+      "reason": "RISK_REDUCE_ONLY",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_reduce_only_lowercase",
+      "approved": false,
+      "reason": "RISK_REDUCE_ONLY",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_+0.0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_-10.0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_-35.0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_-39.9",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_-40.0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "state_daily_pnl_-50.0",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "panic_reversal",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "panic_daytrading_weak",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    },
+    {
+      "case": "panic_daytrading_strong",
+      "approved": true,
+      "reason": "OK",
+      "size_usd": 125.0
+    }
+  ]
+}
