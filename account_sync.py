@@ -24,7 +24,8 @@ class AccountSync:
         self._last_positions_error = None
 
     def is_live(self) -> bool:
-        return not bool(getattr(config, "PAPER_TRADING", True))
+        from cryptoedge.domain import trading_mode
+        return trading_mode.is_live(config)
 
     def ready_for_live(self) -> bool:
         return bool(

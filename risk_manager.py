@@ -132,7 +132,8 @@ class RiskManager:
         self.daily_pnl += pnl_change
         self.update_equity_peak(new_capital)
         # W DEMO aktualizuj też paper_capital (oddzielone od LIVE equity)
-        if bool(getattr(config, "PAPER_TRADING", True)):
+        from cryptoedge.domain import trading_mode
+        if trading_mode.is_paper(config):
             self.paper_capital = float(new_capital)
             self.paper_peak_equity = max(float(self.paper_peak_equity or 0), float(new_capital))
 
@@ -317,10 +318,8 @@ class RiskManager:
 
         # Drift reconciliation – TYLKO LIVE. PAPER: lokalne pozycje vs pusta
         # giełda to stan oczekiwany, nie blokada wejść (RECONCILE_DRIFT).
-        paper = getattr(config, "PAPER_TRADING", True)
-        if isinstance(paper, str):
-            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
-        if (not bool(paper)) and getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
+        from cryptoedge.domain import trading_mode
+        if trading_mode.is_live(config) and getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
             try:
                 rec = getattr(self, "_reconciler_ref", None)
                 if rec is not None and hasattr(rec, "blocks_new_entries") and rec.blocks_new_entries():
@@ -733,12 +732,10 @@ class RiskManager:
         signal["_liq_price"] = liq_px
         signal["_liq_dist"] = liq_dist
 
-        paper = getattr(config, "PAPER_TRADING", True)
-        if isinstance(paper, str):
-            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
+        from cryptoedge.domain import trading_mode
         # PAPER + model MMR (~10% przy x10) vs 1.5×SL+ATR dawało LIQ_TOO_CLOSE
         # bez prawdziwej ceny liq z giełdy. LIVE z blofin_liq nadal twardy.
-        if bool(paper) and str(liq_src).startswith("model"):
+        if trading_mode.is_paper(config) and str(liq_src).startswith("model"):
             return True, "OK"
 
         if liq_dist <= required:
@@ -1155,6 +1152,7 @@ class RiskManager:
                 pass
 
     def get_status(self) -> Dict:
+        from cryptoedge.domain import trading_mode
         self._check_new_day()
         daily_loss_pct = -self.daily_pnl / self.daily_start_capital * 100 if self.daily_start_capital > 0 else 0
         return {
@@ -1167,6 +1165,6 @@ class RiskManager:
             "paused": self.paused,
             "peak_equity": round(self.peak_equity, 4),
             "max_drawdown_pct": round(self.max_drawdown_pct * 100, 2),
-            "mode": "PAPER" if getattr(config, "PAPER_TRADING", True) else "LIVE",
+            "mode": trading_mode.mode_label(config),
             "reserve_pct": float(getattr(config, "CAPITAL_RESERVE_PCT", 0.20)) * 100,
         }

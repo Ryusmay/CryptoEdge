@@ -94,7 +94,8 @@ class BotRuntime:
         if self.risk and not self.trading_enabled:
             self.risk.paused = True
         self.analysis_wakeup.set()
-        mode = "DEMO" if getattr(_cfg, "PAPER_TRADING", True) else "LIVE"
+        from cryptoedge.domain import trading_mode as _mode
+        mode = "DEMO" if _mode.is_paper(_cfg) else "LIVE"
         strategy = str(getattr(_cfg, "STRATEGY_MODE", "DAYTRADING") or "DAYTRADING").upper()
         return f"ANALYSIS_ON ({mode}/{strategy}) – bez handlu"
 
@@ -102,6 +103,7 @@ class BotRuntime:
         """Analiza + handel (otwieranie pozycji)."""
         import time as _t
         import config as _cfg
+        from cryptoedge.domain import trading_mode as _mode
         import settings_store as _settings
         _settings.apply_settings()
         self.engine_enabled = True
@@ -136,14 +138,14 @@ class BotRuntime:
                     self.risk.sync_open_count(len(self.trader.positions))
                 except Exception:
                     pass
-            if bool(getattr(_cfg, "PAPER_TRADING", True)):
+            if _mode.is_paper(_cfg):
                 try:
                     if float(self.risk.current_capital or 0) < 1:
                         self.risk.apply_demo_capital()
                 except Exception:
                     pass
         self.analysis_wakeup.set()
-        mode = "DEMO" if getattr(_cfg, "PAPER_TRADING", True) else "LIVE"
+        mode = "DEMO" if _mode.is_paper(_cfg) else "LIVE"
         strategy = str(getattr(_cfg, "STRATEGY_MODE", "DAYTRADING") or "DAYTRADING").upper()
         return f"TRADING_ON ({mode}/{strategy})"
 
@@ -381,7 +383,8 @@ class BotRuntime:
             return None
         if cyc <= 0 or (cyc % every) != 0:
             return None
-        if bool(getattr(config, "PAPER_TRADING", True)):
+        from cryptoedge.domain import trading_mode
+        if trading_mode.is_paper(config):
             return None
         rec = getattr(self, "reconciler", None)
         trader = getattr(self, "trader", None)

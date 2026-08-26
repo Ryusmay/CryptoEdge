@@ -1120,10 +1120,8 @@ class PaperTrader:
             pass
 
         # LIVE bez executora: blokada. DEMO (PAPER_TRADING=True) zawsze handluje lokalnie.
-        paper = getattr(config, "PAPER_TRADING", True)
-        if isinstance(paper, str):
-            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
-        if not paper:
+        from cryptoedge.domain import trading_mode
+        if trading_mode.is_live(config):
             # PaperTrader is a simulator, never a LIVE execution path.
             try:
                 self.risk.log_reject(

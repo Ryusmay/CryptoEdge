@@ -345,7 +345,8 @@ def should_execute(signal: dict) -> bool:
     if shadow_only():
         signal["paper_reversal_block_reason"] = "REVERSAL_SHADOW_ONLY"
         return False
-    if not bool(getattr(config, "PAPER_TRADING", True)):
+    from cryptoedge.domain import trading_mode
+    if trading_mode.is_live(config):
         signal["paper_reversal_block_reason"] = "REVERSAL_LIVE_DISABLED"
         return False
     if not bool(getattr(config, "REVERSAL_PAPER_EXECUTION_ENABLED", False)):

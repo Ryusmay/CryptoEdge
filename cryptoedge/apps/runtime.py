@@ -18,10 +18,9 @@ def attach_runtime_modules(rt):
     health.report("strategy", "warming")
     health.report("risk", "healthy")
     import config
-    paper = getattr(config, "PAPER_TRADING", True)
-    if isinstance(paper, str):
-        paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
-    live_enabled = (not bool(paper)) and bool(getattr(config, "LIVE_EXECUTION_ENABLED", False))
+    from ..domain import trading_mode
+    paper = trading_mode.is_paper(config)
+    live_enabled = trading_mode.live_execution_armed(config)
     health.report("execution", "healthy" if paper else (
         "healthy" if live_enabled and getattr(rt, "executor", None) else "degraded"),
         "PAPER_LOCAL" if paper else "LIVE")

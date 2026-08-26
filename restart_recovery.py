@@ -83,10 +83,8 @@ class RestartRecovery:
             report["errors"].append(f"kill_file: {e}")
 
         # 3) PAPER leftover Close-All ≠ disaster halt. Operator/LIVE zostaje.
-        paper = getattr(config, "PAPER_TRADING", True)
-        if isinstance(paper, str):
-            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
-        paper = bool(paper)
+        from cryptoedge.domain import trading_mode
+        paper = trading_mode.is_paper(config)
         if self.protection and (
             getattr(self.protection, "kill_switch_active", False)
             or (hasattr(self.protection, "is_killed") and self.protection.is_killed())
@@ -250,8 +248,7 @@ class RestartRecovery:
         # 5) Reconcile vs exchange (LIVE / gdy klucze)
         if self.reconciler and self.trader:
             try:
-                paper = bool(getattr(config, "PAPER_TRADING", True))
-                if not paper or bool(getattr(config, "RECOVERY_RECONCILE_IN_PAPER", False)):
+                if trading_mode.is_live(config) or bool(getattr(config, "RECOVERY_RECONCILE_IN_PAPER", False)):
                     rec = self.reconciler.reconcile(self.trader.positions, executor=self.executor,
                                                     protection=self.protection)
                     report["reconcile"] = {

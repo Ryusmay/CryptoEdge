@@ -80,6 +80,12 @@ def apply_settings(data: Dict[str, Any] | None = None) -> Dict[str, Any]:
     for k, v in data.items():
         if hasattr(config, k) or k in DEFAULTS:
             try:
+                if k == "PAPER_TRADING":
+                    # Granica systemu: JSON moze przyniesc "false", a bool("false")
+                    # to True. Bez tej konwersji czesc systemu widzialaby PAPER,
+                    # a czesc LIVE. Nierozpoznana wartosc => papier.
+                    from cryptoedge.domain.trading_mode import coerce_paper_flag
+                    v = coerce_paper_flag(v)
                 if k == "STARTING_CAPITAL":
                     v = float(v)
                     if v < 1:

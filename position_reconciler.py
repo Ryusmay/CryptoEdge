@@ -190,11 +190,10 @@ class PositionReconciler:
         )
         # Drift blokuje TYLKO LIVE. Paper trzyma pozycje lokalnie, a konto
         # BloFin (read-only / puste) jest puste — only_local ≠ drift.
-        paper = getattr(config, "PAPER_TRADING", True)
-        if isinstance(paper, str):
-            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
+        from cryptoedge.domain import trading_mode
+        live = trading_mode.is_live(config)
         block_on_drift = bool(getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True))
-        self.drift_blocks_entries = (not in_sync) and block_on_drift and (not bool(paper))
+        self.drift_blocks_entries = (not in_sync) and block_on_drift and live
 
 
         report = {
@@ -213,7 +212,7 @@ class PositionReconciler:
             # Brak odpowiedzi z venue nie jest dowodem płaskiego konta.
             # W LIVE fail closed; PAPER może dalej zarządzać lokalnym stanem.
             report["in_sync"] = False
-            if not bool(paper):
+            if live:
                 self.drift_blocks_entries = True
                 report["drift_blocks_entries"] = True
         # Pelny startup/runtime audit: working orders oraz protective orders.
@@ -234,12 +233,12 @@ class PositionReconciler:
             # UNKNOWN is not the same as an empty exchange order set. In LIVE
             # fail closed until a later reconciliation can prove the state.
             report["in_sync"] = False
-            if not bool(paper):
+            if live:
                 self.drift_blocks_entries = True
                 report["drift_blocks_entries"] = True
         if report["orphan_orders"] or report["protective_missing"]:
             report["in_sync"] = False
-            if not bool(paper):
+            if live:
                 self.drift_blocks_entries = True
                 report["drift_blocks_entries"] = True
         self.last_report = report
