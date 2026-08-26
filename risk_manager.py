@@ -352,44 +352,26 @@ class RiskManager:
                 print(f"[Risk] portfolio check err: {type(e).__name__}: {e}")
                 return False, "PORTFOLIO_CHECK_FAILED"
 
-        # Filtr strategii primary (4h) + fallback MTF
-        require_pri = getattr(config, "REQUIRE_PRIMARY_STRATEGY", getattr(config, "REQUIRE_STRATEGY_1H", True))
-        aggressive = getattr(config, "AGGRESSIVE_MODE", False)
-        regime = (signal.get("market_regime") or "").upper()
-        mtf = signal.get("mtf") or {}
-        min_votes = int(getattr(config, "MTF_MIN_VOTES_FALLBACK", 2) or 2)
-        direction = signal.get("direction")
-        long_votes = int(mtf.get("long_votes") or 0)
-        short_votes = int(mtf.get("short_votes") or 0)
-        mtf_ok = (
-            (direction == "LONG" and long_votes >= min_votes)
-            or (direction == "SHORT" and short_votes >= min_votes)
-        )
+        # Filtr strategii primary (4h) + fallback MTF.
+        # Reguly: cryptoedge.risk.strategy_filter - jeden wlasciciel.
+        from cryptoedge.risk import strategy_filter as strat_filter
 
-        is_v2 = eng_s in ("daytrading_v2", "daytradingv2") or signal.get("strategy_mode") == "DAYTRADING_V2"
-        is_day = (eng_s == "daytrading" or signal.get("strategy_mode") == "DAYTRADING") and not is_v2
-        if is_day:
-            intraday = signal.get("intraday") or {}
-            setup = str(signal.get("setup") or "")
-            setup_ok = setup in (
-                "intraday_5m_confirmed",
-                "intraday_15m_confirmed",
-                "intraday_confirmed",
-            )
-            if not setup_ok:
-                return False, "DAY_SETUP_NOT_CONFIRMED"
-            if str(signal.get("signal_source") or "") != "BLOFIN_NATIVE":
-                return False, "DAY_NON_NATIVE_SOURCE"
-        if require_pri and not aggressive and not is_day and not is_v2:
+        regime = (signal.get("market_regime") or "").upper()
+        direction = signal.get("direction")
+        long_votes, short_votes = strat_filter.votes_of(signal)
+        mtf_ok = strat_filter.mtf_majority(direction, signal, config)
+
+        if strat_filter.is_daytrading(signal):
+            ok_day, why_day = strat_filter.day_setup_ok(signal)
+            if not ok_day:
+                return False, why_day
+        if strat_filter.primary_filter_applies(signal, config):
             strat = signal.get("strategy")
             strength = float(signal.get("strength") or 0)
-            reasons_u = " ".join(str(r) for r in (signal.get("reasons") or []))
-            soft_ok = (
-                "PRIMARY_MTF_FALLBACK" in reasons_u
-                or "PRIMARY_SOFT_PASS" in reasons_u
-                or "STRAT_SOFT_ALIGN" in reasons_u
-            )
+            soft_ok = strat_filter.has_soft_align(signal.get("reasons"))
             if strat:  # mamy wynik ewaluacji 4h
+                # Te dwie galezie mutuja sygnal w miejscu i dlatego zostaja
+                # tutaj. Ich mnozniki sa przypiete w baseline bramki ryzyka.
                 if not strat.get("pass"):
                     # MTF majority lub soft-align (ADX+ST) → wpuść z mniejszym size
                     if mtf_ok or soft_ok:
@@ -404,18 +386,11 @@ class RiskManager:
             else:
                 # Brak 4h (STRAT_PRIMARY_NA) – nie blokuj wszystkiego w RANGE:
                 # OK gdy: MTF>=min  LUB  siła wysoka (RANGE: >=0.68, inaczej MIN+0.08)
-                min_str = float(config.MIN_SIGNAL_STRENGTH)
-                range_min = float(getattr(config, "STRAT_NA_RANGE_MIN_STRENGTH", 0.68))
-                block_na_range = getattr(config, "BLOCK_STRAT_NA_IN_RANGE", True)
-                if mtf_ok:
-                    pass
-                elif regime == "RANGE" and block_na_range:
-                    if strength < range_min:
-                        return False, f"STRAT_NA_RANGE_WEAK({strength:.2f}<{range_min})"
-                elif strength < (min_str + 0.08):
-                    return False, f"STRAT_NA_NO_MTF(L{long_votes}/S{short_votes}<{min_votes})"
-                if strength < min_str:
-                    return False, "STRAT_NA_WEAK"
+                ok_na, why_na = strat_filter.strat_na_verdict(
+                    strength, regime, mtf_ok, long_votes, short_votes, config,
+                )
+                if not ok_na:
+                    return False, why_na
 
         # reject_reason z silnika – pomiń tylko miękkie flagi
         rr = signal.get("reject_reason")
