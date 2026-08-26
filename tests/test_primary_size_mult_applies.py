@@ -79,6 +79,42 @@ class TestPrimaryMultiplierReachesTheSize(unittest.TestCase):
         got = self.size_for(strategy={"pass": True, "direction": "LONG"})
         self.assertAlmostEqual(self.baseline, got, places=2)
 
+    def rev(self, **kw):
+        base = {"engine": "reversal", "strategy_mode": "SWING",
+                "strength": 0.60, "reversal_score": 0.60}
+        base.update(kw)
+        return self.size_for(**base)
+
+    def test_reversal_reduction_reaches_the_size(self):
+        """v20.24.0 - reversal omija adaptive_size, wiec przed ta wersja
+        mnoznik przepadal. Trend dzialal, reversal nie."""
+        clean = self.rev(strategy={"pass": True, "direction": "LONG"})
+        cut = self.rev(strategy={"pass": False}, mtf={"long_votes": 2})
+        self.assertLess(cut, clean, "redukcja nie dotarla do rozmiaru reversal")
+
+    def test_reversal_conflict_is_reduced_more_than_fail(self):
+        fail = self.rev(strategy={"pass": False}, mtf={"long_votes": 2})
+        conflict = self.rev(strategy={"pass": True, "direction": "SHORT"},
+                            mtf={"long_votes": 2})
+        self.assertLess(conflict, fail)
+
+    def test_reversal_clean_is_not_reduced(self):
+        a = self.rev(strategy={"pass": True, "direction": "LONG"})
+        b = self.rev()
+        self.assertAlmostEqual(a, b, places=2)
+
+    def test_apply_size_mult_helper(self):
+        """Jeden wlasciciel nakladania mnoznika - takze dla zlych danych."""
+        f = self.risk._apply_size_mult
+        self.assertAlmostEqual(60.0, f(100.0, {"_size_mult": 0.6}))
+        self.assertEqual(100.0, f(100.0, {}), "brak mnoznika = bez zmian")
+        self.assertEqual(100.0, f(100.0, {"_size_mult": 1.0}))
+        self.assertEqual(100.0, f(100.0, {"_size_mult": 1.5}),
+                         "mnoznik > 1 nie moze podniesc rozmiaru")
+        self.assertEqual(100.0, f(100.0, {"_size_mult": 0}))
+        self.assertEqual(100.0, f(100.0, {"_size_mult": "duzo"}))
+        self.assertEqual(100.0, f(100.0, {"_size_mult": None}))
+
     def test_v2_is_untouched(self):
         """V2 omija ten filtr - poprawka nie moze go dotknac."""
         v2 = {"engine": "daytrading_v2", "strategy_mode": "DAYTRADING_V2"}

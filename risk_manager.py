@@ -746,6 +746,22 @@ class RiskManager:
         lev = max(float(getattr(config, "LEVERAGE", 10)), 1.0)
         return max(sl_pnl / 100.0 / lev, 0.005)  # floor 0.5% ceny
 
+    @staticmethod
+    def _apply_size_mult(notional: float, signal: Dict) -> float:
+        """Naklada `_size_mult` na notional. Jeden wlasciciel tej operacji.
+
+        Mnoznik ustawia prepare_signal_for_sizing() przed sizingiem. Normalnie
+        konsumuje go adaptive_size (jako czynnik `perp`), ale sciezki, ktore
+        adaptive omijaja, musza go nalozyc same - inaczej redukcja przepada.
+        """
+        try:
+            sm = float(signal.get("_size_mult") or 1.0)
+        except (TypeError, ValueError):
+            return notional
+        if 0 < sm < 1.0:
+            return notional * sm
+        return notional
+
     def calculate_position_size(self, signal: Dict) -> float:
         """
         Risk-based sizing:
@@ -957,18 +973,20 @@ class RiskManager:
             from adaptive_size import apply_to_notional
             if not skip_adapt:
                 notional = apply_to_notional(notional, signal, risk=self)
-            elif v2_fixed_notional is not None:
-                lo_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MIN", 5.0)) / 100.0) * lev
-                hi_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0)) / 100.0) * lev
-                notional = min(max(notional, lo_n), hi_n)
+            else:
+                if v2_fixed_notional is not None:
+                    lo_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MIN", 5.0)) / 100.0) * lev
+                    hi_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0)) / 100.0) * lev
+                    notional = min(max(notional, lo_n), hi_n)
+                # adaptive_size jest JEDYNYM konsumentem `_size_mult`, a ta
+                # sciezka (V2 i reversal capital_pct) go omija - wiec mnoznik
+                # trzeba nalozyc tutaj, inaczej redukcja z filtra strategii
+                # przepada bez sladu. Po klamrowaniu, zeby dolny prog marginu
+                # jej nie cofnal. v20.24.0.
+                notional = self._apply_size_mult(notional, signal)
         except Exception as e:
             print(f"[Risk] adaptive size: {e}")
-            try:
-                sm = float(signal.get("_size_mult") or 1.0)
-                if 0 < sm < 1.0:
-                    notional *= sm
-            except (TypeError, ValueError):
-                pass
+            notional = self._apply_size_mult(notional, signal)
 
         # PRIORYTET 13 — liquidity → impact → maximum safe notional
         # „chcę $5k, book uniesie $1.4k” → size = $1.4k (nie reject tylko OB_THIN)

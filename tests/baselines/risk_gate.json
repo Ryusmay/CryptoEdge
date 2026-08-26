@@ -1,7 +1,7 @@
 {
   "meta": {
-    "cases": 120,
-    "approved": 75,
+    "cases": 124,
+    "approved": 79,
     "rejected": 45,
     "raised": 0,
     "distinct_reasons": 29
@@ -615,6 +615,34 @@
       "reason": "STRAT_NA_RANGE_WEAK(0.40<0.68)",
       "size_mult": null,
       "size_usd": 82.3529
+    },
+    {
+      "case": "strat_reversal_clean",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 225.0
+    },
+    {
+      "case": "strat_reversal_fail_with_mtf",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 172.9412
+    },
+    {
+      "case": "strat_reversal_fail_with_soft",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.6,
+      "size_usd": 172.9412
+    },
+    {
+      "case": "strat_reversal_conflict_with_mtf",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": 0.5,
+      "size_usd": 144.1176
     },
     {
       "case": "day_setup_missing",

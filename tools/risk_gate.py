@@ -205,6 +205,23 @@ def build_strategy_corpus() -> list[dict]:
         {"engine": "reversal", "strength": 0.40, "reversal_score": 0.40,
          "market_regime": "RANGE"},
         {"regime": "RANGE"})
+    # Redukcja rozmiaru dla REVERSAL. Osobno od trendu, bo reversal idzie
+    # sciezka capital_pct (ustawia _v2_margin_pct), ktora omija adaptive_size -
+    # jedynego konsumenta `_size_mult`. Korpus v20.22.0 tego nie pokrywal,
+    # bo wszystkie przypadki filtra mialy engine="trend".
+    add("strat_reversal_clean",
+        {"engine": "reversal", "strength": 0.60, "reversal_score": 0.60,
+         "strategy": {"pass": True, "direction": "LONG"}})
+    add("strat_reversal_fail_with_mtf",
+        {"engine": "reversal", "strength": 0.60, "reversal_score": 0.60,
+         "strategy": {"pass": False}, "mtf": mtf(long_votes=2)})
+    add("strat_reversal_fail_with_soft",
+        {"engine": "reversal", "strength": 0.60, "reversal_score": 0.60,
+         "strategy": {"pass": False}, "reasons": ["PRIMARY_SOFT_PASS"]})
+    add("strat_reversal_conflict_with_mtf",
+        {"engine": "reversal", "strength": 0.60, "reversal_score": 0.60,
+         "strategy": {"pass": True, "direction": "SHORT"},
+         "mtf": mtf(long_votes=2)})
     # --- galaz DAYTRADING (nie V2) ---
     def add_day(name, signal):
         base = {"engine": "daytrading", "strategy_mode": "DAYTRADING",
