@@ -191,30 +191,36 @@ class RiskManager:
         self._check_new_day()
         if str(getattr(self, "risk_state", "NORMAL")).upper() == "REDUCE_ONLY":
             return False, "RISK_REDUCE_ONLY"
-        direction = str(signal.get("direction") or "").upper()
-        if direction not in ("LONG", "SHORT"):
-            return False, "INVALID_DIRECTION"
-        for field in ("price", "strength"):
-            try:
-                value = float(signal.get(field))
-            except (TypeError, ValueError):
-                return False, f"INVALID_{field.upper()}"
-            if not math.isfinite(value) or (field == "price" and value <= 0):
-                return False, f"INVALID_{field.upper()}"
+        # Ksztalt sygnalu: cryptoedge.risk.validation, jeden wlasciciel reguly.
+        from cryptoedge.risk import limits as risk_limits
+        from cryptoedge.risk import validation as risk_validation
+
+        direction = risk_validation.normalized_direction(signal)
+        ok_shape, why_shape = risk_validation.validate_signal_shape(signal)
+        if not ok_shape:
+            return False, why_shape
         self.prepare_signal_for_sizing(signal)
         # DEMO nigdy nie blokuj przez „LIVE”
         if self.paused:
             return False, "Pauza (STOP/PAUSE) – kliknij START"
         if self.is_halted:
             return False, self.halt_reason or "Bot zatrzymany"
+        # Projekcja dziennej straty: budzet i porownanie licza limits, tutaj
+        # zostaje tylko odczyt stanu. Wyjatek nadal lapiemy na miejscu - to
+        # brakujacy atrybut na self/config, nie blad reguly.
         try:
-            planned = float(signal.get("_planned_notional") or 0)
-            projected_risk = planned * self._sl_distance_pct(signal)
-            remaining = self.daily_start_capital * float(config.DAILY_LOSS_LIMIT) + self.daily_pnl
-            if projected_risk > max(0.0, remaining):
-                return False, f"DAILY_PROJECTED_LOSS({projected_risk:.4f}>{max(0.0, remaining):.4f})"
+            budget = risk_limits.daily_loss_budget_remaining(
+                self.daily_start_capital, self.daily_pnl, config
+            )
+            ok_daily, why_daily = risk_limits.projected_loss_ok(
+                float(signal.get("_planned_notional") or 0),
+                self._sl_distance_pct(signal),
+                budget,
+            )
         except (TypeError, ValueError, AttributeError):
             return False, "DAILY_PROJECTED_LOSS_UNAVAILABLE"
+        if not ok_daily:
+            return False, why_daily
         # Circuit breaker po serii strat
         if self.loss_pause_until and datetime.now() < self.loss_pause_until:
             left = (self.loss_pause_until - datetime.now()).total_seconds() / 60
@@ -225,8 +231,6 @@ class RiskManager:
 
         # Regime tiered: max pozycji w RANGE.
         # Sufit slotow liczy cryptoedge.risk.limits - jeden wlasciciel reguly.
-        from cryptoedge.risk import limits as risk_limits
-
         regime = (signal.get("market_regime") or self.last_regime or "UNKNOWN").upper()
         max_pos = risk_limits.max_positions_for_regime(regime, config)
         if regime == "RANGE":

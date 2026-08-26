@@ -84,3 +84,28 @@ def heat_limit_ok(direction: str, open_directions, cfg=None) -> tuple:
     if same >= limit:
         return False, f"HEAT_{direction}({same}>={limit})"
     return True, "OK"
+
+
+def daily_loss_budget_remaining(daily_start_capital, daily_pnl, cfg=None) -> float:
+    """Ile jeszcze wolno dzis stracic.
+
+    daily_pnl jest ujemne przy stracie, wiec dodanie go zjada budzet. Wynik
+    moze wyjsc ujemny - to znaczy, ze limit jest juz przekroczony; obcinamy
+    do zera dopiero przy porownaniu, zeby powod pokazywal realny prog.
+    """
+    cfg = _config(cfg)
+    return float(daily_start_capital) * float(getattr(cfg, "DAILY_LOSS_LIMIT", 0.04)) + float(daily_pnl)
+
+
+def projected_loss_ok(planned_notional, sl_distance_pct, remaining_budget) -> tuple:
+    """Czy strata do SL zmiesci sie w dzisiejszym budzecie.
+
+    Pytamy PRZED otwarciem: nie "ile juz stracilem", tylko "ile strace, jesli
+    ta pozycja pojdzie prosto na stop-loss". Bez tego dzienny limit lapie
+    dopiero po fakcie.
+    """
+    projected = float(planned_notional) * float(sl_distance_pct)
+    ceiling = max(0.0, float(remaining_budget))
+    if projected > ceiling:
+        return False, f"DAILY_PROJECTED_LOSS({projected:.4f}>{ceiling:.4f})"
+    return True, "OK"
