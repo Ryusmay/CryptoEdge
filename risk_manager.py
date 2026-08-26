@@ -223,16 +223,18 @@ class RiskManager:
             self.loss_pause_until = None
             self.consecutive_losses = 0
 
-        # Regime tiered: max pozycji w RANGE
+        # Regime tiered: max pozycji w RANGE.
+        # Sufit slotow liczy cryptoedge.risk.limits - jeden wlasciciel reguly.
+        from cryptoedge.risk import limits as risk_limits
+
         regime = (signal.get("market_regime") or self.last_regime or "UNKNOWN").upper()
-        max_pos = int(config.MAX_POSITIONS)
+        max_pos = risk_limits.max_positions_for_regime(regime, config)
         if regime == "RANGE":
-            max_pos = min(max_pos, int(getattr(config, "REGIME_RANGE_MAX_POSITIONS", 5) or 5))
+            pass
         elif regime == "PANIC":
             # PANIC = silny jednokierunkowy ruch, nie halt.
             # V2/Trend/Reversal wchodzą; sloty jak zawsze (MAX_POSITIONS).
             eng = (signal.get("engine") or "trend").lower()
-            max_pos = min(max_pos, int(getattr(config, "REGIME_PANIC_MAX_POSITIONS", 10) or 10))
             if eng == "reversal":
                 min_rev = float(getattr(config, "REVERSAL_MIN_STRENGTH", config.MIN_SIGNAL_STRENGTH))
                 if float(signal.get("strength") or 0) < min_rev:
@@ -263,10 +265,12 @@ class RiskManager:
                 min_panic = float(getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.0) or 0.0)
                 if min_panic > 0 and float(signal.get("strength") or 0) < min_panic:
                     return False, f"REGIME_PANIC_TREND({float(signal.get('strength') or 0):.2f}<{min_panic})"
-        if self.open_positions_count >= max_pos:
-            return False, f"Max pozycji ({max_pos}" + (f" RANGE)" if regime == "RANGE" else ")")
-        if self.current_capital < 1.0:
-            return False, "Kapital zbyt niski"
+        ok_slot, why_slot = risk_limits.slot_available(self.open_positions_count, max_pos, regime)
+        if not ok_slot:
+            return False, why_slot
+        ok_cap, why_cap = risk_limits.capital_sufficient(self.current_capital)
+        if not ok_cap:
+            return False, why_cap
         # PRIORYTET 5: osobny score per silnik
         eng_s = (signal.get("engine") or signal.get("score_type") or "trend").lower()
         if eng_s not in ("daytrading_v2", "daytradingv2"):
@@ -303,10 +307,9 @@ class RiskManager:
         direction = signal.get("direction")
         if open_directions is None:
             open_directions = []
-        same = sum(1 for d in open_directions if d == direction)
-        max_same = max(1, int(config.MAX_POSITIONS * float(getattr(config, "MAX_SAME_DIRECTION_PCT", 0.65))))
-        if same >= max_same:
-            return False, f"HEAT_{direction}({same}>={max_same})"
+        ok_heat, why_heat = risk_limits.heat_limit_ok(direction, open_directions, config)
+        if not ok_heat:
+            return False, why_heat
 
         # Drift reconciliation – TYLKO LIVE. PAPER: lokalne pozycje vs pusta
         # giełda to stan oczekiwany, nie blokada wejść (RECONCILE_DRIFT).
