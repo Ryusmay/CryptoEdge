@@ -1796,16 +1796,19 @@ class PaperTrader:
         niezaleznie od PnL. To bezpieczniejszy domyslny wybor niz realizacja
         czegos na podstawie starych danych.
         """
+        from cryptoedge.portfolio import (
+            format_age, max_price_age_s, may_realize_profit, resolve_close_price,
+        )
+
         price_map = price_map or {}
-        max_age = float(getattr(config, "STOP_ENGINE_MAX_PRICE_AGE_S", 60.0) or 60.0)
-        stale = price_map_age_s > max_age
+        max_age = max_price_age_s()
+        stale = not may_realize_profit(price_map_age_s)
         closed = []
         adjusted = []
         with self.lock:
             for pos in list(self.positions):
-                px = price_map.get(pos.symbol)
-                if px is None:
-                    px = getattr(pos, "entry_price", 0) or 0
+                px = resolve_close_price(pos, price_map, price_map_age_s,
+                                         "stop_take_profit").price
                 try:
                     pos.update_pnl(float(px))
                 except Exception:
@@ -1848,7 +1851,7 @@ class PaperTrader:
                         "tp": pos.tp_price,
                         "sl": pos.sl_price,
                     })
-                    stale_note = f" [ceny sprzed {price_map_age_s:.0f}s - pominieto decyzje o zamknieciu]" if stale else ""
+                    stale_note = f" [ceny sprzed {format_age(price_map_age_s)} - pominieto decyzje o zamknieciu]" if stale else ""
                     print(
                         f"[STOP] Zostawiam {pos.direction} {pos.symbol} "
                 f"PnL {pos.pnl_pct:+.2f}% | TP->${pos.tp_price:.6f} (+{take_profit_pct:.0f}% PnL) | SL ${pos.sl_price:.6f}{stale_note}"
@@ -1856,7 +1859,7 @@ class PaperTrader:
         if closed:
             print(f"[STOP] Zamknięto na plusie (po kosztach): {', '.join(closed)}")
         if stale:
-            print(f"[STOP] last_price_map ma {price_map_age_s:.0f}s ({max_age:.0f}s limit) - zadna pozycja nie zostala zamknieta na podstawie tych cen.")
+            print(f"[STOP] last_price_map ma {format_age(price_map_age_s)} ({max_age:.0f}s limit) - zadna pozycja nie zostala zamknieta na podstawie tych cen.")
         return {"closed_profit": closed, "kept_with_tp": adjusted, "prices_stale": stale}
 
 
@@ -1875,30 +1878,21 @@ class PaperTrader:
         nadal ma sie wykonac, ale ma zostawic slad w powodzie zamkniecia, zeby
         historia nie udawala normalnej transakcji.
         """
+        from cryptoedge.portfolio import (
+            format_age, max_price_age_s, prices_are_stale, resolve_close_price,
+        )
+
         price_map = price_map or {}
-        max_age = float(getattr(config, "STOP_ENGINE_MAX_PRICE_AGE_S", 60.0) or 60.0)
-        try:
-            age = None if price_map_age_s is None else float(price_map_age_s)
-        except (TypeError, ValueError):
-            age = None
-        stale = age is not None and age > max_age
-        # age bywa inf, gdy mapa cen nie zostala ani razu zapisana - int(inf)
-        # rzuca OverflowError, wiec nie wolno go wpuscic do formatowania.
-        age_tag = "NIGDY" if (age is None or age == float("inf")) else f"{int(age)}s"
-        if stale:
-            print(f"[CLOSE_ALL] UWAGA: ceny maja {age_tag} ({max_age:.0f}s limit) - "
-                  f"zamykam mimo to, wyniki oznaczone STALE_PRICE.")
+        if prices_are_stale(price_map_age_s):
+            print(f"[CLOSE_ALL] UWAGA: ceny maja {format_age(price_map_age_s)} "
+                  f"({max_price_age_s():.0f}s limit) - zamykam mimo to, "
+                  f"wyniki oznaczone STALE_PRICE.")
         closed = []
         for pos in list(self.positions):
-            px = price_map.get(pos.symbol)
-            tag = reason
-            if px is None or float(px) <= 0:
-                px = pos.entry_price
-                tag = f"{reason}:NO_PRICE"
+            decision = resolve_close_price(pos, price_map, price_map_age_s, reason)
+            if decision.is_fallback:
                 print(f"[CLOSE_ALL] {pos.symbol}: brak ceny w mapie - ksieguje po entry (PnL 0).")
-            elif stale:
-                tag = f"{reason}:STALE_PRICE_{age_tag}"
-            pnl = self.close_position(pos, px, tag)
+            pnl = self.close_position(pos, decision.price, decision.reason)
             closed.append((pos.symbol, pnl))
         return closed
 

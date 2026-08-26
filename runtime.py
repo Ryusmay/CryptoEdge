@@ -176,9 +176,8 @@ class BotRuntime:
         try:
             if self.trader:
                 tp_pct = float(getattr(__import__("config"), "STOP_ENGINE_TP_PCT", 5.0))
-                age_s = max(0.0, time.time() - float(self.last_price_map_ts or 0.0)) if self.last_price_map_ts else float("inf")
                 res = self.trader.on_engine_stop(self.last_price_map or {}, take_profit_pct=tp_pct,
-                                                 price_map_age_s=age_s)
+                                                 price_map_age_s=self.price_map_age_s())
                 n_c = len(res.get("closed_profit") or [])
                 n_k = len(res.get("kept_with_tp") or [])
                 stale_note = " | ceny nieswieze - nic nie zamknieto" if res.get("prices_stale") else ""
@@ -235,18 +234,14 @@ class BotRuntime:
                                           price_map_age_s=age_s)
                 closed = n if isinstance(n, int) else len(n or [])
             elif self.trader:
-                # Ta sama zasada co w PaperTrader._close_all_unlocked: kill
-                # switch zamyka zawsze, ale brak ceny / cena sprzed godzin
-                # musi zostawic slad w powodzie zamkniecia.
-                stale = age_s > float(getattr(_cfg, "STOP_ENGINE_MAX_PRICE_AGE_S", 60.0) or 60.0)
-                age_tag = "NIGDY" if age_s == float("inf") else f"{int(age_s)}s"
+                # Ta sama regula co w PaperTrader._close_all_unlocked, bo to
+                # dokladnie ta sama decyzja - jeden wlasciciel w close_policy.
+                from cryptoedge.portfolio import resolve_close_price
                 for pos in list(getattr(self.trader, "positions", []) or []):
-                    px = (self.last_price_map or {}).get(pos.symbol)
-                    if px is None or float(px) <= 0:
-                        px, tag = pos.entry_price, "kill_switch:NO_PRICE"
-                    else:
-                        tag = f"kill_switch:STALE_PRICE_{age_tag}" if stale else "kill_switch"
-                    self.trader.close_position(pos, float(px), tag)
+                    decision = resolve_close_price(
+                        pos, self.last_price_map or {}, age_s, "kill_switch",
+                    )
+                    self.trader.close_position(pos, float(decision.price), decision.reason)
                     closed += 1
         except Exception as e:
             print(f"[KILL] local close error: {e}")
@@ -442,9 +437,14 @@ class BotRuntime:
         self.last_heartbeat = time.time()
 
     def price_map_age_s(self) -> float:
-        """Wiek last_price_map. inf gdy mapa nigdy nie zostala zapisana."""
-        ts = float(self.last_price_map_ts or 0.0)
-        return max(0.0, time.time() - ts) if ts > 0 else float("inf")
+        """Wiek last_price_map. inf gdy mapa nigdy nie zostala zapisana.
+
+        Liczenie wieku ma jedno zrodlo (cryptoedge.portfolio.close_policy),
+        bo wczesniej stop_engine() i kill_switch() robily to osobno i tylko
+        jedna sciezka dostala guard na nieswieze ceny.
+        """
+        from cryptoedge.portfolio import age_of
+        return age_of(self.last_price_map_ts)
 
     # Progi zamrozenia. Pelny skan bywa dluzszy niz budzet (obserwowano 22-70 s
     # przy FULL_SCAN_INTERVAL_SECONDS=20), wiec prog ma duzy zapas: lapie awarie,

@@ -1,4 +1,4 @@
-20.14.0
-tag=v20.14.0
-built=2026-08-26T01:47:27Z
-zip=cryptoedge_bot_v20.14.0.zip
+20.15.0
+tag=v20.15.0
+built=2026-08-26T02:05:22Z
+zip=cryptoedge_bot_v20.15.0.zip
