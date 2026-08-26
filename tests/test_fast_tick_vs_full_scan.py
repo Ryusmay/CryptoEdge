@@ -22,7 +22,7 @@ class TestFastTickVsFullScan(unittest.TestCase):
         cls.runtime_source = RUNTIME_PATH.read_text(encoding="utf-8")
 
     def test_full_scan_interval_config_exists(self):
-        self.assertIn("FULL_SCAN_INTERVAL_SECONDS = 20", self.config_source)
+        self.assertIn("FULL_SCAN_INTERVAL_SECONDS = 30", self.config_source)
 
     def test_runtime_tracks_full_scan_timestamp_and_last_results(self):
         self.assertIn("self.last_full_scan_ts: float = 0.0", self.runtime_source)

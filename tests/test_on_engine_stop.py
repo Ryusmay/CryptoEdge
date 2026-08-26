@@ -76,6 +76,15 @@ class TestOnEngineStop(unittest.TestCase):
         self.assertIn("ETH", res["closed_profit"])
         self.assertEqual(0, len(trader.positions))
 
+    def test_dynamic_round_trip_slippage_prevents_false_profit_close(self):
+        trader = PaperTrader(_Risk())
+        self._open(trader, "BTC", "SHORT", 100.0, 110.0, leverage=10)
+        trader.positions[0].slip_rt = 0.02
+        # +1% gross price move, ale 2% slip + fee => strata netto.
+        res = trader.on_engine_stop({"BTC": 99.0}, take_profit_pct=5.0, price_map_age_s=1.0)
+        self.assertNotIn("BTC", res["closed_profit"])
+        self.assertEqual(1, len(trader.positions))
+
     def test_stale_price_map_skips_close_even_for_large_gain(self):
         # To samo co wyzej (duzy, jednoznaczny zysk), ale ceny sprzed 15 minut -
         # zaden zamknieciowy sygnal nie moze byc na tym oparty.

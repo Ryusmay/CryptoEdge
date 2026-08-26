@@ -63,7 +63,6 @@ def liquidity_bucket(signal: Dict) -> str:
 def route_signal(signal: Dict) -> Dict:
     """Annotate only; never creates or auto-confirms an entry."""
     engine = str(signal.get("engine") or "trend").lower()
-    regime = str(signal.get("market_regime") or "UNKNOWN").upper()
     bucket = liquidity_bucket(signal)
     residual = _finite(signal.get("residual_momentum_24h"), 0.0) or 0.0
     direction = str(signal.get("direction") or "").upper()
@@ -75,9 +74,10 @@ def route_signal(signal: Dict) -> Dict:
         or float(signal.get("reversal_score") or signal.get("strength") or 0) >= 0.60
     )
     preferred, reason = "trend", "DEFAULT_TREND"
-    if confirmed_reversal and (bucket == "ILLIQUID" or extreme or regime in ("PANIC", "RANGE")):
+    if confirmed_reversal and (bucket == "ILLIQUID" or extreme):
         preferred, reason = "reversal", "CONFIRMED_EXTREME_OR_ILLIQUID"
-    elif bucket == "LIQUID" and aligned and regime not in ("PANIC", "EXTREME"):
+    elif bucket == "LIQUID" and aligned:
+        # PANIC = strong move: kontynuacja w kierunku residual, nie fade
         preferred, reason = "trend", "LIQUID_RESIDUAL_CONTINUATION"
     elif confirmed_reversal and not aligned:
         preferred, reason = "reversal", "CONFIRMED_RESIDUAL_FLIP"

@@ -159,9 +159,12 @@ def cross_market_confirmation(signal: dict, coin: dict = None) -> Dict[str, Any]
 
 
 def apply_confirmation(signal: dict, coin: dict = None) -> dict:
+    import config
     conf = cross_market_confirmation(signal, coin)
     signal["external_confirmation"] = conf
     signal["cross_market_status"] = conf["status"]
+    if not bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+        return signal
     delta = float(conf.get("score_delta") or 0)
     if delta:
         signal["strength"] = max(0.0, min(1.0, float(signal.get("strength") or 0) + delta))

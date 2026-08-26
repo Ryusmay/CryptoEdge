@@ -23,9 +23,9 @@ class BotLogger:
         except Exception as e:
             print(f"[Logger] Nie moge utworzyc folderu logs: {e}")
 
-        self.log_file = LOGS_DIR / "bot_log.csv"
-        self.signals_file = LOGS_DIR / "signals_history.csv"
-        self.state_file = LOGS_DIR / "bot_state.json"
+        self.log_file = BASE_DIR / str(getattr(config, "LOG_FILE", "logs/bot_log.csv") or "logs/bot_log.csv")
+        self.signals_file = BASE_DIR / str(getattr(config, "SIGNALS_FILE", "logs/signals_history.csv") or "logs/signals_history.csv")
+        self.state_file = BASE_DIR / str(getattr(config, "STATE_FILE", "logs/bot_state.json") or "logs/bot_state.json")
         self.cycle_file = LOGS_DIR / "cycle_debug.jsonl"
         self.last_state: Dict = {}
         self.enabled = True
@@ -229,7 +229,9 @@ class BotLogger:
             with open(self.signals_file, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                day_mode = str(getattr(config, "STRATEGY_MODE", "DAYTRADING")).upper() == "DAYTRADING"
+                day_mode = str(getattr(config, "STRATEGY_MODE", "DAYTRADING_V2")).upper() in (
+                    "DAYTRADING", "DAYTRADING_V2"
+                )
                 rows = [s for s in signals if not (
                     day_mode and str(s.get("reject_reason") or "").startswith("DAY_NOT_IN_LIQUID_TOP")
                 )]
@@ -288,21 +290,31 @@ class BotLogger:
                 for attempt in range(3):
                     try:
                         os.replace(tmp_path, self.state_file)
+                        tmp_path = None
                         break
                     except PermissionError:
-                        if attempt == 2:
-                            # zapis pod alternatywna nazwa
-                            alt = LOGS_DIR / "bot_state_alt.json"
-                            os.replace(tmp_path, alt)
-                            print("[Logger] bot_state.json zablokowany – zapisano bot_state_alt.json")
-                        else:
+                        if attempt < 2:
                             import time
                             time.sleep(0.15)
+                            continue
+                        # Unikalny alt — stały bot_state_alt.json bywa zablokowany
+                        # (UI / AV / poprzedni replace). Nie nadpisuj w kółko.
+                        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+                        alt = LOGS_DIR / f"bot_state_{stamp}.json"
+                        try:
+                            os.replace(tmp_path, alt)
+                            tmp_path = None
+                            print(f"[Logger] bot_state.json zablokowany – zapisano {alt.name}")
+                        except PermissionError:
+                            # ostatnia szansa: copy treści, zostaw tmp
+                            print(f"[Logger] Blad save_state: PermissionError (state locked)")
+
             except Exception:
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
                 raise
         except Exception as e:
             print(f"[Logger] Blad save_state: {e}")

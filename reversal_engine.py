@@ -388,7 +388,7 @@ def detect_extreme(coin: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """A. Extreme move — duży 24h / z-score / ATR expansion / odchylenie od EMA|VWAP."""
     ch24 = _f(coin.get("change_24h"), 0) or 0
     ch1 = _f(coin.get("change_1h"), 0) or 0
-    min_pct = float(getattr(config, "REVERSAL_MIN_24H_PCT", 18.0) or 18.0)
+    min_pct = float(getattr(config, "REVERSAL_MIN_24H_PCT", 12.0) or 12.0)
     atr_pct = _f(coin.get("atr_pct") or coin.get("atr_percent"))
     z = _f(coin.get("zscore_24h"))
     px = _f(coin.get("price") or coin.get("blofin_price"))
@@ -452,7 +452,11 @@ def detect_exhaustion(coin: Dict[str, Any], extreme: Dict[str, Any]) -> Optional
     vol_flag = str(coin.get("vol_flag") or "")
     score = 0.0
     tags: List[str] = []
-    need = float(getattr(config, "REVERSAL_EXHAUST_MIN_SCORE", 0.35) or 0.35)
+    need = float(getattr(config, "REVERSAL_EXHAUST_MIN_SCORE", 0.20) or 0.20)
+
+    if rsi is None:
+        score += 0.12
+        tags.append("EXH_NO_RSI_USE_1H")
 
     if side == "DOWN":
         if rsi is not None:
@@ -597,7 +601,7 @@ def detect_confirmation(
     score = 0.0
     tags: List[str] = []
     confirms = 0
-    min_conf = int(getattr(config, "REVERSAL_MIN_CONFIRMATIONS", 2) or 2)
+    min_conf = int(getattr(config, "REVERSAL_MIN_CONFIRMATIONS", 1) or 1)
     stall = float(getattr(config, "REVERSAL_1H_STALL_PCT", 2.0) or 2.0)
 
     # Struktura swing (failure new low/high, higher/lower)
@@ -635,6 +639,7 @@ def detect_confirmation(
             tags.append(f"CONF_HIGHER_LOW({ch1:+.1f}%)")
         elif ch1 >= -stall * 0.5:
             score += 0.10
+            confirms += 1
             tags.append(f"CONF_FAIL_CONTINUE({ch1:+.1f}%)")
         macd_sig = str(coin.get("macd_signal") or "").lower()
         if "bull" in macd_sig:
@@ -665,6 +670,7 @@ def detect_confirmation(
             tags.append(f"CONF_LOWER_HIGH({ch1:+.1f}%)")
         elif ch1 <= stall * 0.5:
             score += 0.10
+            confirms += 1
             tags.append(f"CONF_FAIL_NEW_HIGH({ch1:+.1f}%)")
 
         macd_sig = str(coin.get("macd_signal") or "").lower()
@@ -710,8 +716,7 @@ def detect_confirmation(
 
     n_src = int(src.get("sources_available") or 0)
     max_diff = _f(src.get("max_diff_pct"), 0) or 0
-    # Binance jest Tier-2 confirmation. Brak BN = UNKNOWN, nie confirmation.
-    if bn_ch is not None:
+    if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)) and bn_ch is not None:
         if bf_ch is not None:
             bn_diff = abs(float(bf_ch) - float(bn_ch))
             same_sign = (float(bf_ch) >= 0 and float(bn_ch) >= 0) or (float(bf_ch) < 0 and float(bn_ch) < 0)
@@ -733,7 +738,7 @@ def detect_confirmation(
             # Nie blokuj shadow discovery, ale nie licz UNKNOWN jako potwierdzenia.
             pass
 
-    if n_src >= 2 and max_diff >= 3.0:
+    if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)) and n_src >= 2 and max_diff >= 3.0:
         score -= 0.12
         tags.append(f"CONF_SRC_DIVERGE({max_diff:.1f}%)")
 
@@ -930,7 +935,7 @@ def _structural_sl_tp(
         tp2 = max(min_tp2, min(tp2_fib, max_tp2))
         # jeśli fib extension jest blisko 1R — użyj 2R jako fallback
         if abs(tp2 - tp1) / price < 0.003:
-            tp2 = price + risk * 2.0
+            tp2 = price + risk * float(getattr(config, "REVERSAL_TP_R_MULT", 2.0) or 2.0)
         tp = tp2
         tp_method = f"1R+fib_ext_{ext_mult}"
     else:
@@ -941,7 +946,7 @@ def _structural_sl_tp(
         # SHORT: tp2 dalej w dół → mniejsza cena
         tp2 = min(min_tp2, max(tp2_fib, max_tp2))
         if abs(tp2 - tp1) / price < 0.003:
-            tp2 = price - risk * 2.0
+            tp2 = price - risk * float(getattr(config, "REVERSAL_TP_R_MULT", 2.0) or 2.0)
         tp = tp2
         tp_method = f"1R+fib_ext_{ext_mult}"
 
@@ -1012,7 +1017,7 @@ def compute_reversal_score(
     notes: List[str] = []
 
     # --- Extreme move (0–0.20) ---
-    min_pct = float(getattr(config, "REVERSAL_MIN_24H_PCT", 18.0) or 18.0)
+    min_pct = float(getattr(config, "REVERSAL_MIN_24H_PCT", 12.0) or 12.0)
     ext = min(0.20, 0.08 + (ch24 - min_pct) / 80.0)
     if float(extreme.get("score") or 0) >= 0.7:
         ext = min(0.20, ext + 0.04)
@@ -1020,7 +1025,7 @@ def compute_reversal_score(
     notes.append(f"ext={components['extreme_move']:.2f}")
 
     # --- Exhaustion ~0.20 (RSI extreme + volume climax) ---
-    exh = 0.12 * float(exhaustion.get("score") or 0)
+    exh = 0.55 * float(exhaustion.get("score") or 0)
     if direction == "LONG" and rsi is not None:
         if rsi <= 30:
             exh += 0.08
@@ -1080,7 +1085,7 @@ def compute_reversal_score(
         ("CONF_LOWER_HIGH_STRUCT", 0.08),
         ("CONF_FAIL_NEW_LOW", 0.07),
         ("CONF_FAIL_NEW_HIGH_STRUCT", 0.07),
-        ("CONF_FAIL_CONTINUE", 0.04),
+        ("CONF_FAIL_CONTINUE", 0.08),
         ("CONF_FAIL_NEW_HIGH", 0.05),
         ("CONF_RECLAIM_LOW", 0.04),
         ("CONF_LOST_HIGH", 0.04),
@@ -1142,13 +1147,14 @@ def compute_reversal_score(
     x = 0.0
     n_src = int(src.get("sources_available") or 0)
     max_diff = _f(src.get("max_diff_pct"), 0) or 0
-    if n_src >= 2 and max_diff < 1.5:
-        x += 0.03
-    if n_src >= 3:
-        x += 0.01
-    if max_diff >= 3.0:
-        x -= 0.05
-        notes.append("src_diverge")
+    if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+        if n_src >= 2 and max_diff < 1.5:
+            x += 0.03
+        if n_src >= 3:
+            x += 0.01
+        if max_diff >= 3.0:
+            x -= 0.05
+            notes.append("src_diverge")
     regime_u = (regime or "").upper()
     if direction == "LONG" and btc_ch > 0.3:
         x += 0.02
@@ -1267,9 +1273,12 @@ def score_reversal_candidate(
     if bool(getattr(config, "REVERSAL_REQUIRE_QUALITY_TRIAD", False)):
         if triad_count < 2:
             return None
-    elif triad_count == 0 and div_v < 0.05 and struct_v < 0.10:
-        # bez żadnego z trzech filarów — odrzut (nie samo exhaustion)
+    if str(conf.get("status") or "").upper() != "CONFIRMED":
         return None
+    if int(conf.get("confirms") or 0) < int(getattr(config, "REVERSAL_MIN_CONFIRMATIONS", 2) or 2):
+        return None
+    # A6: extreme+exhaust+1h stall już przeszły detect_* — nie zabijaj
+    # kandydata tylko dlatego, że brak fib/div na tickerze bez OHLC.
 
     # Bonus gdy pełna triada (Divergence + Fib + Structure)
     if triad_count == 3:
@@ -1326,6 +1335,11 @@ def score_reversal_candidate(
         return None
 
     _rev = round(float(scored["reversal_score"]), 4)
+    try:
+        from v2_profiles import profile_for
+        instrument_profile = profile_for(sym, coin)
+    except Exception:
+        instrument_profile = "major" if sym in ("BTC", "ETH", "SOL") else "alt"
     return {
         "symbol": sym,
         "direction": direction,
@@ -1335,6 +1349,8 @@ def score_reversal_candidate(
         "reversal_score": _rev,
         "trend_score": None,
         "strength": _rev,  # alias do risk/UI (źródło = reversal_score)
+        "v2_profile": instrument_profile,
+        "reversal_profile": f"{direction.lower()}_{instrument_profile}",
         # Divergence + Fib + Structure (jakość > RSI alone)
         "quality_triad": triad_count,
         "quality_setup": quality_setup,
@@ -1395,17 +1411,121 @@ def score_reversal_candidate(
     }
 
 
+LAST_REVERSAL_GEN_DIAG: Dict[str, Any] = {}
+
+
+def _hydrate_1h_from_feeder(coin: Dict[str, Any], feeder) -> bool:
+    """A6: ticker nie ma RSI/swing. Najpierw MarketStore (warmup), REST tylko fallback."""
+    if coin is None:
+        return False
+    has_rsi = coin.get("rsi") is not None
+    has_struct = bool(coin.get("highs") or coin.get("ohlcv_highs")) and bool(
+        coin.get("lows") or coin.get("ohlcv_lows")
+    )
+    if has_rsi and has_struct:
+        return False
+    symbol = str(coin.get("symbol") or "")
+    if not symbol:
+        return False
+    ohlcv = None
+    try:
+        from market_store import STORE
+        ohlcv = STORE.get_ohlcv(symbol, "1H") or STORE.get_ohlcv(symbol, "1h")
+    except Exception:
+        ohlcv = None
+    if not ohlcv and feeder is not None:
+        feed = getattr(feeder, "blofin", None)
+        if feed is not None and hasattr(feed, "fetch_klines_ohlcv"):
+            try:
+                ohlcv = feed.fetch_klines_ohlcv(symbol, bar="1H", limit=120) or {}
+            except Exception:
+                ohlcv = None
+    if not ohlcv:
+        return False
+    highs = list(ohlcv.get("highs") or [])
+    lows = list(ohlcv.get("lows") or [])
+    changed = False
+    if highs and not coin.get("highs"):
+        coin["highs"] = highs
+        changed = True
+    if lows and not coin.get("lows"):
+        coin["lows"] = lows
+        changed = True
+    if coin.get("rsi") is None or coin.get("ema_slow") is None:
+        try:
+            from indicators_full import compute_indicators
+            ind = compute_indicators(ohlcv, tf="1h") or {}
+        except Exception:
+            ind = {}
+        if coin.get("rsi") is None and ind.get("rsi") is not None:
+            coin["rsi"] = ind.get("rsi")
+            changed = True
+        if coin.get("atr") is None and ind.get("atr") is not None:
+            coin["atr"] = ind.get("atr")
+        if coin.get("atr_pct") is None:
+            coin["atr_pct"] = ind.get("atr_pct") or ind.get("atr_percent")
+        if coin.get("ema_fast") is None and ind.get("ema_fast") is not None:
+            coin["ema_fast"] = ind.get("ema_fast")
+        if coin.get("ema_slow") is None and ind.get("ema_slow") is not None:
+            coin["ema_slow"] = ind.get("ema_slow")
+        macd = ind.get("macd") or {}
+        if not coin.get("macd_signal") and isinstance(macd, dict):
+            hist = macd.get("histogram") or macd.get("hist")
+            if hist is not None:
+                try:
+                    coin["macd_signal"] = "bullish" if float(hist) > 0 else "bearish"
+                    changed = True
+                except (TypeError, ValueError):
+                    pass
+    return changed
+
+
 def generate_reversal_signals(
     coins: List[Dict[str, Any]],
     regime: str = "UNKNOWN",
     btc_change_24h: float = 0.0,
     max_candidates: int = 15,
+    feeder=None,
 ) -> List[Dict[str, Any]]:
+    global LAST_REVERSAL_GEN_DIAG
     if not bool(getattr(config, "REVERSAL_ENGINE_ENABLED", True)):
+        LAST_REVERSAL_GEN_DIAG = {
+            "ok": False, "error": "REVERSAL_ENGINE_DISABLED",
+            "coins_scanned": len(coins or []), "reversal_signals_generated": 0,
+        }
         return []
     out: List[Dict[str, Any]] = []
+    drops: Dict[str, int] = {
+        "scanned": 0, "no_symbol": 0, "no_price": 0, "no_extreme": 0,
+        "no_exhaustion": 0, "no_confirmation": 0, "weak_structure": 0,
+        "exception": 0, "scored": 0, "hydrated_1h": 0,
+    }
+    max_hydrate = max(1, int(getattr(config, "REVERSAL_MAX_CANDIDATES", 12) or 12))
     for coin in coins:
+        drops["scanned"] += 1
         try:
+            if not (coin.get("symbol") or ""):
+                drops["no_symbol"] += 1
+                continue
+            price = _f(coin.get("price") or coin.get("blofin_price"), 0) or 0
+            if price <= 0:
+                drops["no_price"] += 1
+                continue
+            extreme = detect_extreme(coin)
+            if not extreme:
+                drops["no_extreme"] += 1
+                continue
+            if feeder is not None and drops["hydrated_1h"] < max_hydrate:
+                if _hydrate_1h_from_feeder(coin, feeder):
+                    drops["hydrated_1h"] += 1
+            exhaustion = detect_exhaustion(coin, extreme)
+            if not exhaustion:
+                drops["no_exhaustion"] += 1
+                continue
+            conf = detect_confirmation(coin, extreme, exhaustion, regime=regime)
+            if not conf:
+                drops["no_confirmation"] += 1
+                continue
             sig = score_reversal_candidate(coin, regime=regime, btc_change_24h=btc_change_24h)
             if sig:
                 try:
@@ -1414,10 +1534,30 @@ def generate_reversal_signals(
                 except Exception:
                     sig["expected_r_status"] = "UNAVAILABLE"
                 out.append(sig)
+                drops["scored"] += 1
+            else:
+                drops["weak_structure"] += 1
         except Exception:
+            drops["exception"] += 1
             continue
     out.sort(key=lambda x: float(x.get("strength") or 0), reverse=True)
     limit = int(getattr(config, "REVERSAL_MAX_CANDIDATES", max_candidates) or max_candidates)
+    extreme_thr = float(getattr(config, "REVERSAL_MIN_24H_PCT", 12.0) or 12.0)
+    LAST_REVERSAL_GEN_DIAG = {
+        "ok": True, "error": None,
+        "coins_scanned": drops["scanned"],
+        "drops": drops,
+        "extreme_threshold_pct": extreme_thr,
+        "reversal_signals_generated": len(out),
+        "regime": regime,
+    }
+    if not out:
+        print(
+            f"[Reversal] 0 sygnałów | scanned={drops['scanned']} "
+            f"no_extreme={drops['no_extreme']} no_exh={drops['no_exhaustion']} "
+            f"no_conf={drops['no_confirmation']} weak={drops['weak_structure']} "
+            f"hydrated_1h={drops['hydrated_1h']} thr24h={extreme_thr}% regime={regime}"
+        )
     return out[:limit]
 
 

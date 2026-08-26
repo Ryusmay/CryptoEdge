@@ -8,7 +8,7 @@ import config
 from blofin_feed import BlofinFeed
 from daytrading_backtester import replay_daytrading
 from daytrading_backtester import AsOfBlofinFeed
-from daytrading_validation import assert_prefix_invariant, purged_walk_forward_splits
+from daytrading_validation import assert_prefix_invariant, purged_walk_forward_splits, rolling_purged_folds
 from day_expectancy_calibration import DayExpectancyCalibrator
 from dynamic_correlation import DynamicCorrelation
 from statistical_validation import deflated_sharpe_ratio, expected_max_sharpe_z
@@ -122,14 +122,20 @@ class TestValidationAndReplay(unittest.TestCase):
         feed = AsOfBlofinFeed(bundle)
         feed.asof_ts = 500
         result = feed.fetch_klines_ohlcv("BTC", "5m", 3)
-        self.assertEqual([498, 499, 500], result["timestamps"])
-        self.assertEqual([498, 499, 500], result["closes"])
+        self.assertEqual([498, 499, 500], list(result["timestamps"]))
+        self.assertEqual([498, 499, 500], list(result["closes"]))
 
     def test_purged_splits_do_not_overlap(self):
         splits = purged_walk_forward_splits(200, 80, 30, purge=5, embargo=5)
         self.assertTrue(splits)
         for train, test in splits:
             self.assertGreaterEqual(test.start - train.stop, 5)
+
+    def test_rolling_purged_v2_default_windows(self):
+        splits = rolling_purged_folds(2160, 504, 168, 48, 48)
+        self.assertGreaterEqual(len(splits), 6)
+        for train, test in splits:
+            self.assertEqual(test.start - train.stop, 48)
 
     def test_prefix_audit_detects_future_access(self):
         with self.assertRaises(AssertionError):

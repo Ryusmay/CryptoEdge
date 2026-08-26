@@ -14,7 +14,15 @@ def _se_log(where: str, exc: BaseException):
     try:
         print(f"[SignalEngine] {where}: {type(exc).__name__}: {exc}")
     except Exception as e:
-        _se_log("handler", e)
+        print(f"[SignalEngine] log-fail: {e}")
+
+
+def apply_v2_ui_gates(signals: List[Dict], coins: List[Dict], regime: str) -> None:
+    """Compatibility wrapper; policy itself is shared with historical replay."""
+    from v2_parity_policy import apply_market_gates
+    apply_market_gates(signals, coins, regime)
+
+
 class SignalEngine:
     def __init__(self, data_feeder=None):
         self.last_analysis_board = []
@@ -169,7 +177,11 @@ class SignalEngine:
             ohlcv = {}
 
         # 2) BloFin proxy 4H z 1H (NIE Binance)
-        if len((ohlcv or {}).get("closes") or []) < min_bars and tf == "4h":
+        if (
+            len((ohlcv or {}).get("closes") or []) < min_bars
+            and tf == "4h"
+            and bool(getattr(config, "STRATEGY_AGG_4H_FROM_1H", True))
+        ):
             o1h = {}
             try:
                 if self.feeder and hasattr(self.feeder, "blofin"):
@@ -424,10 +436,11 @@ class SignalEngine:
             if vol >= thr:
                 return f"BLOFIN_ONLY_MAJOR(vol={vol:.0f})"
         sd = signal.get("source_div") or {}
-        max_div = float(getattr(config, "MAX_SOURCE_DIVERGENCE_PCT", 1.5) or 1.5)
-        if sd.get("warning") and not sd.get("symbol_mismatch"):
-            if float(sd.get("max_diff_pct") or 0) >= max_div:
-                return f"SRC_DIVERGENCE({sd.get('max_diff_pct')}%)"
+        if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+            max_div = float(getattr(config, "MAX_SOURCE_DIVERGENCE_PCT", 1.5) or 1.5)
+            if sd.get("warning") and not sd.get("symbol_mismatch"):
+                if float(sd.get("max_diff_pct") or 0) >= max_div:
+                    return f"SRC_DIVERGENCE({sd.get('max_diff_pct')}%)"
         return ""
 
 
@@ -828,12 +841,13 @@ class SignalEngine:
             score_short *= 0.45
             reasons.append("MACD_BLOCK_SHORT")
 
-        # Rozjazd zrodel - ostroznosc przy wysokiej dywergencji
-        if source_div.get("warning") and 1.5 <= source_div.get("max_diff_pct", 0) <= 15 and not source_div.get("symbol_mismatch"):
-            div_m = float(getattr(config, "SRC_DIVERGENCE_SCORE_MULT", 0.95))
-            score_long *= div_m
-            score_short *= div_m
-            reasons.append(f"SRC_DIVERGENCE({source_div['max_diff_pct']:.1f}%)")
+        # Rozjazd źródeł — wyłączony (SOURCE_DIVERGENCE_GATE=False)
+        if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+            if source_div.get("warning") and 1.5 <= source_div.get("max_diff_pct", 0) <= 15 and not source_div.get("symbol_mismatch"):
+                div_m = float(getattr(config, "SRC_DIVERGENCE_SCORE_MULT", 0.95))
+                score_long *= div_m
+                score_short *= div_m
+                reasons.append(f"SRC_DIVERGENCE({source_div['max_diff_pct']:.1f}%)")
 
         # Wolumen
         vs = vol_info.get("vol_score") or 0
@@ -979,7 +993,7 @@ class SignalEngine:
                 against.append(str(r))
             if "CIPHER_VS_" in ru:
                 against.append(str(r))
-            if "LOW_VOLUME" in ru or "WIDE_SPREAD" in ru or "SRC_DIVERGENCE" in ru or "BLOFIN_ONLY" in ru:
+            if "LOW_VOLUME" in ru or "WIDE_SPREAD" in ru or "BLOFIN_ONLY" in ru:
                 against.append(str(r))
             if "FUNDING" in ru or "OB_" in ru or "VOL_" in ru:
                 fors.append(str(r))
@@ -1033,14 +1047,15 @@ class SignalEngine:
         if ob.get("ob_imbalance") is not None:
             fors.append(f"OB imbalance {ob.get('ob_imbalance')} bias={ob.get('ob_bias')}")
 
+        # Source divergence — nie bramka; zostawiamy tylko informację
         sd = s.get("source_div") or {}
         if isinstance(sd, dict) and sd.get("max_diff_pct") is not None:
-            md = float(sd.get("max_diff_pct") or 0)
-            max_div = float(getattr(cfg, "MAX_SOURCE_DIVERGENCE_PCT", 1.5) or 1.5)
-            if md >= max_div and sd.get("warning"):
-                against.append(f"Rozjazd źródeł {md:.2f}% ≥ {max_div}%")
-            else:
-                fors.append(f"Rozjazd źródeł {md:.2f}%")
+            try:
+                md = float(sd.get("max_diff_pct") or 0)
+                if md > 0:
+                    fors.append(f"Rozjazd źródeł {md:.2f}% (info, nie filtr)")
+            except (TypeError, ValueError):
+                pass
 
         # Final decision hint
         reject = s.get("reject_reason")
@@ -1249,17 +1264,13 @@ class SignalEngine:
             except (TypeError, ValueError):
                 pass
 
-        # Source divergence
+        # Source divergence — nie filtr
         sd = s.get("source_div") or {}
         if isinstance(sd, dict) and sd.get("max_diff_pct") is not None:
             try:
                 md = float(sd.get("max_diff_pct") or 0)
-                if md >= float(getattr(config, "MAX_SOURCE_DIVERGENCE_PCT", 1.5)):
-                    cons.append(f"Rozjazd źródeł {md:.2f}%")
-                elif md > 0.5:
-                    cons.append(f"Rozjazd źródeł {md:.2f}% (ostrożnie)")
-                else:
-                    pros.append(f"Źródła zgodne ({md:.2f}%)")
+                if md > 0:
+                    pros.append(f"Rozjazd źródeł {md:.2f}% (info)")
             except (TypeError, ValueError):
                 pass
 
@@ -1375,16 +1386,22 @@ class SignalEngine:
                 regime_info = {"regime": "UNKNOWN"}
             self.last_regime = regime_info
 
-            # Przelacznik silnika V1/V2 (plan hierarchii timeframe, 20.08.2026).
-            # V1 (DayTradingEngine) pozostaje domyslny i w pelni nietkniety -
-            # V2 wlacza sie przez DAYTRADING_V2_ENABLED LUB przez
-            # STRATEGY_MODE="DAYTRADING_V2" wprost (dowolne z nich wystarczy).
-            v2_enabled = bool(getattr(config, "DAYTRADING_V2_ENABLED", False)) or strategy_mode == "DAYTRADING_V2"
+            # V2: DAYTRADING_V2_ENABLED LUB STRATEGY_MODE="DAYTRADING_V2"
+            # (ta sama bramka co 5 min warmup w app.py).
+            v2_enabled = config.daytrading_v2_active()
             if v2_enabled:
-                from daytrading_engine_v2 import DayTradingEngineV2
+                from cryptoedge.strategy.daytrading_v2 import create_engine
                 engine = getattr(self, "daytrading_engine_v2", None)
                 if engine is None or engine.feeder is not self.feeder:
-                    engine = DayTradingEngineV2(self.feeder)
+                    engine = create_engine(self.feeder)
+                    from cryptoedge.market_data.legacy import RuntimeEngineMarketDataAdapter
+                    from cryptoedge.services import DecisionPipeline
+                    from cryptoedge.strategy.legacy import LegacyV2StrategyAdapter
+                    runtime_data = RuntimeEngineMarketDataAdapter()
+                    engine.runtime_market_data_port = runtime_data
+                    engine.decision_pipeline = DecisionPipeline(
+                        runtime_data, LegacyV2StrategyAdapter(engine), risk=None,
+                    )
                     self.daytrading_engine_v2 = engine
                 final = engine.generate(coins)
             else:
@@ -1394,6 +1411,14 @@ class SignalEngine:
                     engine = DayTradingEngine(self.feeder)
                     self.daytrading_engine = engine
                 final = engine.generate(coins)
+            v2_fresh_by_symbol = {
+                str(signal.get("symbol") or "").upper(): bool(signal.get("decision_fresh", True))
+                for signal in final
+            }
+            v2_bar_by_symbol = {
+                str(signal.get("symbol") or "").upper(): signal.get("decision_bar_15m_ts")
+                for signal in final
+            }
             for signal in final:
                 signal["market_regime"] = (regime_info or {}).get("regime") or "UNKNOWN"
                 signal["market_regime_detail"] = regime_info
@@ -1408,6 +1433,12 @@ class SignalEngine:
                 except Exception:
                     pass
                 signal["decision_path"] = self._assign_decision_path(signal)
+                if ((regime_info or {}).get("regime") or "").upper() == "PANIC":
+                    rs = list(signal.get("reasons") or [])
+                    if "REGIME_STRONG_MOVE" not in rs:
+                        rs.append("REGIME_STRONG_MOVE")
+                    signal["reasons"] = rs
+            apply_v2_ui_gates(final, coins, (regime_info or {}).get("regime") or "UNKNOWN")
             try:
                 from perp_context import apply_all as _apply_perp
                 _apply_perp(final, feeder=self.feeder)
@@ -1422,6 +1453,9 @@ class SignalEngine:
                 "setup": signal.get("setup"), "reject_reason": signal.get("reject_reason"),
                 "expected_net_r": signal.get("expected_net_r"), "indicators": signal.get("indicators") or {},
                 "trend_fib": signal.get("trend_fib") or {},
+                "fib_retracement": signal.get("fib_retracement") or {},
+                "tp1_price": signal.get("tp1_price"), "tp2_price": signal.get("tp2_price"),
+                "sl_price": signal.get("sl_price"),
                 "decision_path": signal.get("decision_path"),
             }) for signal in final]
 
@@ -1437,35 +1471,38 @@ class SignalEngine:
             # blokuje realne otwarcie reversal bez pelnej konfirmacji, a
             # otwarcie pozycji na juz zajetym symbolu blokuje osobny guard.
             try:
-                from reversal_engine import generate_reversal_signals
+                from reversal_engine import generate_reversal_signals, LAST_REVERSAL_GEN_DIAG
                 regime_name = (regime_info or {}).get("regime") or "UNKNOWN"
-                reversal_signals = generate_reversal_signals(coins, regime=regime_name, btc_change_24h=btc_change_24h)
+                reversal_signals = generate_reversal_signals(
+                    coins, regime=regime_name, btc_change_24h=btc_change_24h, feeder=self.feeder,
+                )
                 for rsig in reversal_signals:
                     rsig.setdefault("engine", "reversal")
                     rsig["market_regime"] = regime_name
-                    rsig["strategy_mode"] = "DAYTRADING"
+                    rsig["strategy_mode"] = strategy_mode
+                    rsym = str(rsig.get("symbol") or "").upper()
+                    rsig["decision_fresh"] = v2_fresh_by_symbol.get(rsym, True)
+                    rsig["decision_bar_15m_ts"] = v2_bar_by_symbol.get(rsym)
                 self.last_analysis_board += [{
                     "symbol": s.get("symbol"), "direction": s.get("direction"),
                     "strength": s.get("strength"), "price": s.get("price"),
                     "score": round(float(s.get("strength") or 0) * 100, 1),
                     "score_components": s.get("score_components") or {},
-                    "engine": "reversal", "strategy_mode": "DAYTRADING",
+                    "engine": "reversal", "strategy_mode": strategy_mode,
                     "setup": s.get("setup"), "reject_reason": s.get("reject_reason"),
                     "expected_net_r": s.get("expected_net_r"), "indicators": {},
                     "trend_fib": {}, "decision_path": s.get("decision_path"),
                 } for s in reversal_signals]
                 final = final + reversal_signals
-                # Diagnostyka widoczna w bot_state.json (nie tylko w konsoli) -
-                # zeby przy analizie logow bylo od razu widac, czy generator w
-                # ogole probowal cokolwiek policzyc, czy mial wyjatek, i ile
-                # coinow przeszlo przez brame "extreme move" (18%+ 24h).
-                extreme_thr = float(getattr(config, "REVERSAL_MIN_24H_PCT", 18.0) or 18.0)
+                extreme_thr = float(getattr(config, "REVERSAL_MIN_24H_PCT", 12.0) or 12.0)
                 extreme_count = sum(1 for c in coins if abs(float(c.get("change_24h") or 0)) >= extreme_thr)
-                self.last_reversal_diag = {
+                diag = dict(LAST_REVERSAL_GEN_DIAG or {})
+                diag.update({
                     "ok": True, "error": None, "coins_scanned": len(coins),
                     "extreme_candidates_24h": extreme_count, "extreme_threshold_pct": extreme_thr,
                     "reversal_signals_generated": len(reversal_signals),
-                }
+                })
+                self.last_reversal_diag = diag
             except Exception as e:
                 import traceback
                 print(f"[SignalEngine] reversal_engine (daytrading mode): {e}")
@@ -1855,23 +1892,18 @@ class SignalEngine:
             s["regime_realized_vol"] = (regime_info or {}).get("realized_vol")
             if regime == "PANIC":
                 eng = (s.get("engine") or "trend").lower()
-                s["reasons"] = list(s.get("reasons") or []) + ["REGIME_PANIC"]
+                s["reasons"] = list(s.get("reasons") or []) + ["REGIME_STRONG_MOVE"]
                 if eng == "reversal":
-                    # PANIC = dobre środowisko dla reversal — nie odrzucaj, lekki boost
-                    s["strength"] = min(1.0, float(s.get("strength") or 0) + 0.04)
                     s["reasons"] = list(s.get("reasons") or []) + ["PANIC_REVERSAL_ACTIVE"]
-                    # nie ustawiaj reject_reason
                 else:
-                    # Trend Engine mocno ograniczony (nie cały system)
-                    s["strength"] = max(0.0, float(s.get("strength") or 0) * 0.55)
-                    s["reasons"] = list(s.get("reasons") or []) + ["PANIC_TREND_LIMITED"]
-                    s["_size_mult"] = min(float(s.get("_size_mult") or 1.0), 0.35)
-                    # twarde odrzucenie trendu w PANIC (chyba że ekstremalnie silny)
+                    # Kontynuacja silnego ruchu — bez kary strength, bez twardego rejectu.
                     min_trend_panic = float(
-                        getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.72) or 0.72
+                        getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.0) or 0.0
                     )
-                    if float(s.get("strength") or 0) < min_trend_panic:
+                    if min_trend_panic > 0 and float(s.get("strength") or 0) < min_trend_panic:
                         s["reject_reason"] = s.get("reject_reason") or "REGIME_PANIC_TREND"
+                    else:
+                        s["reasons"] = list(s.get("reasons") or []) + ["PANIC_CONTINUATION"]
             elif regime == "RANGE":
                 pen = float(getattr(config, "RANGE_STRENGTH_PENALTY", 0.08))
                 s["strength"] = max(0.0, float(s.get("strength") or 0) - pen)
@@ -2064,7 +2096,9 @@ class SignalEngine:
                     c["lows"] = s.get("lows")
                 if not c.get("highs") and s.get("highs"):
                     c["highs"] = s.get("highs")
-            rev = generate_reversal_signals(coin_list, regime=regime_name, btc_change_24h=float(btc_change_24h or 0))
+            rev = generate_reversal_signals(
+                coin_list, regime=regime_name, btc_change_24h=float(btc_change_24h or 0), feeder=self.feeder,
+            )
             if rev:
                 try:
                     from expected_net_r import expected_net_r
@@ -2161,19 +2195,21 @@ class SignalEngine:
                     s["strength"] = max(0.0, float(s.get("strength") or 0) - pen)
                     s["reasons"] = list(s.get("reasons") or []) + [f"BTC_PUMP_PENALTY({btc_change_24h:+.1f}%)"]
 
-        # Filtr BN/BF divergence + płynność + clamp strength
-        try:
-            from market_data import apply_divergence_gate
-        except Exception:
-            apply_divergence_gate = None
+        # Filtr BN/BF divergence wyłączony (SOURCE_DIVERGENCE_GATE=False)
+        if bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+            try:
+                from market_data import apply_divergence_gate
+            except Exception:
+                apply_divergence_gate = None
+            for s in final:
+                if apply_divergence_gate:
+                    try:
+                        apply_divergence_gate(s, s)
+                    except (TypeError, ValueError, KeyError) as e:
+                        _se_log(f"divergence {s.get('symbol')}", e)
+                    except Exception as e:
+                        _se_log(f"divergence unexpected {s.get('symbol')}", e)
         for s in final:
-            if apply_divergence_gate:
-                try:
-                    apply_divergence_gate(s, s)
-                except (TypeError, ValueError, KeyError) as e:
-                    _se_log(f"divergence {s.get('symbol')}", e)
-                except Exception as e:
-                    _se_log(f"divergence unexpected {s.get('symbol')}", e)
             reason = self.liquidity_reject(s)
             if reason:
                 s["reasons"] = list(s.get("reasons") or []) + [reason]
@@ -2435,7 +2471,7 @@ class SignalEngine:
             fr = s.get("funding") or {}
             if fr.get("funding_rate") is not None:
                 print(f"     Funding: {fr.get('funding_rate_pct')}% / {fr.get('funding_interval')}h")
-            if s["entry_hint"]:
+            if s.get("entry_hint"):
                 print(f"     ENTRY → {s['entry_hint']}")
-            if s["exit_hint"]:
+            if s.get("exit_hint"):
                 print(f"     EXIT  → {s['exit_hint']}")

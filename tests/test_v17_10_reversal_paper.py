@@ -40,6 +40,14 @@ class TestControlledReversalPaper(unittest.TestCase):
             self.assertFalse(should_execute(signal))
         self.assertEqual(signal["paper_reversal_block_reason"], "REVERSAL_LIVE_DISABLED")
 
+    def test_reversal_stays_paper_even_if_live_execution_on(self):
+        signal = confirmed_reversal()
+        with patch.object(config, "PAPER_TRADING", False), patch.object(
+            config, "LIVE_EXECUTION_ENABLED", True
+        ), patch.object(config, "REVERSAL_PAPER_EXECUTION_ENABLED", True):
+            self.assertFalse(should_execute(signal))
+        self.assertEqual(signal["paper_reversal_block_reason"], "REVERSAL_LIVE_DISABLED")
+
     def test_bypass_status_with_sufficient_confirmations_now_executes(self):
         # 21.08.2026: shadow mode ma wejsc do realnych testow (decyzja
         # uzytkownika) - status BYPASS z wystarczajaca liczba potwierdzen

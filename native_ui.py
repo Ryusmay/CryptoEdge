@@ -193,12 +193,10 @@ class CryptoEdgeApp(tk.Tk):
         mode= tk.Frame(controls,bg=BG); mode.pack(side="left",padx=5)
         self.btn_demo=btn(mode,"DEMO",lambda:self._set_mode(True),"#123d2b","#8ff0ba"); self.btn_demo.pack(side="left",padx=2)
         self.btn_live=btn(mode,"LIVE",lambda:self._set_mode(False),"#2a1820","#ff9aa4"); self.btn_live.pack(side="left",padx=2)
-        self.btn_analysis=btn(controls,"▶ ANALIZA",self._start_analysis,"#17365b","#9bcfff"); self.btn_analysis.pack(side="left",padx=2)
-        self.btn_trade=btn(controls,"▶ HANDEL",self._start_trading,"#123d2b","#8ff0ba"); self.btn_trade.pack(side="left",padx=2)
+        self.btn_trade=btn(controls,"▶ START BOT",self._start_trading,"#123d2b","#8ff0ba"); self.btn_trade.pack(side="left",padx=2)
+        self.btn_analysis=self.btn_trade  # kompatybilność odświeżania starego shellu
         self.btn_start=self.btn_trade
-        self.btn_stop=btn(controls,"■ STOP",self._stop_engine,"#321b22","#ff9aa4"); self.btn_stop.pack(side="left",padx=2)
-        self.btn_pause=btn(controls,"Ⅱ PAUSE",self._pause,"#2a2418","#f6d58b"); self.btn_pause.pack(side="left",padx=2)
-        self.btn_resume=btn(controls,"▶ RESUME",self._resume,"#16352b","#8ff0ba"); self.btn_resume.pack(side="left",padx=2)
+        self.btn_stop=btn(controls,"■ STOP BOT",self._stop_engine,"#321b22","#ff9aa4"); self.btn_stop.pack(side="left",padx=2)
         self.btn_close=btn(controls,"CLOSE ALL",self._close_all,"#4a2028","#ffb1b8"); self.btn_close.pack(side="left",padx=2)
         self.btn_settings=btn(controls,"⚙",self._open_settings_window,CARD2,BLUE); self.btn_settings.pack(side="left",padx=2)
         self.btn_layout=btn(controls,"▦",self._open_layout_window,CARD2,PURPLE); self.btn_layout.pack(side="left",padx=2)
@@ -723,11 +721,10 @@ class CryptoEdgeApp(tk.Tk):
         try:
             rt = BotRuntime.get()
             paper = bool(getattr(config, "PAPER_TRADING", True))
-            # toggle: drugi klik przy włączonym handlu → tylko handel OFF (analiza zostaje)
+            # START jest idempotentny. Zatrzymanie całego bota ma jeden,
+            # oddzielny przycisk STOP BOT.
             if getattr(rt, "trading_enabled", False):
-                msg = rt.stop_trading()
-                self.alert_var.set("Handel OFF – analiza dalej działa")
-                print(f"[UI] {msg}")
+                self.alert_var.set("Bot już działa – analiza i handel są aktywne")
                 self._refresh_engine_buttons()
                 return
             if paper:

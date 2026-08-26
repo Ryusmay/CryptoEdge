@@ -83,15 +83,21 @@ def entry_exit_costs(
     entry_side: str = "taker",
     exit_side: str = "taker",
     include_slippage: bool = True,
+    slip_frac: Number = None,
 ) -> dict:
     """
     Koszty round-trip jako ułamek notional + kwoty USD.
+    slip_frac = całkowity slip RT (jak replay). None → config SLIPPAGE (legacy, 1×).
     """
     n = D(notional).copy_abs()
     e_rate = taker_rate() if entry_side == "taker" else maker_rate()
     x_rate = taker_rate() if exit_side == "taker" else maker_rate()
-    slip = slippage_rate() if include_slippage else Decimal("0")
-    # slippage raz na entry (model paper) + fee open/close
+    if slip_frac is not None:
+        slip = D(slip_frac)
+    elif include_slippage:
+        slip = slippage_rate()
+    else:
+        slip = Decimal("0")
     frac = e_rate + x_rate + slip
     return {
         "fee_entry": fee_usd(n, e_rate),
@@ -199,6 +205,7 @@ def realized_pnl(
     entry_side: str = "taker",
     exit_side: str = "taker",
     include_slippage: bool = True,
+    slip_frac: Number = None,
 ) -> dict:
     """
     Realized PnL z fee open+close + funding.
@@ -206,7 +213,10 @@ def realized_pnl(
     n = D(notional).copy_abs()
     ch = price_change_frac(entry, exit, direction)
     gross = n * ch
-    costs = entry_exit_costs(n, entry_side=entry_side, exit_side=exit_side, include_slippage=include_slippage)
+    costs = entry_exit_costs(
+        n, entry_side=entry_side, exit_side=exit_side,
+        include_slippage=include_slippage, slip_frac=slip_frac,
+    )
     fund = D(funding_paid)
     net = gross - costs["total_usd"] - fund
     lev = D(leverage) if D(leverage) > 0 else Decimal("1")

@@ -105,6 +105,34 @@ class TestFindLastConfirmedSwing(unittest.TestCase):
         self.assertIsNotNone(swing)
         self.assertEqual(40, swing["end"]["index"])
 
+    def test_prefer_direction_skips_newer_opposite_pullback(self):
+        n_bars = 55
+        highs = [105.0] * n_bars
+        lows = [105.0] * n_bars
+        closes = [105.0] * n_bars
+        lows[8] = 100.0
+        highs[23] = 120.0          # impuls UP
+        lows[35] = 102.0           # korekta DOWN (ostatni swing)
+        atr = _flat_atr_series(n_bars, value=1.0)
+        last = find_last_confirmed_swing(highs, lows, closes, atr, min_move_atr=1.5, min_bars=3, right_confirm=2)
+        self.assertEqual("DOWN", last["direction"])
+        impulse = find_last_confirmed_swing(
+            highs, lows, closes, atr, min_move_atr=1.5, min_bars=3, right_confirm=2,
+            prefer_direction="UP",
+        )
+        self.assertIsNotNone(impulse)
+        self.assertEqual("UP", impulse["direction"])
+        self.assertEqual(100.0, impulse["start"]["price"])
+        self.assertEqual(120.0, impulse["end"]["price"])
+
+    def test_prefer_direction_none_when_no_matching_impulse(self):
+        highs, lows, closes = _make_up_swing_series()
+        atr = _flat_atr_series(len(closes), value=1.0)
+        self.assertIsNone(find_last_confirmed_swing(
+            highs, lows, closes, atr, min_move_atr=1.5, min_bars=3, right_confirm=2,
+            prefer_direction="DOWN",
+        ))
+
 
 class TestSwingFibLevels(unittest.TestCase):
     def _up_swing(self):

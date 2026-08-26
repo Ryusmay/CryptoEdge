@@ -56,7 +56,10 @@ class TestCalculatePositionSize(unittest.TestCase):
     def test_panic_regime_trend_is_size_limited(self):
         sig = make_signal(market_regime="PANIC")
         sig["engine"] = "trend"
+        # PANIC = strong move: pełny size (mult=1.0). 0 nadal zeruje, gdy ktoś chce halt.
         self.assertGreater(self.rm.calculate_position_size(sig), 0.0)
+        with patch.object(config, "REGIME_PANIC_TREND_SIZE_MULT", 0.0):
+            self.assertEqual(self.rm.calculate_position_size(sig), 0.0)
 
 class TestCalculatePositionSizeDaytradingV2(unittest.TestCase):
     """Punkt 20 planu: sizing V2 z ryzyka % kapitalu / odleglosc SL, NIE ze
@@ -72,16 +75,24 @@ class TestCalculatePositionSizeDaytradingV2(unittest.TestCase):
         sig.update(overrides)
         return sig
 
+    def test_v2_typical_sl_uses_risk_budget(self):
+        size = self.rm.calculate_position_size(self._v2_signal(price=100.0, sl_price=99.5))
+        self.assertAlmostEqual(size, 800.0, places=2)  # po 20% reserve kapitalu
+
+    def test_v2_wide_sl_is_sized_down_without_five_percent_floor(self):
+        size = self.rm.calculate_position_size(self._v2_signal(price=100.0, sl_price=96.9))
+        self.assertAlmostEqual(161.29, size, places=2)
+
     def test_v2_signal_produces_positive_size(self):
-        size = self.rm.calculate_position_size(self._v2_signal())
+        size = self.rm.calculate_position_size(self._v2_signal(sl_price=99.5))
         self.assertGreater(size, 0.0)
 
     def test_v2_size_independent_of_strength_unlike_v1(self):
-        low_strength = self.rm.calculate_position_size(self._v2_signal(strength=0.55))
-        high_strength = self.rm.calculate_position_size(self._v2_signal(strength=1.0))
+        low_strength = self.rm.calculate_position_size(self._v2_signal(strength=0.55, sl_price=99.5))
+        high_strength = self.rm.calculate_position_size(self._v2_signal(strength=1.0, sl_price=99.5))
         self.assertAlmostEqual(low_strength, high_strength, places=6)
 
-    def test_v2_size_scales_with_margin_pct_fixed_config(self):
+    def test_v2_risk_sl_ignores_legacy_fixed_margin_config(self):
         # 21.08.2026: signal["risk_pct_of_capital"] jest teraz tylko
         # informacyjne (_risk_pct) - realny sizing V2 (capital_pct) steruje
         # sie config.DAYTRADING_V2_MARGIN_PCT_FIXED (przyciety do [MIN,MAX]).
@@ -93,38 +104,38 @@ class TestCalculatePositionSizeDaytradingV2(unittest.TestCase):
             small = self.rm.calculate_position_size(self._v2_signal(sl_price=99.5))
         with patch.object(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 10.0):
             big = self.rm.calculate_position_size(self._v2_signal(sl_price=99.5))
-        self.assertGreater(big, small)
+        self.assertAlmostEqual(big, small, places=6)
 
     def test_v2_margin_pct_fixed_is_clamped_to_min_max_range(self):
         # Nawet gdyby ktos ustawil FIXED poza [MIN,MAX], sizing ma sie
         # przyciac do granic, nie wyjsc poza nie.
         with patch.object(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 999.0), \
              patch.object(config, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0):
-            clamped = self.rm.calculate_position_size(self._v2_signal())
+            clamped = self.rm.calculate_position_size(self._v2_signal(sl_price=99.5))
         with patch.object(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 10.0):
-            at_max = self.rm.calculate_position_size(self._v2_signal())
+            at_max = self.rm.calculate_position_size(self._v2_signal(sl_price=99.5))
         self.assertAlmostEqual(clamped, at_max, places=2)
 
     def test_v2_falls_back_to_config_default_when_risk_pct_missing(self):
-        sig = self._v2_signal()
+        sig = self._v2_signal(sl_price=99.5)
         del sig["risk_pct_of_capital"]
         with patch.object(config, "DAYTRADING_V2_RISK_PCT_OF_CAPITAL", 0.5):
             size = self.rm.calculate_position_size(sig)
         self.assertGreater(size, 0.0)
 
     def test_v2_sets_risk_engine_tag_on_signal(self):
-        sig = self._v2_signal()
+        sig = self._v2_signal(sl_price=99.5)
         self.rm.calculate_position_size(sig)
         self.assertEqual("daytrading_v2", sig["_risk_engine"])
 
     def test_v2_detected_via_strategy_mode_alone_without_engine_field(self):
-        sig = make_signal(strategy_mode="DAYTRADING_V2", risk_pct_of_capital=0.5)
+        sig = make_signal(strategy_mode="DAYTRADING_V2", risk_pct_of_capital=0.5, sl_price=99.5)
         sig.pop("engine", None)
         size = self.rm.calculate_position_size(sig)
         self.assertGreater(size, 0.0)
         self.assertEqual("daytrading_v2", sig["_risk_engine"])
 
-    def test_v2_wide_sl_gets_sized_down_to_the_per_trade_risk_cap(self):
+    def test_v2_wide_sl_uses_configured_half_percent_risk(self):
         # Regresja na realny problem z uploadu logow (21.08.2026): 6/6
         # sygnalow V2, ktore przeszly WSZYSTKIE bramki silnika, zostaly
         # odrzucone przez risk_manager (PORTFOLIO_RISK ~2.9-3.1%>2.5%) mimo
@@ -135,32 +146,52 @@ class TestCalculatePositionSizeDaytradingV2(unittest.TestCase):
         # margin 7.5%*x10 dzwigni dalby notional=$750 (7.5% risk equity) bez
         # tej poprawki - teraz ma byc scapowany do <=1% equity (per-trade
         # sufit, patrz DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE) = $10/0.04=$250.
-        size = self.rm.calculate_position_size(self._v2_signal(sl_price=96.0))
-        self.assertAlmostEqual(size, 250.0, places=2)
+        # 1.6% SL, sufit 1% equity: $10/0.016 = $625. Powyżej 5% margin ($500).
+        with patch.object(config, "DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE", 1.0):
+            size = self.rm.calculate_position_size(self._v2_signal(sl_price=98.4))
+        self.assertAlmostEqual(size, 312.5, places=2)
 
     def test_v2_tight_sl_is_not_touched_by_the_per_trade_risk_cap(self):
         # Przy wystarczajaco ciasnym SL notional z margin% miesci sie sam w
         # sobie ponizej sufitu - sufit nie ma prawa nic zmieniac.
         size = self.rm.calculate_position_size(self._v2_signal(sl_price=99.8))  # 0.2%
-        self.assertAlmostEqual(size, 750.0, places=2)  # 7.5% equity * x10 dzwigni, bez zmian
+        self.assertAlmostEqual(size, 800.0, places=2)  # ograniczenie wolnego kapitalu po reserve
 
     def test_v2_per_trade_risk_cap_rejects_cleanly_when_too_small_to_open(self):
         # Bardzo szeroki SL -> nawet po scapowaniu do sufitu ryzyka wielkosc
         # spadlaby ponizej MIN_NOTIONAL_USD (nie otwieramy nog groszowych) -
         # ma to byc czysty reject (0.0), a NIE cichy powrot do wiekszego,
         # niebezpiecznego rozmiaru.
-        with patch.object(config, "MIN_NOTIONAL_USD", 20.0):
+        with patch.object(config, "MIN_NOTIONAL_USD", 20.0), \
+             patch.object(config, "DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE", 1.0):
             size = self.rm.calculate_position_size(self._v2_signal(sl_price=40.0))  # 60% dystans (celowo skrajny)
         self.assertEqual(size, 0.0)
 
     def test_v2_per_trade_risk_cap_is_configurable_and_can_be_disabled(self):
         # Ustawienie sufitu na bardzo duza wartosc == wylaczenie go (rollback
         # do czystego sizingu margin-based sprzed tej poprawki).
-        with patch.object(config, "DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE", 100.0):
-            size = self.rm.calculate_position_size(self._v2_signal(sl_price=96.0))
-        self.assertAlmostEqual(size, 750.0, places=2)
+        # 4% SL nadal daje mala, ale bezpieczna pozycje bez floor 5% margin.
+        size = self.rm.calculate_position_size(self._v2_signal(sl_price=96.0))
+        self.assertAlmostEqual(125.0, size, places=2)
 
-    def test_v2_range_regime_does_not_currently_affect_fixed_margin_sizing(self):
+    def test_paper_does_not_block_on_reconcile_drift(self):
+        rec = type("R", (), {"blocks_new_entries": lambda self: True})()
+        self.rm._reconciler_ref = rec
+        with patch.object(config, "PAPER_TRADING", True), \
+             patch.object(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
+            _ok, why = self.rm.can_open_position(self._v2_signal())
+        self.assertNotEqual(why, "RECONCILE_DRIFT")
+
+    def test_live_blocks_on_reconcile_drift(self):
+        rec = type("R", (), {"blocks_new_entries": lambda self: True})()
+        self.rm._reconciler_ref = rec
+        with patch.object(config, "PAPER_TRADING", False), \
+             patch.object(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
+            ok, why = self.rm.can_open_position(self._v2_signal())
+        self.assertFalse(ok)
+        self.assertEqual(why, "RECONCILE_DRIFT")
+
+    def test_v2_range_regime_reduces_risk_sizing(self):
         # 21.08.2026: ZNALEZIONA LUKA, nie naprawiona (nie o to prosil
         # uzytkownik w tej turze) - regime RANGE/PANIC mnozy risk_pct, ale
         # v2_fixed_notional (capital_pct) jest liczony NIEZALEZNIE od
@@ -170,7 +201,7 @@ class TestCalculatePositionSizeDaytradingV2(unittest.TestCase):
         # przyszlosci), nie potwierdza ze to pozadane zachowanie.
         normal = self.rm.calculate_position_size(self._v2_signal(market_regime="TREND"))
         ranged = self.rm.calculate_position_size(self._v2_signal(market_regime="RANGE"))
-        self.assertAlmostEqual(normal, ranged, places=2)
+        self.assertAlmostEqual(normal * 0.5, ranged, places=2)
 
 
 class TestCalculatePositionSizeStrength(unittest.TestCase):

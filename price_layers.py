@@ -20,9 +20,9 @@ def extract_price_layers(signal: dict, execution_price: float = None) -> Dict[st
     mark = s.get("mark_price") or s.get("blofin_mark") or (s.get("ticker") or {}).get("mark")
     index = s.get("index_price") or s.get("blofin_index") or (s.get("ticker") or {}).get("index")
     mid = (s.get("order_book") or {}).get("ob_mid")
-    exec_px = execution_price
-    if exec_px is None:
-        exec_px = s.get("execution_price") or s.get("price")
+    decision = s.get("decision_price") or s.get("price")
+    submitted = s.get("submitted_price") or decision
+    fill = s.get("fill_price") or execution_price or s.get("execution_price") or submitted
 
     def _f(x):
         try:
@@ -33,7 +33,9 @@ def extract_price_layers(signal: dict, execution_price: float = None) -> Dict[st
     strategy_f = _f(strategy)
     mark_f = _f(mark) or strategy_f
     index_f = _f(index)
-    exec_f = _f(exec_px) or strategy_f
+    decision_f = _f(decision) or strategy_f
+    submitted_f = _f(submitted) or decision_f
+    fill_f = _f(fill) or submitted_f
     mid_f = _f(mid)
 
     basis_pct = None
@@ -44,7 +46,10 @@ def extract_price_layers(signal: dict, execution_price: float = None) -> Dict[st
 
     return {
         "strategy_price": strategy_f,
-        "execution_price": exec_f,
+        "decision_price": decision_f,
+        "submitted_price": submitted_f,
+        "fill_price": fill_f,
+        "execution_price": fill_f,  # kompatybilnosc
         "mark_price": mark_f,
         "index_price": index_f,
         "mid_price": mid_f,

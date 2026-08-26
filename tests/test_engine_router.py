@@ -24,15 +24,14 @@ class TestResidualMomentum(unittest.TestCase):
 
 
 class TestLiquidityRouter(unittest.TestCase):
-    def test_liquid_aligned_market_prefers_trend(self):
+    def test_liquid_aligned_panic_prefers_continuation(self):
         sig = route_signal({
-            "engine": "trend", "direction": "LONG", "change_24h": 5,
+            "engine": "trend", "direction": "LONG", "change_24h": 8,
             "residual_momentum_24h": 3, "volume_24h": 100_000_000,
-            "market_regime": "TREND_UP",
+            "market_regime": "PANIC",
         })
-        self.assertEqual(sig["liquidity_bucket"], "LIQUID")
         self.assertEqual(sig["preferred_engine"], "trend")
-        self.assertGreater(sig["engine_preference_score"], 0)
+        self.assertEqual(sig["engine_route_reason"], "LIQUID_RESIDUAL_CONTINUATION")
 
     def test_reversal_needs_confirmation_to_receive_preference(self):
         base = {

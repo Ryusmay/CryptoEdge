@@ -37,6 +37,17 @@ class TestAppRecordsBotVersion(unittest.TestCase):
         self.assertIn("feeder.blofin.fetch_api_key_permissions()", self.source)
         self.assertIn('any(p in ("TRADE", "TRANSFER") for p in perms)', self.source)
 
+    def test_paper_start_never_restores_old_capital_or_positions(self):
+        start = self.source.index("def load_previous_state")
+        end = self.source.index("def _bot_version", start)
+        helper = self.source[start:end]
+        guard = helper.index('getattr(config, "PAPER_TRADING", True)')
+        disk_read = helper.index("state_path.read_text")
+        self.assertLess(guard, disk_read)
+        self.assertIn("return False", helper[:disk_read])
+        self.assertIn("trader.positions = []", self.source)
+        self.assertIn("risk.daily_pnl = 0.0", self.source)
+
 
 if __name__ == "__main__":
     unittest.main()

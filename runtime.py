@@ -5,6 +5,7 @@
 from __future__ import annotations
 import threading
 import time
+from collections import deque
 from typing import Optional, Dict, Any
 
 
@@ -15,6 +16,9 @@ class BotRuntime:
     _lock = threading.Lock()
 
     def __init__(self):
+        # Granica widocznej sesji UI. Pliki audytowe zachowuja historie,
+        # ale Events nie powinien pokazywac wpisow sprzed tego uruchomienia.
+        self.session_started_at: float = time.time()
         self.feeder = None
         self.signal_engine = None
         self.risk = None
@@ -30,6 +34,7 @@ class BotRuntime:
         self.last_coins: list = []
         self.last_signals: list = []
         self.last_error: Optional[str] = None
+        self.feed_events: deque = deque(maxlen=40)
         self.app_mode = True
         self.started_at: Optional[float] = None  # time.time() start analizy
         self.trading_started_at: Optional[float] = None
@@ -101,6 +106,17 @@ class BotRuntime:
         _settings.apply_settings()
         self.engine_enabled = True
         self.trading_enabled = True
+        # Każdy pełny START ma własny, jawny etap przygotowania danych.
+        # Zapobiega to odziedziczeniu stanu READY po poprzedniej sesji.
+        try:
+            from warmup import WARMUP, warmup_applies
+            if warmup_applies():
+                WARMUP.start()
+                snapshot = getattr(self, "last_state_snapshot", None) or {}
+                snapshot["warmup"] = WARMUP.status()
+                self.last_state_snapshot = snapshot
+        except Exception as exc:
+            print(f"[Warmup] restart skip: {exc}")
         # START BOT moze byc pierwsza akcja; wtedy rowniez czekamy na pelny cykl.
         if self.last_completed_cycle < self.cycle or self.cycle == 0:
             self.analysis_loading = True
@@ -167,6 +183,7 @@ class BotRuntime:
                 n_k = len(res.get("kept_with_tp") or [])
                 stale_note = " | ceny nieswieze - nic nie zamknieto" if res.get("prices_stale") else ""
                 summary = f" | +zamknieto {n_c}, zostawiono {n_k} (TP {tp_pct:.0f}%){stale_note}"
+                self._persist_terminal_state()
         except Exception as e:
             print(f"[STOP] on_engine_stop error: {e}")
             summary = f" | (adjust error: {e})"
@@ -212,13 +229,24 @@ class BotRuntime:
 
         closed = 0
         try:
+            age_s = self.price_map_age_s()
             if self.trader and hasattr(self.trader, "close_all"):
-                n = self.trader.close_all(self.last_price_map or {}, reason="kill_switch")
+                n = self.trader.close_all(self.last_price_map or {}, reason="kill_switch",
+                                          price_map_age_s=age_s)
                 closed = n if isinstance(n, int) else len(n or [])
             elif self.trader:
+                # Ta sama zasada co w PaperTrader._close_all_unlocked: kill
+                # switch zamyka zawsze, ale brak ceny / cena sprzed godzin
+                # musi zostawic slad w powodzie zamkniecia.
+                stale = age_s > float(getattr(_cfg, "STOP_ENGINE_MAX_PRICE_AGE_S", 60.0) or 60.0)
+                age_tag = "NIGDY" if age_s == float("inf") else f"{int(age_s)}s"
                 for pos in list(getattr(self.trader, "positions", []) or []):
-                    px = (self.last_price_map or {}).get(pos.symbol) or pos.entry_price
-                    self.trader.close_position(pos, float(px), "kill_switch")
+                    px = (self.last_price_map or {}).get(pos.symbol)
+                    if px is None or float(px) <= 0:
+                        px, tag = pos.entry_price, "kill_switch:NO_PRICE"
+                    else:
+                        tag = f"kill_switch:STALE_PRICE_{age_tag}" if stale else "kill_switch"
+                    self.trader.close_position(pos, float(px), tag)
                     closed += 1
         except Exception as e:
             print(f"[KILL] local close error: {e}")
@@ -262,12 +290,117 @@ class BotRuntime:
         return "RESUMED"
 
     def close_all(self) -> str:
-        if not self.trader:
-            return "Brak runtime"
-        with self.trader.lock:
-            n = len(self.trader.positions)
-            self.trader.close_all(self.last_price_map or {}, reason="close_all")
-        return f"CLOSED {n}"
+        """Zamknij pozycje. Nie halt, nie KILL_SWITCH — silnik zostaje."""
+        import config as _cfg
+        closed = 0
+        syms = []
+        if self.trader:
+            positions_snapshot = list(getattr(self.trader, "positions", []) or [])
+            syms = list({getattr(p, "symbol", None) for p in positions_snapshot if getattr(p, "symbol", None)})
+            if hasattr(self.trader, "close_all"):
+                with self.trader.lock:
+                    n = len(self.trader.positions)
+                    self.trader.close_all(self.last_price_map or {}, reason="close_all",
+                                          price_map_age_s=self.price_map_age_s())
+                    closed = n
+                    self._persist_terminal_state()
+        confirmed = 0
+        n_ex = 0
+        if bool(getattr(_cfg, "LIVE_EXECUTION_ENABLED", False)) and getattr(self, "executor", None):
+            try:
+                results = self.executor.emergency_close_all(
+                    syms, reconciler=getattr(self, "reconciler", None),
+                ) or []
+                n_ex = len(results)
+                confirmed = sum(1 for r in results if r.get("confirmed_flat"))
+            except Exception as e:
+                print(f"[CLOSE_ALL] exchange close error: {e}")
+        return f"CLOSED local={closed} exchange_confirmed={confirmed}/{n_ex}"
+
+    def set_reduce_only(self, enabled: bool = True, reason: str = "manual") -> str:
+        """Blokuje zwiekszanie ekspozycji; close/cancel/protection nadal dzialaja."""
+        if self.risk is None:
+            return "NO_RISK_ENGINE"
+        self.risk.risk_state = "REDUCE_ONLY" if enabled else "NORMAL"
+        self.risk.reduce_only_reason = str(reason or "manual") if enabled else None
+        return f"RISK_STATE={self.risk.risk_state}"
+
+    def reduce_only_on(self) -> str:
+        return self.set_reduce_only(True, "api")
+
+    def reduce_only_off(self) -> str:
+        return self.set_reduce_only(False, "api")
+
+    def _persist_terminal_state(self) -> None:
+        """Natychmiastowy snapshot po mutacji pozycji, nie dopiero w kolejnym cyklu."""
+        if not self.logger or not self.risk or not self.trader:
+            return
+        try:
+            status = self.risk.get_status()
+            summary = self.trader.get_open_summary()
+            self.logger.save_state(status, summary, extra={
+                "cycle": int((self.last_state_snapshot or {}).get("cycle") or 0),
+                "signals": list((self.last_state_snapshot or {}).get("signals") or []),
+                "running": bool(self.engine_enabled),
+                "trading_enabled": bool(self.trading_enabled),
+                "metrics": self.trader.session_metrics(),
+                "saved_positions": self.trader.export_open_positions(),
+            })
+        except Exception as e:
+            print(f"[State] final snapshot: {e}")
+
+    def apply_control_files(self, base_dir=None) -> list:
+        """PAUSE / CLOSE_ALL / RESUME — puste pliki w folderze bota (nazwy stałe)."""
+        from pathlib import Path
+        notes = []
+        root = Path(base_dir) if base_dir is not None else Path(__file__).resolve().parent
+        pause_p = root / "PAUSE"
+        close_p = root / "CLOSE_ALL"
+        resume_p = root / "RESUME"
+        try:
+            if resume_p.exists():
+                resume_p.unlink(missing_ok=True)
+                if pause_p.exists():
+                    pause_p.unlink(missing_ok=True)
+                notes.append(self.resume())
+            elif pause_p.exists() and self.risk and not bool(getattr(self.risk, "paused", False)):
+                notes.append(self.pause())
+            if close_p.exists():
+                close_p.unlink(missing_ok=True)
+                notes.append(self.close_all())
+        except Exception as e:
+            notes.append(f"CONTROL_FILE_ERR:{e}")
+        for n in notes:
+            print(f"[Control] {n}")
+        return notes
+
+    def maybe_reconcile(self, cycle: int):
+        """LIVE: porównaj lokalne pozycje vs giełda co RECONCILE_EVERY_CYCLES."""
+        import config
+        every = int(getattr(config, "RECONCILE_EVERY_CYCLES", 0) or 0)
+        if every <= 0:
+            return None
+        try:
+            cyc = int(cycle)
+        except (TypeError, ValueError):
+            return None
+        if cyc <= 0 or (cyc % every) != 0:
+            return None
+        if bool(getattr(config, "PAPER_TRADING", True)):
+            return None
+        rec = getattr(self, "reconciler", None)
+        trader = getattr(self, "trader", None)
+        if rec is None or trader is None:
+            return None
+        try:
+            report = rec.reconcile(getattr(trader, "positions", []) or [])
+            text = rec.summary_text(report) if hasattr(rec, "summary_text") else None
+            if text:
+                print(f"[Reconcile] cycle={cyc} {text}")
+            return report
+        except Exception as e:
+            print(f"[Reconcile] cycle={cyc}: {e}")
+            return None
 
     def close_symbol(self, symbol: str) -> str:
         """Ręczne zamknięcie jednej pozycji DEMO (market z last_price_map)."""
@@ -294,6 +427,7 @@ class BotRuntime:
         st["last_completed_cycle"] = int(self.last_completed_cycle)
         st["cycle"] = self.cycle
         st["last_error"] = self.last_error
+        st["feed_events"] = list(getattr(self, "feed_events", []) or [])[:8]
         if self.engine_enabled and self.started_at:
             st["uptime_sec"] = int(time.time() - self.started_at)
         else:
@@ -306,3 +440,67 @@ class BotRuntime:
 
     def heartbeat(self):
         self.last_heartbeat = time.time()
+
+    def price_map_age_s(self) -> float:
+        """Wiek last_price_map. inf gdy mapa nigdy nie zostala zapisana."""
+        ts = float(self.last_price_map_ts or 0.0)
+        return max(0.0, time.time() - ts) if ts > 0 else float("inf")
+
+    # Progi zamrozenia. Pelny skan bywa dluzszy niz budzet (obserwowano 22-70 s
+    # przy FULL_SCAN_INTERVAL_SECONDS=20), wiec prog ma duzy zapas: lapie awarie,
+    # nie wolny rynek.
+    LOOP_STALE_AFTER_S = 180.0
+    PRICE_MAP_STALE_AFTER_S = 120.0
+
+    def liveness(self) -> Dict[str, Any]:
+        """Czy petla glowna jeszcze pracuje.
+
+        25.08.2026: silnik stanal (ostatni cykl 11:30:57), a proces dalej
+        odpowiadal na /api/health i serwowal ostatni znany stan az do 19:10.
+        Przez 7,5 h zamrozenie bylo w UI nieodroznialne od spokojnego rynku,
+        bo wiek ostatniego cyklu nie byl nigdzie wystawiony. Jest czescia
+        kontraktu API wlasnie po to, zeby ten tryb awarii bylo widac.
+        """
+        now = time.time()
+
+        def age(ts):
+            try:
+                ts = float(ts or 0.0)
+            except (TypeError, ValueError):
+                return None
+            return round(max(0.0, now - ts), 1) if ts > 0 else None
+
+        cycle_age = age(self.last_heartbeat)
+        price_age = age(self.last_price_map_ts)
+        running = bool(self.engine_enabled)
+        frozen = bool(
+            running
+            and not self.analysis_loading
+            and cycle_age is not None
+            and cycle_age > self.LOOP_STALE_AFTER_S
+        )
+        prices_stale = bool(
+            running
+            and price_age is not None
+            and price_age > self.PRICE_MAP_STALE_AFTER_S
+        )
+        if not running:
+            state = "off"
+        elif frozen:
+            state = "frozen"
+        elif cycle_age is None:
+            state = "starting"
+        elif prices_stale:
+            state = "degraded"
+        else:
+            state = "ok"
+        return {
+            "state": state,
+            "engine_enabled": running,
+            "cycle": int(self.cycle or 0),
+            "cycle_age_s": cycle_age,
+            "price_map_age_s": price_age,
+            "prices_stale": prices_stale,
+            "frozen": frozen,
+            "loop_stale_after_s": self.LOOP_STALE_AFTER_S,
+        }

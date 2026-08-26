@@ -11,12 +11,13 @@ from blofin_ws import BlofinPublicWebSocket
 class FakeWebSocketApp:
     """Podmienia websocket.WebSocketApp - symuluje połączenie bez sieci."""
 
-    def __init__(self, url, on_open=None, on_message=None, on_error=None, on_close=None):
+    def __init__(self, url, on_open=None, on_message=None, on_error=None, on_close=None, **kwargs):
         self.url = url
         self.on_open = on_open
         self.on_message = on_message
         self.on_error = on_error
         self.on_close = on_close
+        self.header = kwargs.get("header")
         self.sent = []
         self.closed = False
 
@@ -28,7 +29,8 @@ class FakeWebSocketApp:
     def close(self):
         self.closed = True
 
-    def run_forever(self, ping_interval=0):
+    def run_forever(self, ping_interval=0, **kwargs):
+        self.origin = kwargs.get("origin")
         if self.on_open:
             self.on_open(self)
         while not self.closed:

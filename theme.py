@@ -133,7 +133,16 @@ def qss() -> str:
     plaski jezyk wizualny (2px radius, hairline border) zamiast dwoch
     rozjezdzajacych sie stylow. Kolejnosc w build_v2() to
     self.styles() + theme.qss() - te reguly (pozniejsze w lancuchu) wygrywaja
-    z odpowiednikami w self.styles() dla tych samych selektorow.
+    z odpowiednikami w self.styles() dla tych samych selektorow. */
+    QLabel#PageTitle {{
+        color:{TEXT}; font-family:'{SANS}'; font-size:18px; font-weight:700;
+        letter-spacing:0.4px;
+    }}
+    QLabel#PageContext {{
+        color:{CYAN}; background:#0C2B3D; border:1px solid #175B7C;
+        border-radius:2px; padding:5px 9px; font-size:10px; font-weight:700;
+        letter-spacing:0.6px;
+    }}
     QFrame#Card {{
         background:{PANEL}; border:1px solid {LINE}; border-radius:2px;
     }}
@@ -190,4 +199,22 @@ def qss() -> str:
     QLabel#WLChg {{ font-family:'{MONO}'; font-size:11px; font-weight:700; color:{MUTED}; }}
     QLabel#WLChg[tone='up'] {{ color:{LONG}; }}
     QLabel#WLChg[tone='down'] {{ color:{SHORT}; }}
+
+    QPushButton#V2Chip {{
+        color:{MUTED}; background:{PANEL2}; border:1px solid {LINE};
+        border-radius:2px; padding:5px 10px; font-weight:700; font-size:11px;
+    }}
+    QPushButton#V2Chip:checked {{
+        color:{TEXT}; background:#0C2B3D; border:1px solid {CYAN};
+    }}
+    QPushButton#V2Chip:hover {{ border-color:{CYAN}; color:{TEXT}; }}
+    QFrame#ScanStat {{
+        background:{PANEL2}; border:1px solid {LINE}; border-radius:2px;
+    }}
+    QLabel#ScanStatValue {{
+        font-family:'{MONO}'; font-size:20px; font-weight:700; color:{TEXT};
+    }}
+    QLabel#KPI {{
+        font-family:'{MONO}'; font-size:22px; font-weight:700;
+    }}
     """

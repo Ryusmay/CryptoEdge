@@ -23,9 +23,24 @@ class TestNativeUiParity(unittest.TestCase):
     def test_restored_pages_exist(self):
         self.assertTrue({"execution_page", "health_page", "system_page"} <= self.methods)
 
-    def test_separate_stop_trading_control_exists(self):
+    def test_internal_stop_trading_method_remains_available(self):
         self.assertIn("stop_trading", self.methods)
-        self.assertIn('("STOP TRADING",self.stop_trading', self.source)
+
+    def test_main_controls_have_single_start_and_stop_without_pause_resume(self):
+        engine_specs = self.source.split("engine_specs = [", 1)[1].split("]", 1)[0]
+        controls = self.source.split("controls = [", 1)[1].split("]", 1)[0]
+        for block in (engine_specs, controls):
+            self.assertIn("START BOT", block)
+            self.assertIn("STOP BOT", block)
+            self.assertNotIn("STOP TRADING", block)
+            self.assertNotIn("PAUSE", block)
+            self.assertNotIn("RESUME", block)
+
+    def test_single_start_bot_control_replaces_two_start_buttons(self):
+        self.assertIn('("start_bot", "START BOT", self.start_trading', self.source)
+        self.assertNotIn('("start_analysis", "Start analysis"', self.source)
+        self.assertNotIn('("start_trading", "Start trading"', self.source)
+        self.assertNotIn('("ANALIZA", self.start_analysis', self.source)
 
     def test_old_ui_data_sections_are_present(self):
         for label in (
@@ -66,7 +81,7 @@ class TestNativeUiParity(unittest.TestCase):
         for label in (
             "System Readiness / Watchdog", "Why No Trade?", "Position Protection",
             "Signal Lifecycle", "Expected vs Actual", "Entry Reservations / Session",
-            "Engine Router", "Expected Net R", "Decision Telemetry", "EXPORT PAPER SESSION",
+            "Router silnika", "Oczekiwane Net R", "Telemetria decyzji", "EXPORT PAPER SESSION",
         ):
             self.assertIn(label, self.source)
         self.assertIn("control_center.enrich", self.source)
@@ -132,14 +147,14 @@ class TestNativeUiParity(unittest.TestCase):
     def test_analysis_workspace_has_native_blofin_chart(self):
         self.assertIn("class MarketChart", self.source)
         self.assertIn("class ChartLoadTask", self.source)
-        self.assertIn('Card("BLOFIN MARKET CHART")', self.source)
+        self.assertIn('Card("WYKRES ŚWIECOWY")', self.source)
         self.assertIn('self.chart_interval.addItems(["5m", "15m", "1h", "4h", "1d"])', self.source)
         self.assertIn("fetch_klines_ohlcv", self.source)
         self.assertIn('self.overlays = {"ema": True, "trade_plan": True, "levels": False, "viper": False}', self.source)
         self.assertIn('data["_viper"]', self.source)
         self.assertIn('viper.get("levels")', self.source)
         self.assertIn('QCheckBox("EMA")', self.source)
-        self.assertIn('QCheckBox("ENTRY / SL / TP")', self.source)
+        self.assertIn('QCheckBox("ENTRY / SL / TP1 / TP2")', self.source)
         self.assertIn('QCheckBox("FIB + S/R + PIVOT")', self.source)
         self.assertIn('QCheckBox("VIPER")', self.source)
         self.assertIn('"levels": False, "viper": False', self.source)
@@ -152,9 +167,9 @@ class TestNativeUiParity(unittest.TestCase):
         # to byl wlasnie ten "stary wyglad", ktory user wprost poprosil
         # usunac ("nie zostawiaj starego wygladu zakladek jak np ... lab").
         # Test sprawdza teraz nowe karty zamiast starych naglowkow grup.
-        for card_title in ("WHY", "WHY NOT", "MTF MATRIX", "Engine Router", "Decision Telemetry"):
+        for card_title in ("DLACZEGO TAK", "DLACZEGO NIE", "BREAKDOWN SYGNAŁU", "Router silnika", "Telemetria decyzji"):
             self.assertIn(card_title, self.source)
-        self.assertIn("OPEN IN TRADINGVIEW", self.source)
+        self.assertIn("TRADINGVIEW", self.source)
         self.assertTrue({"load_analysis_chart", "on_chart_loaded", "open_selected_tradingview", "update_chart_overlays"} <= self.methods)
 
     def test_mode_switch_requires_stopped_engine_no_positions_and_api(self):

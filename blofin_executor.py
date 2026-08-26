@@ -39,7 +39,12 @@ class BloFinExecutor:
     def __init__(self, registry: InstrumentRegistry = None, session: requests.Session = None):
         self.registry = registry or InstrumentRegistry()
         self.session = session or requests.Session()
-        self.session.headers.update({"Accept": "application/json"})
+        try:
+            from blofin_feed import configure_blofin_session
+            configure_blofin_session(self.session)
+        except Exception as e:
+            print(f"[Executor] transport: {e}")
+            self.session.headers.update({"Accept": "application/json"})
         self.last_error: Optional[str] = None
         self.orders: Dict[str, Order] = {}  # client_order_id → Order
         self.request_timeout = float(getattr(config, "ORDER_REQUEST_TIMEOUT", 12) or 12)
@@ -216,7 +221,7 @@ class BloFinExecutor:
         margin_mode: str = None,
         position_side: str = None,
         wait_fill: bool = True,
-        poll_seconds: float = 3.0,
+        poll_seconds: float = None,
     ) -> Order:
         """
         Składa zlecenie. Przy timeout → state=TIMEOUT (nie REJECTED).
@@ -255,6 +260,7 @@ class BloFinExecutor:
             leverage=lev,
             margin_mode=mm,
             position_side=ps,
+            decision_ts_ms=int(time.time() * 1000),
         )
         self.orders[cid] = order
 
@@ -309,7 +315,12 @@ class BloFinExecutor:
         if reduce_only:
             body["reduceOnly"] = "true"
 
+        delay = float(getattr(config, "ENTRY_DELAY_SECONDS", 0) or 0)
+        if delay > 0 and not reduce_only:
+            time.sleep(min(delay, 30.0))
+
         order.transition(OrderState.SUBMITTING, "POST /trade/order")
+        order.submitted_ts_ms = int(time.time() * 1000)
         resp = self._request("POST", "/api/v1/trade/order", body=body)
         order.raw_submit = resp.get("raw")
 
@@ -331,10 +342,14 @@ class BloFinExecutor:
         # data bywa listą lub dictem
         row = data[0] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
         order.order_id = str(row.get("orderId") or row.get("ordId") or "") or None
+        order.accepted_ts_ms = int(time.time() * 1000)
         order.transition(OrderState.SUBMITTED, f"orderId={order.order_id}")
 
         if wait_fill:
-            self._wait_fill(order, poll_seconds=poll_seconds)
+            wait_s = poll_seconds
+            if wait_s is None:
+                wait_s = float(getattr(config, "ORDER_WAIT_FILL_SECONDS", 3.0) or 3.0)
+            self._wait_fill(order, poll_seconds=wait_s)
         return order
 
     def _wait_fill(self, order: Order, poll_seconds: float = 3.0):
@@ -486,9 +501,21 @@ class BloFinExecutor:
         except (TypeError, ValueError):
             avg = order.avg_fill_price
 
-        order.filled_size = filled
-        if avg:
-            order.avg_fill_price = avg
+        delta = max(0.0, filled - float(order.filled_size or 0))
+        if delta > 0 and avg:
+            role = str(row.get("liquidityRole") or row.get("execType") or row.get("fillRole") or "").lower()
+            if role not in ("maker", "taker"):
+                # Market orders remove liquidity; limit fills require the venue
+                # role to avoid inventing maker rebates.
+                role = "taker" if str(order.order_type).lower() == "market" else None
+            raw_fee = float(row.get("fee") or row.get("fillFee") or 0)
+            fee = raw_fee - float(order.fee or 0) if abs(raw_fee) >= abs(float(order.fee or 0)) else raw_fee
+            fill_ts = int(row.get("fillTime") or row.get("updateTime") or row.get("uTime") or time.time() * 1000)
+            order.record_fill(delta, avg, fee=fee, liquidity_role=role, ts_ms=fill_ts)
+        else:
+            order.filled_size = filled
+            if avg:
+                order.avg_fill_price = avg
         order.transition(st, f"ex_state={row.get('state')} filled={filled}")
         return order
 
@@ -513,7 +540,31 @@ class BloFinExecutor:
         self.refresh_order(order)
         if not order.is_terminal:
             order.transition(OrderState.CANCELED, "cancel accepted")
+        if order.state == OrderState.CANCELED:
+            order.canceled_ts_ms = int(time.time() * 1000)
         return order
+
+    def fetch_open_orders(self) -> List[dict]:
+        resp = self._request("GET", "/api/v1/trade/orders", params={"instType": "SWAP"}, timeout=self.poll_timeout)
+        data = resp.get("data") if resp.get("ok") else []
+        return list(data if isinstance(data, list) else ([data] if isinstance(data, dict) else []))
+
+    def cancel_orphan_orders(self, active_symbols=None, client_prefix: str = "CE") -> List[dict]:
+        """Anuluje tylko zlecenia nalezace do bota, bez odpowiadajacej pozycji."""
+        active = {str(x).upper().replace("-USDT", "") for x in (active_symbols or [])}
+        results = []
+        for row in self.fetch_open_orders():
+            client_id = str(row.get("clientOrderId") or row.get("clOrdId") or "")
+            inst = str(row.get("instId") or "").upper()
+            symbol = inst.replace("-USDT", "")
+            if not client_id.startswith(client_prefix) or symbol in active:
+                continue
+            shadow = Order(client_order_id=client_id, symbol=symbol, inst_id=inst,
+                           side="sell", direction="LONG", order_type="market", size=0)
+            shadow.order_id = str(row.get("orderId") or row.get("ordId") or "") or None
+            self.cancel_order(shadow)
+            results.append({"symbol": symbol, "client_order_id": client_id, "state": str(shadow.state)})
+        return results
 
     # ------------------------------------------------------------------
     # Convenience: open / close by notional

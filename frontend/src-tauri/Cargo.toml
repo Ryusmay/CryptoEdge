@@ -1,0 +1,19 @@
+[package]
+name = "cryptoedge-terminal"
+version = "20.13.1"
+description = "CryptoEdge trading control room"
+authors = ["CryptoEdge"]
+edition = "2021"
+
+[lib]
+name = "cryptoedge_terminal_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

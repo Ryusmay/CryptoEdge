@@ -16,6 +16,7 @@
 # ============================================================
 
 from __future__ import annotations
+import math
 from typing import Dict, Any, Tuple
 
 
@@ -34,7 +35,11 @@ def _is_reversal(signal: dict) -> bool:
 
 
 def _is_daytrading(signal: dict) -> bool:
-    return signal.get("engine") == "daytrading" or signal.get("strategy_mode") == "DAYTRADING"
+    if _is_reversal(signal):
+        return False
+    engine = str(signal.get("engine") or "").lower()
+    mode = str(signal.get("strategy_mode") or "").upper()
+    return engine in ("daytrading", "daytrading_v2") or mode in ("DAYTRADING", "DAYTRADING_V2")
 
 
 def _gross_expected_r(signal: dict) -> float:
@@ -58,12 +63,20 @@ def _gross_expected_r(signal: dict) -> float:
             status = "PRIOR_ONLY"
         p1 = max(0.0, min(1.0, p1))
         p2_given = max(0.0, min(1.0, p2_given))
+        base_p1, base_p2_given = p1, p2_given
+        quality_mult = max(0.65, min(1.10, _f(signal.get("setup_probability_multiplier"), 1.0)))
+        p1 = max(0.02, min(0.98, p1 * quality_mult))
+        # Dalszy target dostaje lagodniejsza korekte; nie wolno podwojnie
+        # nagradzac tego samego candle/RSI confluence.
+        p2_given = max(0.02, min(0.98, p2_given * (quality_mult ** 0.5)))
         # Mutually exclusive lifecycle: loss before TP1, then realised TP1
         # fraction plus a TP2-or-break-even remainder.
         gross = -(1.0 - p1) + p1 * (f1 * r1 + remainder * p2_given * r2)
         signal["expected_r_status"] = status
         signal["expected_r_probabilities"] = {
-            "p_tp1": p1, "p_tp2_given_tp1": p2_given, "n": n,
+            "p_tp1": p1, "p_tp2_given_tp1": p2_given,
+            "base_p_tp1": base_p1, "base_p_tp2_given_tp1": base_p2_given,
+            "setup_quality_multiplier": quality_mult, "n": n,
         }
         return gross
     elif _is_reversal(signal):
@@ -122,6 +135,9 @@ def _spread_cost_frac(signal: dict) -> float:
 
 def _slippage_frac(signal: dict) -> float:
     import config
+    # V2 przekazuje calkowity round-trip slip z tego samego modelu co fill.
+    if signal.get("slip_rt") is not None:
+        return max(0.0, _f(signal.get("slip_rt")))
     # Pure execution uncertainty only. A VWAP-vs-mid estimate belongs to
     # market impact below; treating it as both charged the same book walk twice.
     return max(0.0, _f(getattr(config, "DEFAULT_SLIPPAGE", 0.0003)))
@@ -183,8 +199,10 @@ def expected_net_r(signal: dict, risk_manager=None) -> Dict[str, Any]:
 
     fee_r = fee_rt / sl_dist
     spread_r = spread / sl_dist
-    slip_r = (slip * 2.0) / sl_dist
-    impact_r = impact / sl_dist
+    has_rt_slip = signal.get("slip_rt") is not None
+    slip_r = (slip if has_rt_slip else slip * 2.0) / sl_dist
+    # slip_rt V2 zawiera estymowany impact z wolumenu swiecy; nie licz go drugi raz.
+    impact_r = (0.0 if has_rt_slip else impact) / sl_dist
     fund_r = fund / sl_dist
 
     net = gross - fee_r - spread_r - slip_r - impact_r
@@ -233,6 +251,17 @@ def net_r_ok(signal: dict, risk_manager=None) -> Tuple[bool, str]:
     if not bool(getattr(config, "USE_EXPECTED_NET_R_FILTER", True)):
         return True, "OK"
     br = expected_net_r(signal, risk_manager)
+    # Niezależnie od jakości kalibracji transakcja o niedodatnim expectancy
+    # nie może zwiększać ekspozycji. LOW_SAMPLE/PRIOR_ONLY może jedynie
+    # zmniejszać sizing dodatniego setupu, nigdy legalizować ujemny edge.
+    try:
+        net_r = float(br["net_r"])
+    except (KeyError, TypeError, ValueError):
+        return False, "EXPECTED_NET_R_INVALID"
+    if not math.isfinite(net_r):
+        return False, "EXPECTED_NET_R_INVALID"
+    if net_r <= 0.0:
+        return False, f"NON_POSITIVE_NET_R({net_r:.2f}<=0)"
     if _is_daytrading(signal):
         min_net = float(getattr(config, "DAYTRADING_MIN_EXPECTED_NET_R", 0.20))
     elif _is_reversal(signal):
@@ -247,7 +276,20 @@ def net_r_ok(signal: dict, risk_manager=None) -> Tuple[bool, str]:
         calib_n = 0
     min_sample = int(getattr(config, "DAYTRADING_NET_R_MIN_SAMPLE", 20) or 20)
     if _is_daytrading(signal) and (status in ("PRIOR_ONLY", "LOW_SAMPLE") or calib_n < min_sample):
-        return True, f"NET_R_SOFT({br['net_r']:.2f}|n={calib_n}|{status})"
+        prior_floor = float(getattr(
+            config, "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R", min_net,
+        ))
+        prior_floor = max(0.0, prior_floor)
+        if net_r < prior_floor:
+            return False, (
+                f"DAY_PRIOR_NET_R_LOW({net_r:.2f}<{prior_floor:.2f}"
+                f"|n={calib_n}|{status})"
+            )
+        return True, f"NET_R_SOFT({net_r:.2f}|n={calib_n}|{status})"
+    if _is_reversal(signal) and status in ("PRIOR_ONLY", "LOW_SAMPLE"):
+        prior_floor = float(getattr(config, "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R", min_net))
+        if br["net_r"] < prior_floor:
+            return False, f"REV_PRIOR_NET_R_LOW({br['net_r']:.2f}<{prior_floor:.2f}|{status})"
     if br["net_r"] < min_net:
         return False, (
             f"LOW_NET_R({br['net_r']:.2f}<{min_net}|{br.get('engine')}"

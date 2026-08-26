@@ -55,11 +55,11 @@ class TestPortfolioReplayV2(unittest.TestCase):
     def test_slot_frees_up_after_exit_and_new_signal_can_enter(self):
         n = 20
         bars_btc = _flat_bars(n)
-        bars_btc["lows"][2] = 97.0  # BTC trafia SL szybko - zwalnia slot
+        bars_btc["highs"][2] = 102.0  # TP1
+        bars_btc["lows"][3] = 99.9    # BE po TP1 — slot wraca
 
         def eth_signal_at(i):
-            # ETH probuje wejsc na barze 3 (po tym jak BTC juz zamknieto na barze 2)
-            if i == 3:
+            if i == 5:
                 return {"symbol": "ETH", "direction": "LONG", "price": 100.0,
                         "sl_price": 98.0, "tp1_price": 101.5, "tp2_price": 104.0}
             return {"direction": "NEUTRAL", "reject_reason": "TEST_NEUTRAL"}
@@ -68,7 +68,7 @@ class TestPortfolioReplayV2(unittest.TestCase):
             "BTC": {"ohlcv_5m": bars_btc, "signal_at": _single_signal_at_bar0("BTC")},
             "ETH": {"ohlcv_5m": _flat_bars(n), "signal_at": eth_signal_at},
         }
-        result = portfolio_replay_v2(symbols_data, max_positions=1, max_bars=15)
+        result = portfolio_replay_v2(symbols_data, max_positions=1, max_bars=3)
         self.assertEqual(0, result["rejected_for_slots"])
         self.assertIn("BTC", result["by_symbol"])
         self.assertIn("ETH", result["by_symbol"])
@@ -104,17 +104,23 @@ class TestPortfolioReplayV2(unittest.TestCase):
             self.assertEqual(owner, symbol)  # notify_exit BTC-a nigdy nie dostaje ETH i odwrotnie
 
     def test_htf_bias_at_is_scoped_per_symbol_not_shared(self):
+        import config
         n = 25
         bars = _flat_bars(n)
 
         def btc_htf_bias_at(i):
-            return "SHORT" if i >= 5 else "LONG"  # BTC odwraca sie na barze 5
+            return "SHORT" if i >= 5 else "LONG"
 
-        symbols_data = {
-            "BTC": {"ohlcv_5m": bars, "signal_at": _single_signal_at_bar0("BTC"), "htf_bias_at": btc_htf_bias_at},
-            "ETH": {"ohlcv_5m": _flat_bars(n), "signal_at": _single_signal_at_bar0("ETH")},  # brak htf_bias_at
-        }
-        result = portfolio_replay_v2(symbols_data, max_positions=10, max_bars=15)
+        old = config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL
+        config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = True
+        try:
+            symbols_data = {
+                "BTC": {"ohlcv_5m": bars, "signal_at": _single_signal_at_bar0("BTC"), "htf_bias_at": btc_htf_bias_at},
+                "ETH": {"ohlcv_5m": _flat_bars(n), "signal_at": _single_signal_at_bar0("ETH")},
+            }
+            result = portfolio_replay_v2(symbols_data, max_positions=10, max_bars=15)
+        finally:
+            config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = old
         btc_trade = next(t for s, t in result["trades_with_symbol"] if s == "BTC")
         eth_trade = next(t for s, t in result["trades_with_symbol"] if s == "ETH")
         self.assertEqual("htf_reversal", btc_trade.exit_reason)

@@ -28,12 +28,12 @@ DEFAULTS: Dict[str, Any] = {
     "ALERT_SOUND": True,
     "ALERT_PUSH": True,          # Windows toast / balloon
     "BLOCK_OB_THIN": True,
-    "BLOCK_PUMP_CHASE_PCT": 28.0,
+    "BLOCK_PUMP_CHASE_PCT": 22.0,
     "BLOCK_RANGE_REGIME": False,
     "BLOCK_STRAT_NA_IN_RANGE": True,
     "REQUIRE_PRIMARY_STRATEGY": True,
     "AGGRESSIVE_MODE": False,
-    "MIN_SIGNAL_STRENGTH": 0.55,
+    "MIN_SIGNAL_STRENGTH": 0.48,
 }
 
 

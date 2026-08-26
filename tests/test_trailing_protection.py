@@ -5,6 +5,7 @@
 import unittest
 import sys
 import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -108,6 +109,84 @@ class TestTrailingProtectionIntegration(unittest.TestCase):
         att = pm.by_key["SOL:LONG"]
         self.assertGreaterEqual(att.sl_price, pos.sl_price - 1e-9)
         self.assertAlmostEqual(att.sl_price, pos.sl_price)
+
+
+class TestLiveAtrTrailingAndCooldown(unittest.TestCase):
+    def _pos(self, **kwargs):
+        pos = Position(
+            {"symbol": "BTC", "direction": "LONG", "price": 100.0,
+             "strength": 0.9, "sl_price": 90.0, "tp_price": 130.0,
+             "atr": 0.20},
+            size_usd=50, leverage=10,
+        )
+        pos.atr = 0.20
+        pos.pnl_pct = 50.0
+        pos.trailing_active = True
+        pos.highest_price = 120.0
+        for key, val in kwargs.items():
+            setattr(pos, key, val)
+        return pos
+
+    def test_live_atr_uses_current_volatility_not_frozen_entry_atr(self):
+        orig_live = getattr(config, "LIVE_ATR_TRAILING_ENABLED", True)
+        orig_gate = getattr(config, "TRAILING_CANDLE_GATE", True)
+        orig_cool = getattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", 5.0)
+        orig_tighten = getattr(config, "TRAILING_TIGHTEN", False)
+        config.LIVE_ATR_TRAILING_ENABLED = True
+        config.TRAILING_CANDLE_GATE = False
+        config.TRAILING_MIN_UPDATE_INTERVAL_SEC = 0.0
+        config.TRAILING_TIGHTEN = False
+        self.addCleanup(lambda: setattr(config, "LIVE_ATR_TRAILING_ENABLED", orig_live))
+        self.addCleanup(lambda: setattr(config, "TRAILING_CANDLE_GATE", orig_gate))
+        self.addCleanup(lambda: setattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", orig_cool))
+        self.addCleanup(lambda: setattr(config, "TRAILING_TIGHTEN", orig_tighten))
+
+        frozen = self._pos(live_atr=None)
+        frozen._update_trailing(120.0)
+        live = self._pos(live_atr=1.50)
+        live._update_trailing(120.0)
+        # Większy ATR => szerszy trail => niższy SL na LONG
+        self.assertLess(live.sl_price, frozen.sl_price)
+        self.assertGreater(live.sl_price, frozen.entry_price)
+
+    def test_disabled_live_atr_ignores_live_value(self):
+        orig = getattr(config, "LIVE_ATR_TRAILING_ENABLED", True)
+        orig_cool = getattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", 5.0)
+        config.LIVE_ATR_TRAILING_ENABLED = False
+        config.TRAILING_MIN_UPDATE_INTERVAL_SEC = 0.0
+        self.addCleanup(lambda: setattr(config, "LIVE_ATR_TRAILING_ENABLED", orig))
+        self.addCleanup(lambda: setattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", orig_cool))
+        a = self._pos(live_atr=None)
+        a._update_trailing(120.0)
+        b = self._pos(live_atr=1.50)
+        b._update_trailing(120.0)
+        self.assertAlmostEqual(a.sl_price, b.sl_price, places=6)
+
+    def test_trailing_cooldown_suppresses_rapid_tighten(self):
+        orig = getattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", 5.0)
+        orig_live = getattr(config, "LIVE_ATR_TRAILING_ENABLED", True)
+        config.TRAILING_MIN_UPDATE_INTERVAL_SEC = 5.0
+        config.LIVE_ATR_TRAILING_ENABLED = False
+        self.addCleanup(lambda: setattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", orig))
+        self.addCleanup(lambda: setattr(config, "LIVE_ATR_TRAILING_ENABLED", orig_live))
+
+        pos = self._pos(highest_price=110.0, trailing_stop_price=None)
+        pos._update_trailing(110.0)
+        first = pos.sl_price
+        self.assertIsNotNone(first)
+        pos.highest_price = 125.0
+        pos._update_trailing(125.0)
+        self.assertAlmostEqual(pos.sl_price, first, places=8)
+
+        pos._last_trailing_tighten_at = time.monotonic() - 10.0
+        pos._update_trailing(125.0)
+        self.assertGreater(pos.sl_price, first)
+
+    def test_pnl_at_stop_negative_when_sl_below_entry_long(self):
+        pos = self._pos()
+        value = pos.pnl_at_stop()
+        self.assertIsNotNone(value)
+        self.assertLess(value, 0)
 
 
 class TestActualNotionalPortfolio(unittest.TestCase):

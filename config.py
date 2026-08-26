@@ -35,14 +35,17 @@ RISK_PER_TRADE = 0.22          # legacy; sizing = kapital / MAX_POSITIONS
 DAILY_LOSS_LIMIT = 0.04          # 4% daily loss → halt nowych (x10: było 15% za luźno)
 
 # --- Circuit breaker / heat ---
-CONSECUTIVE_LOSS_LIMIT = 5       # N strat z rzędu → pauza
-CONSECUTIVE_LOSS_PAUSE_MIN = 45  # minut pauzy po serii strat
+CONSECUTIVE_LOSS_LIMIT = 0       # 0 = off; V2 = 5 strat na PARZE → 15 min
+CONSECUTIVE_LOSS_PAUSE_MIN = 15
 MAX_SAME_DIRECTION_PCT = 0.65    # max 65% slotów w tym samym kierunku (LONG lub SHORT)
 
 # --- Regime tiered (zamiast binarnego BLOCK) ---
 REGIME_RANGE_SIZE_MULT = 0.50    # half-size w RANGE
 REGIME_RANGE_MAX_POSITIONS = 10  # twardo 10, też w RANGE
-REGIME_PANIC_SIZE_MULT = 0.0     # brak nowych wejść w PANIC
+# PANIC = silny jednokierunkowy ruch (UI: STRONG MOVE), NIE halt.
+# 1.0 = pełny size; 0 = wyłącz Trend w PANIC (stary model).
+REGIME_PANIC_SIZE_MULT = 1.0
+REGIME_PANIC_TREND_SIZE_MULT = 1.0
 
 # --- Cross-sectional z-score (strength boost) ---
 ZSCORE_ENABLED = True
@@ -51,8 +54,7 @@ ZSCORE_STRENGTH_BONUS = 0.08     # max bonus do strength przy wysokim |z|
 
 # --- Sygnaly ---
 MIN_SIGNAL_STRENGTH = 0.48  # było 0.55 – scoring rzadko dobijałTOP_N_COINS = 50              # legacy (nie limituje universe Blofin)
-TOP_N_FETCH = 250
-UNIVERSE_MODE = "blofin_usdt_futures"  # wszystkie pary USDT futures na Blofin
+TOP_N_FETCH = 250             # CoinGecko per_page do cross-check (max 250)
 
 # --- Anomalie ---
 PRICE_JUMP_THRESHOLD = 0.035
@@ -68,7 +70,15 @@ LOOP_INTERVAL_SECONDS = 1
 # Realny powod wprowadzenia (19-20.08): bot regularnie wyczerpywal limit
 # zapytan Blofin (500/min -> 5 min ban, 1500/5min -> 1h ban), bo pelny skan
 # probowal isc w rytmie petli 1s zamiast osobnym, wolniejszym rytmem.
-FULL_SCAN_INTERVAL_SECONDS = 20
+FULL_SCAN_INTERVAL_SECONDS = 30  # realny pelny skan ~21s; zachowaj zapas i nie tworz kolejki
+EXECUTION_LATENCY_MS = 250
+REPLAY_INTRABAR_POLICY = "STOP_FIRST"
+REPLAY_REQUIRE_REAL_1M = True
+REPLAY_REQUIRE_REAL_L2 = True
+RESEARCH_DSR_MIN = 0.95
+RESEARCH_COST_STRESS_MULT = 1.5
+RESEARCH_PROFIT_CONCENTRATION_MAX = 0.50
+PAPER_REPLAY_PARITY_BUDGET_R = 0.20
 
 # Punkt 9 planu: event bus (zdarzenia cyklu/odrzucen do "laboratorium").
 # Domyslnie wylaczony - nie kazdy ma/chce Redis; wlacz jesli masz gdzie to
@@ -92,14 +102,20 @@ GRPC_SERVICE_PORT = 50061
 UI_DESK_V2 = True
 
 # ============================================================
-# DAYTRADING V2 - hierarchia timeframe (1D bias -> 4h confirm -> 1h setup
-# mapa -> 15m trigger -> 5m opcjonalne potwierdzenie). Za przelacznikiem
-# STRATEGY_MODE="DAYTRADING_V2" - silnik V1 (DAYTRADING) pozostaje
-# nietkniety, oba wspoldzialaja obok siebie do czystego A/B na tym samym
-# oknie replay. Patrz daytrading_engine_v2.py.
+# DAYTRADING V2 - hierarchia: 4h bias (decyzja) -> 1h setup/SL/TP -> 15m trigger
+# -> 5m opcjonalne weto. 1D tylko kontekst w UI, nie bramka.
+# STRATEGY_MODE="DAYTRADING_V2". V1 zostaje do A/B.
 # ============================================================
 DAYTRADING_V2_ENABLED = True  # V2 glowny silnik
 STRATEGY_MODE = "DAYTRADING_V2"
+
+
+def daytrading_v2_active() -> bool:
+    """V2 leci gdy flaga LUB STRATEGY_MODE=DAYTRADING_V2. Jedno miejsce:
+    generate_signals i 5 min warmup musza widziec to samo."""
+    mode = str(STRATEGY_MODE or "DAYTRADING").upper()
+    return bool(DAYTRADING_V2_ENABLED) or mode == "DAYTRADING_V2"
+
 
 # 21.08.2026: telemetria z realnej sesji PAPER pokazala, ze bias 1D/4h
 # wymagal jednomyslnosci wszystkich 3 sygnalow (price>EMA200, EMA50>EMA200,
@@ -109,6 +125,28 @@ STRATEGY_MODE = "DAYTRADING_V2"
 # sygnal. Teraz wystarcza 2 z 3 (wiekszosc). Ustaw z powrotem na 3, zeby
 # wrocic do starego, w pelni jednomyslnego zachowania.
 DAYTRADING_V2_BIAS_MIN_AGREE = 2
+
+# 4H = kontekst (jak 1D). Kierunek = 1H. Oppose nie blokuje, tylko tnie size
+# do max(5% margin, FIXED * mult).
+DAYTRADING_V2_4H_OPPOSE_SIZE_MULT = 0.70
+
+# Profile V2: te same 450 par, inne gałki. Rank po quoteVolume raz na cykl.
+DAYTRADING_V2_PROFILE_MAJOR_ALWAYS = ["BTC", "ETH", "SOL"]
+DAYTRADING_V2_PROFILE_METAL = ["XAU", "XAG"]
+DAYTRADING_V2_PROFILE_MAJOR_TOP_N = 30
+DAYTRADING_V2_ALT_SWING_MIN_MOVE_ATR = 2.8
+DAYTRADING_V2_ALT_SKIP_RANGE = True
+DAYTRADING_V2_ALT_RANGE_ADX_MAX = 18.0
+DAYTRADING_V2_ALT_MARGIN_PCT = 5.0
+DAYTRADING_V2_ALT_SKIP_4H_OPPOSE = True   # 5% floor zjadłby ×0.5
+DAYTRADING_V2_ALT_4H_OPPOSE_SIZE_MULT = 0.50
+DAYTRADING_V2_METAL_SWING_MIN_MOVE_ATR = 2.0
+DAYTRADING_V2_METAL_MARGIN_PCT = 5.0
+DAYTRADING_V2_METAL_USE_5M_VETO = False
+DAYTRADING_V2_METAL_USE_4H_CONTEXT = False
+DAYTRADING_V2_SLIP_MAJOR = 0.0003   # one-way; replay RT = 2× + impact
+DAYTRADING_V2_SLIP_ALT = 0.0015     # 15 bps one-way → ~30 bps RT floor
+DAYTRADING_V2_SLIP_METAL = 0.0005
 
 # 21.08.2026: nowsze/mniejsze pary (np. swiezo dopiero co wylistowane na
 # Blofin futures) nie maja 200+ dziennych swiec potrzebnych do EMA200 na
@@ -123,16 +161,15 @@ DAYTRADING_V2_BIAS_MIN_AGREE = 2
 DAYTRADING_V2_ALLOW_4H_ANCHOR_WITHOUT_1D = True
 
 WARMUP_ENABLED = True
-WARMUP_SECONDS = 300
-# 21.08.2026: domyslnie False - rozruch ma trwac PELNE WARMUP_SECONDS (300s),
-# zeby Blofin nie dostal nawalu zapytan zaraz po cold-starcie. Wczesniejsze
-# wyjscie (po samych 60s, jesli ready_n/feed/bucket sa juz OK) bylo
-# domyslnie WLACZONE, przez co realny czas rozruchu wynosil ~60-90s zamiast
-# 300s - zawor bezpieczenstwa dzialal krocej niz nazwa/log sugerowaly.
-WARMUP_ALLOW_EARLY_READY = False
+WARMUP_SECONDS = 90
+# 23.08: early-ready ON. 20 par z 4H+1H+15m + ticker + bucket → wyjście od 60s.
+# Seed z dysku BloFin (E) ma to realnie osiągać; dziury = REST BloFin batch 8.
+WARMUP_ALLOW_EARLY_READY = True
 WARMUP_MIN_PAIRS_READY = 20
-WARMUP_CANDLES_1H = 180
-WARMUP_CANDLES_15M = 120
+WARMUP_CANDLES_4H = 260   # ten sam limit co V2._fetch_frames - wspolny klucz cache
+WARMUP_CANDLES_1H = 260
+WARMUP_CANDLES_15M = 300
+WARMUP_NEED_4H = 40
 WARMUP_NEED_1H = 80
 WARMUP_NEED_15M = 40
 WARMUP_MIN_BUCKET = 0.35
@@ -140,21 +177,51 @@ BACKFILL_MAX_JOBS_PER_DRAIN = 8
 
 # Punkt 6: swing 1h - filtr rozmiaru (x ATR) i czasu (min. swiec), bez
 # look-ahead (pivot potwierdzony dopiero right_confirm swiec po nim).
-DAYTRADING_V2_SWING_MIN_MOVE_ATR = 1.5
-DAYTRADING_V2_SWING_MIN_BARS = 3
-DAYTRADING_V2_SWING_RIGHT_CONFIRM = 2
+DAYTRADING_V2_SWING_MIN_MOVE_ATR = 2.0
+DAYTRADING_V2_SWING_MIN_BARS = 8
+DAYTRADING_V2_SWING_RIGHT_CONFIRM = 5
+# Max wiek KONCA impulsu 1h (bary). 0 = wylacz. Korekta nie kasuje impulsu,
+# ale impuls sprzed >N godzin nie jest juz setupem daytradingu.
+DAYTRADING_V2_IMPULSE_MAX_AGE_BARS = 48
 
-# Punkt 13: SL = swing 1h +/- bufor ATR.
-DAYTRADING_V2_SL_ATR_BUFFER = 0.5
+# Trigger 15m: touch plytszego pasma (0.382-0.618), reclaim przez srodek (0.5).
+# 0.5-0.618 samo w sobie dawalo za malo wejsc (tydzien, nie dzien).
+DAYTRADING_V2_FIB_ZONE_NEAR = 0.382
+DAYTRADING_V2_FIB_ZONE_FAR = 0.618
+DAYTRADING_V2_FIB_RECLAIM = 0.5
+DAYTRADING_V2_15M_LOOKBACK = 12
+DAYTRADING_V2_15M_RECLAIM_BARS = 2  # ostatnie N zamknięć 15m po właściwej stronie 0.5
+# Dotkniecie strefy starsze niz 3 bary 15m nie jest juz aktualnym retestem.
+DAYTRADING_V2_15M_MAX_TOUCH_AGE_BARS = 3
+# Fill tylko limitem na 0.5. Po timeout setup wygasa; bot nie goni ceny.
+DAYTRADING_V2_LIMIT_IN_ZONE = True
+DAYTRADING_V2_LIMIT_TIMEOUT_15M_BARS = 1
 
-# Punkt 15-16: TP1 = min(1R, najblizszy poziom 1h); TP2 = extension 1.272-1.618 albo 2R.
-DAYTRADING_V2_TP1_R = 1.0
-DAYTRADING_V2_TP2_EXTENSION_RATIO = 1.618  # jesli brak sensownej extension, fallback do TP2_R
-DAYTRADING_V2_TP2_R_FALLBACK = 2.0
+# Punkt 13: SL = swing 1h +/- bufor ATR. 1.0 za ciasno vs 15m (90D: 48× 0TP→SL).
+DAYTRADING_V2_SL_ATR_BUFFER = 1.5
+DAYTRADING_V2_METAL_SL_ATR_BUFFER = 2.5
+DAYTRADING_V2_METAL_TRADE = False  # XAU 90D −1.09R; włącz gdy osobny SL sprawdzi się OOS
+# Dynamiczny SL: po TP1 ratchet do confirmed 15m HL/LH (tylko zacieśnia).
+# none = off, tp1 = po pierwszym partialu, tp2 = dopiero po TP2.
+DAYTRADING_V2_SL_RATCHET_AFTER = "tp1"
+DAYTRADING_V2_SL_RATCHET_ATR_MULT = 0.5
+DAYTRADING_V2_SL_RATCHET_FRACTAL = 2
+# Po TP2: chandelier HH/LL ± k * ATR (zamiast %/dźwignia).
+DAYTRADING_V2_CHANDELIER_ATR_MULT = 1.5
+
+# TP1 = dawne TP2 (1.618 / 2R). TP2 wyżej (2.618 / 3R). TP3 = trail po TP2.
+# Wejściowy SL 1h wyłączony — pierwsze zabezpieczenie = BE po TP1.
+DAYTRADING_V2_TP1_R = 2.0
+DAYTRADING_V2_TP1_EXTENSION_RATIO = 1.618
+DAYTRADING_V2_TP2_EXTENSION_RATIO = 2.618
+DAYTRADING_V2_TP2_R_FALLBACK = 3.0
+DAYTRADING_V2_ENTRY_SL = True  # ochronny SL aktywny od fill, nie dopiero po TP1
+DAYTRADING_V2_BE_AFTER_TP1 = True
 
 # Punkt 18: min. R:R do TP1, ponizej ktorego "no trade" (SL zbyt szeroki
 # wzgledem TP1).
 DAYTRADING_V2_MIN_TP1_R_RATIO = 0.6
+DAYTRADING_V2_TARGET_BUFFER_ATR = 0.15  # TP1 przed potwierdzona przeszkoda 1h
 
 # Punkt 19: SL musi byc >= N x koszt round-trip (liczony z realnego configu
 # COMMISSION_RATE/SLIPPAGE, nie ze sztywnych "18 bps" - to sie zmienia).
@@ -163,8 +230,8 @@ DAYTRADING_V2_MIN_SL_VS_COST_MULT = 3.5
 # Punkt 20: ryzyko % kapitalu na trade (odleglosc SL 1h decyduje o wielkosci
 # pozycji, strength/quality tylko mnozy w gore/dol wokol tego).
 DAYTRADING_V2_RISK_PCT_OF_CAPITAL = 0.5  # legacy; V2 size = % kapitalu (margin)
-DAYTRADING_V2_SIZE_MODE = "capital_pct"  # capital_pct | risk_sl
-DAYTRADING_V2_MARGIN_PCT_MIN = 5.0       # 5% equity na wejscie (margin)
+DAYTRADING_V2_SIZE_MODE = "risk_sl"  # kapital chroniony przez risk$ / dystans do SL
+DAYTRADING_V2_MARGIN_PCT_MIN = 0.0       # brak sztucznego floor; min notional bierze gielda
 DAYTRADING_V2_MARGIN_PCT_MAX = 10.0      # 10% equity na najmocniejsze
 # 21.08.2026: margin ma byc NIEZALEZNY od strength (spec: "margin moze byc
 # niezalezny od sily") - domyslnie stala wartosc w przedziale [MIN,MAX],
@@ -194,21 +261,28 @@ DAYTRADING_V2_MARGIN_PCT_FIXED = 7.5     # uzywane gdy MARGIN_STRENGTH_SCALED=Fa
 # PONIZEJ MAX_PORTFOLIO_OPEN_RISK, zeby zostawic miejsce na 2+ rownoczesne
 # pozycje. Ustaw na bardzo duza wartosc (np. 100.0), zeby wylaczyc ten sufit
 # i wrocic do czystego sizingu margin-based bez zadnej korekty pod SL.
-DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE = 1.0
-# 21.08.2026: powrot do "jedno wejscie na jeden impuls" (plan hierarchii
-# timeframe, punkt 8) - addon/pyramiding na ten sam swing wylaczony domyslnie.
+# Sufit $ ryzyka na SL (notional * sl_dist), PRZED fillem. 0 = bierz RISK_PCT_MAX
+# (0.9%). Jak cap zejdzie ponizej 5% margin — skip, nie ghost-close.
+# 23.08 log: 7.5% × szeroki 4H SL → RISK_INVARIANT po fillu, 5× −2% fee.
+DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE = 0.0
+# Jedna pozycja na impuls. Po zamknieciu slot wraca od razu (re-entry
+# jesli setup zyje). Pyramiding wylaczone.
 DAYTRADING_V2_MAX_ENTRIES_PER_SWING = 1
 DAYTRADING_V2_ALLOW_ADDON = False
 
-# Punkt 21-23: hamulce czestotliwosci (cooldown w minutach).
-DAYTRADING_V2_COOLDOWN_AFTER_EXIT_MIN = 60       # kazde wyjscie (pkt 21, srodek zakresu 45-90)
-DAYTRADING_V2_COOLDOWN_AFTER_SL_SAME_SIDE_MIN = 240  # po SL w te sama strone (pkt 22, do zamkniecia nastepnej 4h)
-DAYTRADING_V2_COOLDOWN_AFTER_INVALIDATION_MIN = 180  # po invalidation, jesli cokolwiek zostalo (pkt 23)
-DAYTRADING_V2_MIN_REENTRY_GAP_MIN = 10  # pkt 26: zakaz re-entry tym samym kierunkiem w <=10 min
+# Jedyna kara czasowa V2: 5 przegranych z rzedu na TEJ parze → 15 min pauzy.
+# Zysk zeruje serie. Stare cooldowny TP/SL/invalidation = 0 (wylaczone).
+DAYTRADING_V2_LOSS_STREAK_PAUSE_N = 5
+DAYTRADING_V2_LOSS_STREAK_PAUSE_MIN = 15
+DAYTRADING_V2_COOLDOWN_AFTER_EXIT_MIN = 0
+DAYTRADING_V2_COOLDOWN_AFTER_SL_SAME_SIDE_MIN = 0
+DAYTRADING_V2_COOLDOWN_AFTER_INVALIDATION_MIN = 0
+DAYTRADING_V2_MIN_REENTRY_GAP_MIN = 0
 
 # Punkt 29: symbole wylaczone z daytradingu V2 (niska beta / inna klasa
 # aktywow) - out albo osobny, rzadszy profil pozniej.
-DAYTRADING_V2_EXCLUDED_SYMBOLS = ["XAU", "TRX"]
+DAYTRADING_V2_EXCLUDED_SYMBOLS = ["XAU", "XAG"]
+TRADITIONAL_MARKET_SYMBOLS = ["XAU", "XAG", "GOLD", "SILVER", "DXY", "VIX", "SPX", "NDX"]
 # 21.08.2026, druga iteracja (patrz generate() w daytrading_engine_v2.py):
 # uzytkownik jawnie odrzucil plaski sufit "WS-connected -> stala liczba
 # kandydatow" (byl 60, wczesniej None/brak limitu - oba dawaly cold-start
@@ -246,7 +320,11 @@ DAYTRADING_V2_EXCLUDED_SYMBOLS = ["XAU", "TRX"]
 # - najblizej 45 jak sie bezpiecznie da bez ruszania progu 70% marginesu ani
 # TTL (oba to swiadome decyzje z realnych incydentow, nie do zmiany przy
 # okazji tego jednego parametru).
-DAYTRADING_V2_MAX_CANDIDATES = 39
+# 23.08.2026: 0 = bez sufitu (cale uniwersum po MIN_VOLUME).
+# Hamulec REST = DAYTRADING_V2_COLD_START_BATCH_SIZE (8 nowych/cykl).
+# Dodatnia wartosc = awaryjny top-N (testy). WS i tak ma byc pelnym
+# uniwersum; przy CF-403 na WSS stary sufit 39 trzymal ~134 par poza gra.
+DAYTRADING_V2_MAX_CANDIDATES = 0
 # Ile NOWYCH (nigdy wczesniej niepobieranych w tej instancji silnika)
 # symboli dostaje pelna kaskade 5 interwalow (1D/4H/1H/15m/5m) REST w
 # JEDNYM cyklu generate() - dotyczy TAKZE listy 45 kandydatow REST-only
@@ -261,11 +339,20 @@ DAYTRADING_V2_MAX_CANDIDATES = 39
 # ta sama wartosc co BACKFILL_MAX_JOBS_PER_DRAIN (spojna konwencja pacingu
 # w calym projekcie).
 DAYTRADING_V2_COLD_START_BATCH_SIZE = 8
-DAYTRADING_V2_TP1_FRAC = 0.50          # partial na TP1, reszta trail
+DAYTRADING_V2_TP1_FRAC = 0.50          # partial na TP1 (teraz ~2R)
 DAYTRADING_V2_TP2_FRAC = 0.50          # 50% POZOSTALEJ po TP1; reszta trail
-DAYTRADING_V2_TIME_STOP_HOURS = 24.0   # zamykaj tylko gdy < min R
+DAYTRADING_V2_BE_AFTER_TP2 = False     # trail po TP2; BE już po TP1
+# Freqtrade unclog: po 24h BEZ TP1 i mark R < MIN_R → close. 96h = twardy pion.
+# Replay 90D: wyjscia po 6h byly ujemne IS i OOS, podczas gdy te same
+# setupy utrzymane do 10h mialy dodatni wynik. Nie kasuj wolnego setupu
+# przed jego maksymalnym intraday horyzontem.
+DAYTRADING_V2_TIME_STOP_HOURS = 10.0
 DAYTRADING_V2_TIME_STOP_MIN_R = 0.35
-DAYTRADING_V2_HARD_TIME_STOP_HOURS = 48.0
+# Unclog tylko martwe: jeśli MFE ≥ 0.5R, trade miał ruch — 24h go nie ścina.
+DAYTRADING_V2_UNCLOG_SKIP_MFE_R = 0.5
+DAYTRADING_V2_HARD_TIME_STOP_HOURS = 10.0
+# 4H to kontekst wejścia, nie twardy exit. 90D WF: 977/1082 zamknięć = htf_reversal.
+DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = False
 STALE_DATA_SECONDS = 45          # odmowa handlu gdy dane starsze niz 45s
 
 # 21.08.2026: realny incydent - Blofin zwrocil na publicznym endpoincie
@@ -286,6 +373,14 @@ STALE_DATA_SECONDS = 45          # odmowa handlu gdy dane starsze niz 45s
 # sekund (patrz PUBLIC_BUCKET), a 3600s z tego incydentu jest o dwa rzedy
 # wielkosci wyzej - miedzy nimi nie ma dwuznacznosci.
 BLOFIN_RATE_LIMIT_SHORT_RETRY_MAX_S = 30.0
+
+# Transport REST/WS BloFin (Windows).
+# IPv6 blackhole: Cloudflare ma AAAA, Windows łączy IPv6 pierwszy, SYN znika,
+# connect zjada cały timeout zanim urllib3 spróbuje A-rekordu → 0 par.
+BLOFIN_IPV4_ONLY = True
+# Cloudflare WAF 403 na "python-requests". Chrome UA + Origin/Referer.
+# False = tylko UA, bez Origin (rzadki API, który 403-uje na Origin).
+BLOFIN_WAF_BROWSER_HEADERS = True
 
 # --- Paper Trading ---
 PAPER_TRADING = True                 # True = DEMO (paper), False = LIVE
@@ -310,12 +405,14 @@ LOCAL_SL_ALWAYS = True              # lokalny SL nawet gdy exchange SL OK
 LOCAL_TP_BACKUP = False
 RECOVERY_REATTACH_EXCHANGE_SL = True
 RECOVERY_WARN_ORPHANS = True
+AUTO_CANCEL_ORPHAN_ORDERS = True
 RECOVERY_RECONCILE_IN_PAPER = True  # paper: porównuj lokalny stan vs planowane SL
 
 # --- Market-data correctness (Etap 3) ---
 CLOSED_CANDLES_STRICT = True
-FILTER_UNIVERSE_BY_REGISTRY = False
-STALE_KLINES_SECONDS = 600
+FILTER_UNIVERSE_BY_REGISTRY = True  # tylko aktywne linear USDT perpetual BloFin
+TRADITIONAL_MARKET_SYMBOLS = []  # dodatkowe lokalne wykluczenia akcji/ETF/indeksow
+STALE_KLINES_SECONDS = 600       # slack po *następnym* close (próg V2 = 2*bar + to); 0 = wyłącz
 
 
 COMMISSION_RATE = 0.0006
@@ -330,12 +427,9 @@ TRAILING_STOP_ENABLED = True
 TRAILING_STOP_ACTIVATION_PCT = 10.0  # trail dopiero po +10% PnL (mniej whipsaw)
 TRAILING_STOP_DISTANCE_PCT = 9.0     # szerszy trail – ride the trend
 TRAILING_TIGHTEN = False             # nie zaciskaj trail agresywnie
-CLOSE_ONLY_MAX_TP = True
 RIDE_TREND = True                    # przy silnym trendzie nie zamykaj na TP – tylko trailing
 RIDE_TREND_MIN_STRENGTH = 0.55       # min sila sygnalu zeby "jechac"
 NO_HARD_TP = True                    # wylacz twarde TP – realizacja tylko trail/SL
-STALE_POSITION_MINUTES = 0           # 0 = wylaczone (nie zamykaj za brak ruchu)
-STALE_POSITION_MIN_PNL_PCT = 1.5     # legacy, nieuzywane gdy minutes=0
 
 
 # --- Pliki ---
@@ -355,18 +449,15 @@ MAX_DRAWDOWN_PCT = 0.15          # 15% od peak equity → close-all + halt
 CLOSE_ALL_ON_DAILY_LIMIT = True  # przy daily loss zamknij tez otwarte
 CLOSE_ALL_ON_DRAWDOWN = True
 
-# --- Kontrola reczna (pliki w folderze bota) ---
-# utworz pusty plik PAUSE aby wstrzymac nowe wejscia
-# utworz pusty plik CLOSE_ALL aby zamknac wszystkie pozycje
-# utworz pusty plik RESUME aby wznowic po PAUSE
-CONTROL_PAUSE_FILE = "PAUSE"
-CONTROL_CLOSE_ALL_FILE = "CLOSE_ALL"
-CONTROL_RESUME_FILE = "RESUME"
+# Reczna kontrola drop-file w folderze bota: PAUSE / CLOSE_ALL / RESUME
+# (runtime.apply_control_files — nazwy stałe, bez flag).
 
 # --- Funding ---
 FUNDING_ENABLED = True
 FUNDING_EXTREME = 0.001          # |funding| > 0.1% = ekstremum (ostrzezenie w scoringu)
-SRC_DIVERGENCE_SCORE_MULT = 0.95 # kara sily przy rozjezdzie zrodel (bylo 0.85)
+DAYTRADING_V2_FUNDING_SKIP_EXTREME = True  # LONG+rate>EXTREME / SHORT+rate<-EXTREME → no trade
+SRC_DIVERGENCE_SCORE_MULT = 1.0  # martwe: rozjazd zrodel nie kara sily
+SOURCE_DIVERGENCE_GATE = True    # BloFin↔Binance: sanity check ceny egzekucji
 PERP_CONTEXT_ENABLED = True      # funding + OI + F&G -> size, NIE trigger 15m
 FNG_EXTREME_GREED = 75
 FNG_EXTREME_FEAR = 25
@@ -375,8 +466,8 @@ FNG_FEAR_SHORT_SIZE = 0.70
 FUNDING_CROWD_SIZE = 0.75
 OI_SPIKE_PCT = 12.0
 OI_SPIKE_SIZE = 0.80
-FUNDING_PERIOD_HOURS = 8.0       # okno settlement funding
-ACCOUNTING_DECIMAL = True        # Decimal w size/PnL/fee
+FUNDING_PERIOD_HOURS = 8.0       # okno settlement funding (gdy giełda nie podaje interval)
+
 
 # ============================================================
 # Ulepszenia jakosci sygnalow / ryzyka (2026-08)
@@ -390,17 +481,32 @@ REQUIRE_STRATEGY_1H = True       # legacy name; realnie = REQUIRE primary TF (4h
 CAPITAL_RESERVE_PCT = 0.20       # 20% depo zawsze wolne
 
 # Plynnosc / spread / multi-source
-MIN_VOLUME_24H_USD = 100_000     # min wolumen 24h USD (bylo 500k – za ostro)
+MIN_VOLUME_24H_USD = 0  # 23.08: cale BloFin USDT-M, bez progu wolumenu
 MAX_SPREAD_PCT = 0.25            # max spread order book %
 MAX_SOURCE_DIVERGENCE_PCT = 3.0  # max rozjazd cen miedzy zrodlami
 # REQUIRE_MULTI_SOURCE – patrz sekcja Sizing / cache / multi-source
-MIN_ORDERBOOK_DEPTH = 0          # 0 = wylaczone (gdy brak danych OB)
 
 # ATR exits
 USE_ATR_STOPS = True
 ATR_SL_MULTIPLIER = 3.2          # trend mode: jeszcze szerszy SL
 ATR_TRAIL_MULTIPLIER = 1.5       # trailing distance w ATR
 VOLATILITY_SIZE_SCALE = True     # zmniejsz size przy wysokim ATR%
+# Żywy ATR w trailu (v14): dystans od AKTUALNEJ zmienności pary, nie od ATR
+# zamrożonego w momencie wejścia. Gdy brak świeżego ATR — fail-open na
+# wartość z sygnału. False = dokładnie stare zachowanie.
+LIVE_ATR_TRAILING_ENABLED = True
+# Minimalny odstęp między kolejnymi ZACIEŚNIENIAMI traila. Pierwsza aktywacja
+# zawsze przechodzi od razu; kolejne podniesienia SL nie częściej niż co N s
+# (nie zaciska SL na każdym ticku 1s).
+TRAILING_MIN_UPDATE_INTERVAL_SEC = 5.0
+
+# Lokalne HTTP API (krok pod Tauri): ten sam stan co DESK, bez ruszania Qt.
+# Domyślnie TYLKO 127.0.0.1. Bind na 0.0.0.0 wymaga ENGINE_API_TOKEN.
+ENGINE_API_ENABLED = True
+ENGINE_API_HOST = "127.0.0.1"
+ENGINE_API_PORT = 47821
+ENGINE_API_TOKEN = os.getenv("CRYPTOEDGE_API_TOKEN", "")
+HEADLESS = os.getenv("CRYPTOEDGE_HEADLESS", "").strip().lower() in ("1", "true", "yes")
 
 # Proxy HTF gdy brak natywnych 4h
 STRATEGY_1H_PROXY = True         # 1h jako proxy primary gdy 4h NA
@@ -488,7 +594,6 @@ REGIME_ENABLED = True
 REGIME_ATR_PERIOD = 14
 REGIME_ATR_MA = 50              # ATR vs srednia ATR
 REGIME_PANIC_ATR_MULT = 1.8     # ATR > 1.8x sredniej = PANIC
-REGIME_TREND_ADX_PROXY = 0.8    # |BTC 24h| duzy + ATR umiarkowany = trend
 REGIME_RANGE_BTC_MAX = 1.2      # |BTC 24h| < 1.2% i niski ATR = RANGE
 
 VOLUME_MA_PERIOD = 20
@@ -503,7 +608,7 @@ OB_THIN_STRENGTH_PENALTY = 0.12
 STRATEGY_PRIMARY_TF = "4h"       # glowny sygnal
 STRATEGY_FILTER_TF = "1d"        # filtr kierunku (musi sie zgadzac)
 REQUIRE_PRIMARY_STRATEGY = True  # twardy wymog pass na 4h (gdy jest wynik)
-REQUIRE_DAILY_ALIGN = True       # 1d direction = sygnal
+REQUIRE_DAILY_ALIGN = False      # 1D tylko kontekst; decyzja od 4h
 BLOCK_RANGE_REGIME = False       # False = tylko kara strength (nie twardy blok całego RANGE)
 BLOCK_STRAT_NA_IN_RANGE = True   # STRAT_PRIMARY_NA + RANGE → wymagaj MTF lub wysokiej siły
 MTF_MIN_VOTES_FALLBACK = 2       # bez 4h: min 2 zgodne TF
@@ -511,13 +616,12 @@ STRAT_NA_RANGE_MIN_STRENGTH = 0.68  # w RANGE bez 4h: wpuść tylko silne (≥0.
 RANGE_STRENGTH_PENALTY = 0.10
 EXIT_ON_SUPERTREND_FLIP = True   # zamknij gdy ST 4h sie odwroci
 EXIT_ON_HTF_OPPOSITE = True      # zamknij przy silnym przeciwnym 1d/4h
-MIN_SIGNAL_STRENGTH_TREND = 0.58
 
 COUNTER_TREND_MIN_RS = 5.0   # |RS| vs BTC min do counter-trend (soft)
 
 # --- Anti-VELVET: pump/dump chase + thin book ---
 BLOCK_OB_THIN = True             # twardy reject cienkiego order booka
-BLOCK_PUMP_CHASE_PCT = 22.0      # |24h| >= 22% bez STRAT_PRIMARY_OK → reject
+BLOCK_PUMP_CHASE_PCT = 22.0      # jeden próg (config = settings UI)
 REQUIRE_STRAT_FOR_COUNTER = True # counter-trend soft tylko z pass 4h
 COUNTER_TREND_BLOCK_IF_NA = True # STRAT_PRIMARY_NA + counter-trend → reject
 
@@ -544,11 +648,26 @@ STOP_ENGINE_MAX_PRICE_AGE_S = 60.0  # jesli last_price_map starszy niz to (sek.)
 
 # --- Portfolio risk (Etap 5) ---
 PORTFOLIO_RISK_ENABLED = True
-MAX_GROSS_EXPOSURE_MULT = 3.0      # gross notional ≤ 5× equity
-MAX_NET_EXPOSURE_MULT = 3.5        # |net| ≤ 3.5× equity
-MAX_EFFECTIVE_LEVERAGE = 8.0       # gross/equity
-MAX_CLUSTER_EXPOSURE_MULT = 1.2    # jeden klaster ≤ 2.5× equity
+MAX_GROSS_EXPOSURE_MULT = 8.0      # 10 poz. × 7.5% margin × x10 = 7.5× gross
+MAX_NET_EXPOSURE_MULT = 8.0        # wszystkie w jedną stronę też muszą przejść
+MAX_EFFECTIVE_LEVERAGE = 8.0       # gross/equity; zsynchronizowane z 7.5% × 10
+MAX_CLUSTER_EXPOSURE_MULT = 1.6    # 2× 0.75 notional w jednym klastrze
 MAX_CLUSTER_POSITIONS = 4          # max pozycji w jednym klastrze
+MAX_PORTFOLIO_OPEN_RISK_PCT = 0.025   # loss at all active stops / equity
+MAX_CLUSTER_OPEN_RISK_PCT = 0.0125    # loss at stops in one correlation cluster
+
+# Replay execution realism.  Pessimistic is the validation default; probabilistic
+# mode is allowed only for seeded sensitivity runs, never as the headline result.
+REPLAY_LIMIT_TOUCH_MODEL = "pessimistic"  # pessimistic | probabilistic
+REPLAY_LIMIT_TOUCH_FILL_PROB = 0.35
+REPLAY_RANDOM_SEED = 240824
+REPLAY_SUBMIT_LATENCY_MS = 250
+REPLAY_CANCEL_LATENCY_MS = 250
+REPLAY_PARTIAL_FILL_FRACTION = 0.50
+REPLAY_SPREAD_MAJOR_BPS = 1.5
+REPLAY_SPREAD_ALT_BPS = 6.0
+REPLAY_SPREAD_PANIC_MULT = 2.5
+REPLAY_L2_REQUIRED_FINALISTS = 10
 
 # --- Hardening (post etap 1-6) ---
 RECONCILE_SIZE_TOLERANCE_PCT = 5.0
@@ -639,9 +758,7 @@ DAYTRADING_HTF_PARTIAL_STRENGTH_MULT = 0.55  # kara za czesciowe (nie pelne) pot
 DAYTRADING_SETUP_SOFT_MODE = True
 DAYTRADING_SETUP_PARTIAL_STRENGTH_MULT = 0.6  # kara gdy EMA ok, ale cena przy skraju Bollingera
 DAYTRADING_SL_ATR_MULT = 2.0        # 5m noise; struktura 15m ma pierwszeństwo
-DAYTRADING_TIMING_REQUIRE_ST = True    # 15m SuperTrend (5m za szumne)
 DAYTRADING_TIMING_TF = "15m"
-DAYTRADING_TIMING_REQUIRE_MACD = False # MACD tylko w quality, nie twarda bramka
 # TYMCZASOWO poluzowane celem zebrania probki transakcji do oceny strategii -
 # rewizja obowiazkowa po zebraniu realnych danych PnL (patrz notatka w
 # DAYTRADING_SETUP_SOFT_MODE nizej - ten sam powod).
@@ -660,6 +777,10 @@ DAYTRADING_TIME_STOP_MIN_R = 0.50
 DAYTRADING_HARD_TIME_STOP_HOURS = 10.0
 DAYTRADING_INVALIDATION_BARS = 2
 DAYTRADING_MIN_EXPECTED_NET_R = 0.05
+# Przy PRIOR_ONLY/LOW_SAMPLE sam dodatni znak nie wystarcza. Ten osobny
+# margines chroni przed setupami, których niewielki edge znika po błędzie
+# estymacji kosztów lub slippage.
+DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R = 0.10
 DAYTRADING_QUALITY_MIN = 0.55
 DAYTRADING_MIN_GATE_VOTES = 3
 DAYTRADING_SIZE_R_TARGET = 0.40
@@ -681,10 +802,15 @@ DAYTRADING_BARRIER_HARD_R = 0.60         # twardy blok tylko gdy miejsce do bari
 DAYTRADING_BARRIER_IGNORE_ATR = 0.25     # poziomy blizej niz 0.25 ATR = szum, nie sciana
 DAYTRADING_USE_VIPER_LEVELS = False      # Viper wylaczony z decyzji
 DAYTRADING_MAX_STRUCTURAL_SL_ATR = 2.50
-DAYTRADING_PANIC_MIN_STRENGTH = 0.75
-DAYTRADING_PANIC_SIZE_MULT = 0.25
+DAYTRADING_PANIC_MIN_STRENGTH = 0.0  # 0 = brak extra bramki (PANIC nie blokuje V1)
+DAYTRADING_PANIC_SIZE_MULT = 1.0     # pełny size; <1 tnie tylko V1 daytrading
 DAYTRADING_WF_PURGE_BARS = 12       # 1h drive: 12h separation
 DAYTRADING_WF_EMBARGO_BARS = 12
+# V2 purged walk-forward (frozen config). 21D train / 7D test / 48h purge+embargo.
+DAYTRADING_V2_WF_TRAIN_DAYS = 21
+DAYTRADING_V2_WF_TEST_DAYS = 7
+DAYTRADING_V2_WF_PURGE_HOURS = 48
+DAYTRADING_V2_WF_EMBARGO_HOURS = 48
 
 # --- Likwidacja vs SL ---
 REQUIRE_LIQ_BEYOND_SL = True
@@ -745,8 +871,8 @@ MAX_PORTFOLIO_OPEN_RISK = 0.025   # 2.5% equity = suma risk$ otwartych
 MAX_CORRELATED_RISK = 0.010       # 1.0% equity w jednym klastrze
 EXTREME_VOL_RISK_MULT = 0.50      # ATR percentile wysoki → risk × 0.5
 EXTREME_VOL_ATR_PCTILE = 85.0     # próg percentile ATR
-# PANIC: Trend ograniczony, Reversal AKTYWNY (nie wyłącza systemu)
-REGIME_PANIC_TREND_MIN_STRENGTH = 0.72   # trend w PANIC prawie wyłączony
+# PANIC = STRONG MOVE: kontynuacja dozwolona. Extra próg 0 = wyłączony.
+REGIME_PANIC_TREND_MIN_STRENGTH = 0.0
 # ILLIQUID / SLIPPAGE / LIQ BUFFER → filtry OB_IMPACT + REQUIRE_LIQ_BEYOND_SL
 
 # --- P1: proxy 4H / degraded 1D ---
@@ -775,12 +901,12 @@ UNCALIBRATED_EXPECTED_R_SIZE_MULT = 0.65
 BLOCK_ON_BLOFIN_OHLCV_FAIL = True
 REQUIRE_BLOFIN_VOLUME = False
 REJECT_ON_CROSS_DIVERGE = False
-REJECT_ON_1H_DIVERGE = True
-CROSS_DIVERGE_RISK_MULT = 0.50   # soft BN↔BF → size ×0.5
-BN_BF_DIVERGENCE_SOFT_PCT = 1.0  # ≥1% → kara + smaller size
-BN_BF_DIVERGENCE_HARD_PCT = 3.0  # ≥3% → NO TRADE
+REJECT_ON_1H_DIVERGE = False       # rozjazd zrodel nie jest bramka
+CROSS_DIVERGE_RISK_MULT = 1.00   # brak kary size
+BN_BF_DIVERGENCE_SOFT_PCT = 999.0  # nie uzywane jako filtr
+BN_BF_DIVERGENCE_HARD_PCT = 3.0    # ekstremalny rozjazd = brak wejścia
 REQUIRE_BN_BF_DIVERGENCE = False  # True = brak BN ceny = blokada
-BN_CONFIRMATION_REQUIRED = True      # brak Binance = UNKNOWN, nigdy bonus za confirmation
+BN_CONFIRMATION_REQUIRED = False     # brak Binance nie blokuje
 CROSS_MARKET_MAX_SKEW_SECONDS = 20.0
 REGIME_PANIC_MIN_STRENGTH = 0.62
 REGIME_PANIC_MAX_POSITIONS = 10  # limit pozycji ma byc rowny 10 w kazdej sytuacji, rowniez w PANIC
@@ -803,7 +929,7 @@ REVERSAL_ENGINE_ENABLED = True
 # TP2: Fibonacci extension (mapa, nie „zawsze 1.618”)
 REVERSAL_FIB_TP_EXT = 1.618   # 1.0 / 1.272 / 1.618 / 2.0 / 2.618
 # Divergence + Fib + Structure > RSI alone
-REVERSAL_REQUIRE_QUALITY_TRIAD = False  # True = twardo ≥2/3
+REVERSAL_REQUIRE_QUALITY_TRIAD = True   # twardo ≥2/3
 # Asymetria: 0.75R reward vs risk → NO TRADE (nawet ładne wskaźniki)
 REVERSAL_MIN_TP1_R = 1.0
 REVERSAL_MIN_TP2_R = 1.5
@@ -834,15 +960,13 @@ FIB_SWING_MAX_LOOKBACK = 80
 # Progi poniżej = PRIORY (hipoteza), nie optimum z backtestu na H/COW.
 # Zmiana progu wymaga uzasadnienia na populacji, nie na 1–2 case'ach.
 # ============================================================
-REVERSAL_MIN_24H_PCT = 18.0
+REVERSAL_MIN_24H_PCT = 12.0
 REVERSAL_EMA_DEV_PCT = 6.0      # min |cena-EMA|% jako stretch (priory, nie z H/COW)
 REVERSAL_1H_STALL_PCT = 2.0
 REVERSAL_RSI_LONG_MAX = 38.0
 REVERSAL_RSI_SHORT_MIN = 62.0
-REVERSAL_MIN_STRENGTH = 0.48
+REVERSAL_MIN_STRENGTH = 0.32
 REVERSAL_MAX_CANDIDATES = 12
-REVERSAL_SL_PCT = 0.035
-REVERSAL_TP_PCT = 0.055
 
 # --- Trend Engine continuation structure ---
 TREND_CONTINUATION_FILTER = True
@@ -850,25 +974,25 @@ CONT_IMPULSE_MIN_24H = 6.0     # min impuls do uznania pullback-setup
 CONT_IMPULSE_MAX_24H = 18.0    # powyżej = late / oddaj Reversal Engine
 CONT_PULLBACK_1H_PCT = 1.2     # 1h wyhamowanie = strefa retest
 BLOCK_CONT_CHASE_EXT = True    # blokuj continuation przy 1h extension
-REVERSAL_MIN_CONFIRMATIONS = 1   # paper: 1 potwierdzenie wystarczy
+REVERSAL_MIN_CONFIRMATIONS = 2
 REVERSAL_CONF_SCORE_BYPASS = 0.0   # brak bypassu: ENTRY wymaga jawnego confirmation
 REVERSAL_ZSCORE_EXTREME = 2.2
 REVERSAL_ATR_MULT = 2.5
 REVERSAL_MAX_SRC_DIFF = 1.5
-REVERSAL_EXHAUST_MIN_SCORE = 0.35
+REVERSAL_EXHAUST_MIN_SCORE = 0.20
 # Reversal SL: structural + ATR buffer (nie stałe -3%)
 REVERSAL_ATR_SL_BUFFER = 0.6
 REVERSAL_ATR_FALLBACK_PCT = 0.012
 REVERSAL_SWING_LOOKBACK = 12
-REVERSAL_TP_R_MULT = 1.6
+REVERSAL_TP_R_MULT = 1.6         # fallback TP2 w R gdy fib extension ≈ 1R
 REVERSAL_MAX_SL_PCT = 0.08
-REVERSAL_MULTI_TP = True
 REVERSAL_TP1_FRAC = 0.25   # 25% @ 1R
 REVERSAL_TP2_FRAC = 0.35   # 35% @ 2R
 REVERSAL_TP3_FRAC = 0.40   # 40% trailing
 # Expected Net R — wspólny filtr
 # MIN_EXPECTED_NET_R już jest (trend)
 REVERSAL_MIN_EXPECTED_NET_R = 0.35   # wyższy próg dla reversal
+REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R = 0.45
 REVERSAL_EXPECTED_HOLD_HOURS = 12.0
 DEFAULT_SPREAD_FRAC = 0.0004
 DEFAULT_IMPACT_FRAC = 0.0002
@@ -881,9 +1005,11 @@ REVERSAL_SHADOW_MAX_HOURS = 48.0  # timeout kandydata
 REVERSAL_PAPER_EXECUTION_ENABLED = True
 REVERSAL_SIZE_CAPITAL_PCT = True
 REVERSAL_SIZE_MULT = 0.70          # 70% pasa 5-10% margin
-REVERSAL_LIVE_EXECUTION_ENABLED = False
-REVERSAL_PAPER_MIN_CONFIRMATIONS = 1
-REVERSAL_PAPER_REQUIRE_NET_R = False
+REVERSAL_PAPER_MIN_CONFIRMATIONS = 2
+REVERSAL_PAPER_REQUIRE_NET_R = True
+REVERSAL_LOSS_COOLDOWN_MINUTES = 60
+REVERSAL_MAX_CONSECUTIVE_SYMBOL_LOSSES = 2
+TRAILING_MIN_NET_BUFFER_R = 0.15
 ATR_SL_MAX_ATR_PCT = 12.0   # clamp ATR% gdy śmieciowe OHLC
 ATR_SL_MAX_DIST_PCT = 10.0  # max dystans SL od entry (%)
 REVERSAL_SHADOW_WATCH_MIN_24H = 15.0  # shadow watch od |24h|>=15%

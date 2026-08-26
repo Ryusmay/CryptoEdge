@@ -25,6 +25,7 @@ import secrets_store
 import settings_store
 import theme
 import version
+import why_taxonomy
 from historical_replay import ReplayRequest, run_portfolio_replay_v2
 
 BASE = Path(__file__).resolve().parent
@@ -47,6 +48,15 @@ SCANNER_SORTS = ["SCORE","24H","7D","PRICE"]
 MTF_TIMEFRAMES = ("15m","1h","4h","1d")
 
 
+def _event_timestamp(row: dict) -> float:
+    from datetime import datetime as _dt
+    try:
+        raw = str(row.get("timestamp") or "").replace("Z", "+00:00")
+        return _dt.fromisoformat(raw).timestamp()
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+
+
 def number(value: Any, digits: int = 2, prefix: str = "") -> str:
     try:
         if value is None:
@@ -62,6 +72,80 @@ def percent(value: Any, digits: int = 2, signed: bool = True) -> str:
         return f"{float(value):{spec}.{digits}f}%"
     except (TypeError, ValueError):
         return "—"
+
+
+def format_age(opened: Any, age_sec: Any = None) -> str:
+    try:
+        if age_sec is not None:
+            sec = int(age_sec)
+        elif opened in (None, ""):
+            return "—"
+        else:
+            if hasattr(opened, "timestamp"):
+                sec = int(time.time() - opened.timestamp())
+            else:
+                text = str(opened).replace("Z", "+00:00")
+                from datetime import datetime as _dt
+                try:
+                    parsed = _dt.fromisoformat(text)
+                except ValueError:
+                    return str(opened)
+                sec = int(time.time() - parsed.timestamp())
+        if sec < 0:
+            sec = 0
+        if sec >= 3600:
+            return f"{sec // 3600}h {(sec % 3600) // 60}m"
+        if sec >= 60:
+            return f"{sec // 60}m {sec % 60}s"
+        return f"{sec}s"
+    except (TypeError, ValueError, OSError):
+        return "—" if not opened else str(opened)
+
+
+def pnl_at_stop_value(row: dict) -> float | None:
+    if row.get("pnl_at_stop") is not None:
+        try:
+            return float(row["pnl_at_stop"])
+        except (TypeError, ValueError):
+            pass
+    try:
+        entry = float(row.get("entry"))
+        sl = float(row.get("sl"))
+        size = float(row.get("size") or 0)
+        if entry <= 0 or size <= 0:
+            return None
+        side = direction(row.get("side"))
+        move = (sl - entry) / entry if side == "LONG" else (entry - sl) / entry
+        return size * move
+    except (TypeError, ValueError):
+        return None
+
+
+def sl_mark(row: dict) -> str:
+    """v14: ▲ trailing podniesiony, 🔒− breakeven, ↓ twardy SL."""
+    if row.get("trailing_active"):
+        return "▲"
+    if row.get("breakeven_active"):
+        return "🔒−"
+    try:
+        entry = float(row.get("entry"))
+        sl = float(row.get("sl"))
+        side = direction(row.get("side"))
+        if side == "LONG" and sl >= entry:
+            return "🔒−"
+        if side == "SHORT" and sl <= entry:
+            return "🔒−"
+    except (TypeError, ValueError):
+        pass
+    return "↓"
+
+
+def sl_mark_color(mark: str) -> str:
+    if mark == "▲":
+        return theme.LONG
+    if mark == "🔒−":
+        return theme.WAIT
+    return theme.SHORT
 
 
 def direction(value: Any) -> str:
@@ -109,7 +193,7 @@ def friendly_reason(value: Any) -> str:
         "EXPECTED_NET_R_LOW": "Oczekiwany zysk po kosztach jest za niski",
         "OB_THIN": "Orderbook jest zbyt płytki",
         "PUMP_CHASE": "Cena jest po gwałtownym ruchu — bez pogoni za rynkiem",
-        "PANIC": "Aktywny reżim podwyższonego ryzyka",
+        "PANIC": "Silny jednokierunkowy ruch — pozycje dozwolone",
         "DATA_STALE": "Dane rynkowe są nieaktualne",
     }
     text = labels.get(code)
@@ -121,12 +205,25 @@ def friendly_reason(value: Any) -> str:
 
 
 def score_value(row: dict) -> float:
+    if str(row.get("engine") or "").lower() in ("daytrading_v2", "daytradingv2") or str(row.get("strategy_mode") or "") == "DAYTRADING_V2":
+        if row.get("direction") in ("LONG", "SHORT") and not row.get("reject_reason"):
+            return 1.0
+        return 0.0
     raw = row.get("strength", row.get("score", 0)) or 0
     try:
         raw = float(raw)
         return raw * 100 if abs(raw) <= 1 else raw
     except (TypeError, ValueError):
         return 0.0
+
+
+def score_label(row: dict) -> str:
+    """V2 = pass/fail, bez dummy 0.75."""
+    if str(row.get("engine") or "").lower() in ("daytrading_v2", "daytradingv2") or str(row.get("strategy_mode") or "") == "DAYTRADING_V2" or row.get("hide_strength"):
+        if row.get("direction") in ("LONG", "SHORT") and not row.get("reject_reason"):
+            return "PASS"
+        return "—"
+    return number(score_value(row), 1)
 
 
 def rr_value(row: dict) -> float | None:
@@ -175,6 +272,55 @@ def format_fibonacci(fib: Any) -> str:
     if tags:
         lines.extend(["", "Potwierdzenia", " · ".join(str(tag).replace("FIB_", "").replace("_", " ") for tag in tags[:4])])
     return "\n".join(lines)
+
+
+def engine_warmup_event(state: dict) -> dict | None:
+    """Jeden operatorski status zamiast setek technicznych wpisów CYCLE."""
+    state = state or {}
+    engine = state.get("engine_warmup") or {}
+    total = int(engine.get("total_coins") or 0)
+    available = int(engine.get("available_coins") or 0)
+    ready = bool(engine.get("ready")) and total > 0
+
+    if total <= 0:
+        bootstrap = state.get("warmup") or {}
+        if not (bootstrap.get("active") or bootstrap.get("ready")):
+            return None
+        available = int(bootstrap.get("ready_pairs") or 0)
+        total = int(bootstrap.get("candidates") or state.get("universe_size") or 0)
+        ready = False  # pełna kaskada V2 nie potwierdziła jeszcze całego uniwersum
+
+    if ready:
+        message = f"Silnik rozgrzany · {total} monet dostępnych do analizy"
+        tag = "ENGINE READY"
+    else:
+        message = f"Rozgrzewanie silnika · {available} z {total} monet dostępnych do analizy"
+        tag = "WARMUP"
+    return {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "level": "SYSTEM", "event": message, "symbol": "", "direction": "",
+        "tag": tag, "available_coins": available, "total_coins": total,
+    }
+
+
+def compact_trade_event(row: dict) -> str | None:
+    """Krótki komunikat operatorski; pełna telemetria pozostaje w CSV."""
+    event = str(row.get("event") or row.get("EVENT") or "").upper()
+    if event not in {"OPEN", "CLOSE"}:
+        return None
+    try:
+        price = float(row.get("price") or 0)
+        price_text = f"{price:.8f}".rstrip("0").rstrip(".") if price > 0 else "—"
+    except (TypeError, ValueError):
+        price_text = "—"
+    if event == "OPEN":
+        return f"Otwarto po cenie {price_text}"
+    try:
+        pnl = float(row.get("pnl") or 0)
+    except (TypeError, ValueError):
+        pnl = 0.0
+    result = "Zysk" if pnl >= 0 else "Strata"
+    return f"Zamknięto po cenie {price_text} · {result} {abs(pnl):.2f} USD"
 
 
 class DataAdapter:
@@ -227,8 +373,16 @@ class DataAdapter:
                 "margin": item.get("margin"),
                 "sl": item.get("sl") or item.get("sl_price"),
                 "tp": item.get("tp") or item.get("tp_price"),
+                "tp1": item.get("tp1") or item.get("tp1_price"),
+                "tp2": item.get("tp2") or item.get("tp2_price"),
                 "pnl": item.get("pnl") or item.get("unrealized_pnl") or 0.0,
-                "opened": item.get("opened") or item.get("opened_at") or "",
+                "pnl_pct": item.get("pnl_pct"),
+                "pnl_at_stop": item.get("pnl_at_stop"),
+                "trailing_active": bool(item.get("trailing_active")),
+                "breakeven_active": bool(item.get("breakeven_active")),
+                "opened": item.get("opened") or item.get("opened_at") or item.get("entry_time") or "",
+                "age": item.get("age"),
+                "age_sec": item.get("age_sec"),
             } for item in source if isinstance(item, dict)]
         trader = getattr(self.rt, "trader", None)
         if not trader:
@@ -247,13 +401,22 @@ class DataAdapter:
                 "symbol": symbol,
                 "side": getattr(item, "side", getattr(item, "direction", "—")),
                 "entry": getattr(item, "entry_price", getattr(item, "entry", None)),
-                "mark": prices.get(symbol),
+                "mark": prices.get(symbol) or getattr(item, "mark_price", None) or getattr(item, "current_price", None),
                 "size": getattr(item, "size_usd", getattr(item, "size", getattr(item, "qty", None))),
                 "margin": getattr(item, "margin", None),
-                "sl": getattr(item, "sl", getattr(item, "sl_price", None)),
-                "tp": getattr(item, "tp", getattr(item, "tp_price", getattr(item, "tp1", None))),
+                "sl": getattr(item, "sl_price", getattr(item, "sl", None)),
+                "tp": getattr(item, "tp_price", getattr(item, "tp", None)),
+                "tp1": getattr(item, "tp1_price", getattr(item, "tp1", None)),
+                "tp2": getattr(item, "tp2_price", getattr(item, "tp2", None)),
                 "pnl": getattr(item, "unrealized_pnl", getattr(item, "pnl", 0.0)),
-                "opened": getattr(item, "opened_at", getattr(item, "opened_iso", "")),
+                "pnl_pct": getattr(item, "pnl_pct", None),
+                "pnl_at_stop": item.pnl_at_stop() if hasattr(item, "pnl_at_stop") else None,
+                "trailing_active": bool(getattr(item, "trailing_active", False)),
+                "breakeven_active": bool(getattr(item, "breakeven_active", False)),
+                "leverage": getattr(item, "leverage", 1),
+                "engine": getattr(item, "engine", ""),
+                "margin_pct": None,
+                "opened": getattr(item, "entry_time", getattr(item, "opened_at", "")),
             })
         return result
 
@@ -325,14 +488,26 @@ class DataAdapter:
         return list(self.state().get("closed_positions") or [])
 
     def events(self, limit: int = 300) -> list[dict]:
+        rows = []
         path = BASE / "logs" / "bot_log.csv"
         try:
             if path.exists():
                 with path.open("r", encoding="utf-8") as handle:
-                    return list(csv.DictReader(handle))[-limit:][::-1]
+                    session_start = float(getattr(self.rt, "session_started_at", 0.0) or 0.0)
+                    rows = [
+                        row for row in csv.DictReader(handle)
+                        if str(row.get("event") or "").upper() != "CYCLE"
+                        and (
+                            not session_start
+                            or _event_timestamp(row) >= session_start
+                        )
+                    ][-limit:][::-1]
         except (OSError, UnicodeError, csv.Error):
-            pass
-        return []
+            rows = []
+        warmup = engine_warmup_event(self.state())
+        if warmup:
+            rows.insert(0, warmup)
+        return rows[:limit]
 
     def equity(self) -> list[dict]:
         return [x for x in (self.state().get("equity_history") or []) if isinstance(x, dict)]
@@ -353,7 +528,7 @@ class DataAdapter:
         for row in rows:
             symbol = str(row.get("symbol") or "").upper()
             side = direction(row.get("direction"))
-            score = round(score_value(row))
+            score = score_label(row)
             reject_reason = row.get("reject_reason")
             gate, why = "WAIT", "liquidity"
             if risk is not None:
@@ -373,29 +548,22 @@ class DataAdapter:
                     why = friendly_reason(reason) if reason else why
             elif reject_reason:
                 gate, why = "BLOCK", friendly_reason(reject_reason)
-            out.append({"sym": symbol, "side": side, "score": score, "gate": gate, "why": why})
+            rr = row.get("expected_net_r")
+            if rr is None:
+                rr = rr_value(row)
+            out.append({"sym": symbol, "side": side, "score": score, "gate": gate, "why": why, "rr": rr})
         return out
 
     def why_no_trade(self) -> dict:
-        """Procentowy rozklad powodow odrzucen z risk.reject_log, zagregowany
-        do 3 kategorii (liquidity/regime/corr), znormalizowany do sumy 100%
-        miedzy soba. Rejects spoza wzorcow regime/corr trafiaja do liquidity
-        jako najbardziej ogolnej kategorii - przyblizenie, nie precyzyjna
-        taksonomia."""
+        """SETUP / TIMING / DATA / RISK z risk.reject_log."""
         risk = getattr(self.rt, "risk", None)
         reject_log = list(getattr(risk, "reject_log", None) or [])
-        buckets = {"regime": 0, "corr": 0, "liquidity": 0}
+        buckets = {"setup": 0, "timing": 0, "data": 0, "risk": 0}
         for row in reject_log:
-            reason = str(row.get("reason") or "").upper()
-            if "CORR" in reason:
-                buckets["corr"] += 1
-            elif any(tag in reason for tag in ("REGIME", "PANIC", "TREND", "RANGE")):
-                buckets["regime"] += 1
-            else:
-                buckets["liquidity"] += 1
+            buckets[why_taxonomy.why_bucket(row.get("reason") or row.get("reject_reason"))] += 1
         total = sum(buckets.values())
         if total <= 0:
-            return {"liquidity": 0, "regime": 0, "corr": 0}
+            return buckets
         return {k: round(v / total * 100) for k, v in buckets.items()}
 
     def regime(self) -> str:
@@ -410,7 +578,101 @@ class DataAdapter:
         # zamiast pary klucz/wartosc), przez co _refresh_impl_v2() nigdy nie
         # aktualizowal SCAN po pierwszym pelnym skanie. Patrz native_ui.py
         # (str(data.get("sources"))) dla tego samego pola w starym shellu.
-        return str(self.state().get("sources") or "")
+        sources = str(self.state().get("sources") or "")
+        wst = self.state().get("warmup") or {}
+        if wst.get("active") and not wst.get("ready"):
+            return (
+                f"WARMUP {float(wst.get('elapsed_s') or 0):.0f}s · "
+                f"{int(wst.get('ready_pairs') or 0)}/{int(wst.get('need_pairs') or 0)} par · "
+                f"{sources}"
+            )
+        err = str(self.state().get("last_error") or "")
+        events = self.state().get("feed_events") or []
+        if err and any(k in err.upper() for k in ("429", "WS", "WARM", "BLOCK", "GEO", "TIMEOUT")):
+            return f"{sources}  ·  {err[:160]}"
+        if events:
+            last = events[0] if isinstance(events[0], dict) else {}
+            msg = str(last.get("msg") or "")
+            if msg:
+                return f"{sources}  ·  {msg[:120]}"
+        return sources
+
+    def session_snapshot(self) -> dict:
+        """PnL/sesja na DESK Control Room — te same źródła co account()/closed()."""
+        account = self.account()
+        positions = self.positions()
+        closed = self.closed()
+        from datetime import datetime as _dt
+        today = _dt.now().date()
+        closed_today = []
+        for row in closed:
+            raw = row.get("time") or row.get("exit_time") or ""
+            try:
+                if hasattr(raw, "date"):
+                    day = raw.date()
+                else:
+                    text = str(raw).replace("Z", "+00:00")
+                    day = _dt.fromisoformat(text[:19]).date()
+                if day == today:
+                    closed_today.append(row)
+            except (TypeError, ValueError):
+                continue
+        wins = [row for row in closed_today if float(row.get("pnl") or 0) > 0]
+        wr = (len(wins) / len(closed_today) * 100.0) if closed_today else 0.0
+        started = getattr(self.rt, "started_at", None)
+        try:
+            uptime_sec = int(time.time() - float(started)) if started else 0
+        except (TypeError, ValueError):
+            uptime_sec = int(self.state().get("uptime_sec") or 0)
+        if uptime_sec >= 3600:
+            uptime = f"{uptime_sec // 3600}h {(uptime_sec % 3600) // 60}m"
+        elif uptime_sec >= 60:
+            uptime = f"{uptime_sec // 60}m"
+        else:
+            uptime = f"{uptime_sec}s" if uptime_sec else "—"
+        protection = getattr(self.rt, "protection", None)
+        kill = bool(getattr(protection, "kill_switch_active", False))
+        equity = float(account.get("equity") or 0)
+        daily = float(account.get("daily") or 0)
+        daily_pct = (daily / equity * 100.0) if equity else 0.0
+        limit = float(getattr(config, "DAILY_LOSS_LIMIT", 0.05) or 0.05) * 100.0
+        used_pct = 0.0
+        if equity > 0:
+            used_pct = float(account.get("margin") or 0) / equity * 100.0
+        return {
+            "mode": account.get("mode") or "DEMO",
+            "equity": account.get("equity"),
+            "available": account.get("available"),
+            "margin": account.get("margin"),
+            "daily": daily,
+            "daily_pct": daily_pct,
+            "daily_limit_pct": limit,
+            "unrealized": account.get("unrealized") or 0,
+            "positions": len(positions),
+            "max_positions": int(getattr(config, "MAX_POSITIONS", 10) or 10),
+            "closed_today": len(closed_today),
+            "winrate_today": wr,
+            "uptime": uptime,
+            "regime": self.regime(),
+            "kill_switch": kill,
+            "used_pct": used_pct,
+        }
+
+    def desk_events(self, limit: int = 8) -> list[dict]:
+        rows = []
+        for row in self.events(limit=40):
+            ts = str(row.get("timestamp") or row.get("time") or row.get("TIME") or "")
+            clock = ts[11:19] if len(ts) >= 19 else ts[-8:]
+            event = str(row.get("event") or row.get("EVENT") or "LOG")
+            tag = event.split()[0].upper().replace("_", " ")[:14]
+            symbol = str(row.get("symbol") or "").upper()
+            compact = compact_trade_event(row)
+            reasons = "" if compact else str(row.get("reasons") or "").replace("|", " · ")
+            text = " ".join(part for part in (symbol, compact or event, reasons) if part).strip()
+            rows.append({"time": clock or "—", "tag": tag or "LOG", "text": text or event})
+            if len(rows) >= limit:
+                break
+        return rows
 
     def scan_rows(self, universe_filter: str = "LIQUID") -> list[dict]:
         """Pelniejsze wiersze dla SCAN (# SYM PRICE 15M 24H spark SCORE PATH
@@ -439,7 +701,7 @@ class DataAdapter:
                 continue
 
             side = direction(row.get("direction"))
-            score = round(score_value(row))
+            score = score_label(row)
             price = row.get("price")
             chg_24h = row.get("blofin_change_24h", row.get("change_24h"))
             # 15m: brak dedykowanego pola liczbowego w sygnale - przyblizamy
@@ -470,6 +732,10 @@ class DataAdapter:
                 "sym": symbol, "side": side, "price": price, "chg_15m": chg_15m,
                 "trend_15m": trend_15m, "chg_24h": chg_24h, "score": score,
                 "path": path, "gate": gate, "why": why,
+                "sl_price": row.get("sl_price"),
+                "tp1_price": row.get("tp1_price"),
+                "tp2_price": row.get("tp2_price"),
+                "expected_net_r": row.get("expected_net_r"),
             })
         return out
 
@@ -485,6 +751,30 @@ class Card(QFrame):
             label = QLabel(title.upper())
             label.setObjectName("CardTitle")
             self.body.addWidget(label)
+
+
+class TerminalPageHeader(QWidget):
+    """Wspólny nagłówek samodzielnych stron terminala."""
+
+    def __init__(self, title: str, description: str, status: str = "", parent=None):
+        super().__init__(parent)
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(12)
+        text_col = QVBoxLayout()
+        text_col.setSpacing(2)
+        title_label = QLabel(title)
+        title_label.setObjectName("PageTitle")
+        description_label = QLabel(description)
+        description_label.setObjectName("Muted")
+        description_label.setWordWrap(True)
+        text_col.addWidget(title_label)
+        text_col.addWidget(description_label)
+        row.addLayout(text_col, 1)
+        if status:
+            status_label = QLabel(status)
+            status_label.setObjectName("PageContext")
+            row.addWidget(status_label, 0, Qt.AlignTop)
 
 
 class KPI(Card):
@@ -647,13 +937,13 @@ class MarketChart(QWidget):
             painter.setPen(QColor("#ffffff"))
             painter.drawText(int(x_right - width - 58), int(yy + 4), f"{float(item['price']):.8g}")
         level_colors = {
-            "ENTRY": C["cyan"], "SL": C["red"], "TP": C["green"], "P": "#ffffff",
+            "ENTRY": C["cyan"], "SL": C["red"], "TP": C["green"], "TP1": C["green"], "TP2": C["cyan"], "P": "#ffffff",
             "R1": "#800000", "R2": "#800000", "R3": "#800000",
             "S1": "#00ff00", "S2": "#00ff00", "S3": "#00ff00",
             "RES": "#800000", "SUP": "#00ff00", "VIPER": "#ffffff",
         }
         for name, value in self.levels.items():
-            is_trade_plan = name in ("ENTRY", "SL", "TP")
+            is_trade_plan = name in ("ENTRY", "SL", "TP", "TP1", "TP2")
             if (is_trade_plan and not self.overlays["trade_plan"]) or (not is_trade_plan and not self.overlays["levels"]):
                 continue
             try:
@@ -919,11 +1209,12 @@ class Sparkline(QWidget):
     opcja na pozniej dla czegos wiekszego (np. pelny real-time wykres w LAB),
     patrz rekomendacja stacku."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, compact: bool = False):
         super().__init__(parent)
         self._points: list[float] = []
-        self.setMinimumHeight(28)
-        self.setMaximumHeight(34)
+        h = 14 if compact else 28
+        self.setMinimumHeight(h)
+        self.setMaximumHeight(h + (2 if compact else 6))
 
     def set_points(self, points: list[float]):
         self._points = [float(p) for p in points if p is not None]
@@ -1005,14 +1296,14 @@ class WatchlistTile(QFrame):
 
     HISTORY_MAX = 90
 
-    def __init__(self, symbol: str, parent=None):
+    def __init__(self, symbol: str, parent=None, compact: bool = False):
         super().__init__(parent)
         self.symbol = symbol
         self.setObjectName("WLTile")
         self._history: list[float] = []
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 6)
-        layout.setSpacing(2)
+        layout.setContentsMargins(6, 4, 6, 3) if compact else layout.setContentsMargins(10, 8, 10, 6)
+        layout.setSpacing(1 if compact else 2)
         head = QHBoxLayout()
         self._sym_label = QLabel(symbol)
         self._sym_label.setObjectName("WLSym")
@@ -1025,8 +1316,10 @@ class WatchlistTile(QFrame):
         self._price_label = QLabel("—")
         self._price_label.setObjectName("WLPrice")
         layout.addWidget(self._price_label)
-        self._spark = Sparkline()
+        self._spark = Sparkline(compact=compact)
         layout.addWidget(self._spark)
+        if compact:
+            self.setMaximumHeight(72)
 
     def update_price(self, price: float | None, change_24h: float | None):
         if price is not None:
@@ -1054,16 +1347,21 @@ class WatchlistPanel(Card):
 
     SYMBOLS = ("BTC", "ETH", "SOL", "XRP")
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, compact: bool = False):
         super().__init__("WATCHLIST", parent)
-        row = QHBoxLayout()
-        row.setSpacing(8)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
         self.tiles: dict[str, WatchlistTile] = {}
-        for symbol in self.SYMBOLS:
-            tile = WatchlistTile(symbol)
+        for index, symbol in enumerate(self.SYMBOLS):
+            tile = WatchlistTile(symbol, compact=compact)
             self.tiles[symbol] = tile
-            row.addWidget(tile)
-        self.body.addLayout(row)
+            grid.addWidget(tile, index // 2, index % 2)
+        self.body.addLayout(grid)
+        if compact:
+            self.setMaximumHeight(220)
+            self.body.setContentsMargins(10, 8, 10, 8)
+            self.body.setSpacing(4)
 
     def apply_tick(self, prices: dict, changes: dict):
         for symbol, tile in self.tiles.items():
@@ -1071,240 +1369,254 @@ class WatchlistPanel(Card):
 
 
 class DeskPage(QWidget):
-    """Strona DESK (UI_DESK_V2): 28/44/28 - pozycje+equity | wykres | kandydaci.
-    (22.08.2026: bylo 22/48/30 - user chcial wiekszy panel OPEN POSITIONS,
-    patrz komentarz przy root.addWidget(left_widget, 28) w _build().)
-    Jedyna strona, ktora 'musi dzialac w paperze' (cytat ze specyfikacji) -
-    reuzywa istniejace EquityChart/MarketChart/ChartLoadTask, nie duplikuje ich."""
+    """DESK Control Room: duże otwarte pozycje na górze, mały watchlist na dole.
+    Wykres jest na LAB — klik w symbol przełącza zakładkę."""
 
     symbol_selected = Signal(str)
 
     def __init__(self, window: "MainWindow", parent=None):
         super().__init__(parent)
         self.setObjectName("DeskV2Root")
-        self.window_ = window  # dostep do window_.data (DataAdapter), chart_pool, itd.
+        self.window_ = window
         self._build()
 
     def _build(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(10, 10, 10, 10)
-        outer.setSpacing(10)
+        outer.setContentsMargins(18, 14, 18, 14)
+        outer.setSpacing(12)
 
-        # 22.08.2026: WATCHLIST ponad glownym 3-kolumnowym layoutem - realne
-        # ceny + live sparkline dla BTC/ETH/SOL/XRP (patrz WatchlistPanel),
-        # zamiast order booka, ktorego DESK i tak nigdy nie mial. Zasilany z
-        # tego samego 1s PriceTickerTask co BTC/ETH w top barze - patrz
-        # apply_watchlist_tick() nizej / MainWindow._on_price_ticker_updated.
-        self.watchlist_panel = WatchlistPanel()
-        outer.addWidget(self.watchlist_panel)
-
-        root = QHBoxLayout()
-        root.setSpacing(10)
-
-        left = QVBoxLayout()
-        left.setSpacing(10)
-
-        mode_card = Card("ACCOUNT MODE")
-        mode_row = QHBoxLayout()
-        self.desk_demo_button = QPushButton("●  DEMO", objectName="ModeDemo")
-        self.desk_live_button = QPushButton("●  LIVE", objectName="ModeLive")
-        for button in (self.desk_demo_button, self.desk_live_button):
-            button.setCheckable(True)
-            button.setAutoExclusive(True)
-        # Reuzywa dokladnie ta sama, w pelni zabezpieczona sciezke co Control
-        # Center/SET (MainWindow.request_dashboard_mode -> apply_account_mode)
-        # - zero duplikacji logiki blokujacej zmiane trybu przy otwartych
-        # pozycjach / braku przetestowanych kluczy LIVE.
-        self.desk_demo_button.clicked.connect(lambda: self.window_.request_dashboard_mode(False))
-        self.desk_live_button.clicked.connect(lambda: self.window_.request_dashboard_mode(True))
+        intro = QHBoxLayout()
+        intro_text = QVBoxLayout()
+        title = QLabel("PULPIT OPERACYJNY")
+        title.setObjectName("PageTitle")
+        subtitle = QLabel("Kapitał, rynek, kandydaci i aktywne ryzyko w jednym miejscu")
+        subtitle.setObjectName("Muted")
+        intro_text.addWidget(title)
+        intro_text.addWidget(subtitle)
+        intro.addLayout(intro_text)
+        intro.addStretch()
         self.desk_mode_status = StatePill(objectName="Pill")
-        mode_row.addWidget(self.desk_demo_button)
-        mode_row.addWidget(self.desk_live_button)
-        mode_row.addWidget(self.desk_mode_status)
-        mode_row.addStretch()
-        mode_card.body.addLayout(mode_row)
-        left.addWidget(mode_card)
+        intro.addWidget(self.desk_mode_status)
+        outer.addLayout(intro)
 
-        self.equity_kpi = KPI("EQUITY")
-        self.equity_chart = EquityChart()
-        self.equity_chart.setMinimumHeight(90)
-        self.equity_chart.setMaximumHeight(110)
-        self.equity_kpi.body.addWidget(self.equity_chart)
-        left.addWidget(self.equity_kpi)
+        market_row = QHBoxLayout()
+        market_row.setSpacing(12)
+        self.watchlist_panel = WatchlistPanel(compact=True)
+        session_card = self._build_session_card()
 
-        stats_card = Card()
-        stats_outer = QHBoxLayout()
-        # 22.08.2026: RiskRing dodany obok FREE/USED/DAILY PNL - odpowiednik
-        # pierscienia "Ryzyko i konto" z mockupu, liczony z tych samych
-        # account()['margin']/['equity'], ktore ta karta i tak juz pokazuje
-        # jako liczby (patrz apply_state() nizej) - zero nowego zrodla danych.
-        self.risk_ring = RiskRing()
-        stats_outer.addWidget(self.risk_ring)
-        stats_row = QHBoxLayout()
-        self.free_label = self._stat_pair(stats_row, "FREE")
-        self.used_label = self._stat_pair(stats_row, "USED")
-        self.daily_label = self._stat_pair(stats_row, "DAILY PNL")
-        stats_outer.addLayout(stats_row, 1)
-        stats_card.body.addLayout(stats_outer)
-        left.addWidget(stats_card)
+        work_row = QHBoxLayout()
+        work_row.setSpacing(12)
 
-        self.positions_count = QLabel("0/0")
-        self.positions_count.setObjectName("KPI")
-        pos_header = Card("POSITIONS")
-        pos_header.body.addWidget(self.positions_count)
-        left.addWidget(pos_header)
-
-        positions_card = Card("OPEN POSITIONS")
-        self.positions_table = QTableWidget(0, 7)
-        self.positions_table.setObjectName("V2Table")
-        self.positions_table.setHorizontalHeaderLabels(["SYM", "SIDE", "SIZE", "MARK", "ENTRY", "SL", "PNL"])
-        self.positions_table.verticalHeader().setVisible(False)
-        self.positions_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.positions_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.positions_table.horizontalHeader().setStretchLastSection(True)
-        self.positions_table.cellClicked.connect(self._on_position_clicked)
-        positions_card.body.addWidget(self.positions_table)
-        self.close_all_btn = QPushButton("CLOSE ALL")
-        self.close_all_btn.setObjectName("V2CloseAll")
-        self.close_all_btn.clicked.connect(self._on_close_all)
-        positions_card.body.addWidget(self.close_all_btn)
-        left.addWidget(positions_card, 1)
-
-        left_widget = QWidget()
-        left_widget.setLayout(left)
-        # 22.08.2026: 22 -> 28 (user: "otwarte pozycje jeszcze wieksze") -
-        # OPEN POSITIONS jest jedyna karta w lewej kolumnie z stretch=1
-        # (patrz left.addWidget(positions_card, 1) nizej), wiec caly
-        # dodatkowy szerokosc trafia bezposrednio do niej, nie do
-        # mode/equity/stats. center 48->44, right 30->28 oddaja roznice.
-        root.addWidget(left_widget, 28)
-
-        center = QVBoxLayout()
-        center.setSpacing(6)
-        self.chart_header = QLabel("SELECT A SYMBOL")
-        self.chart_header.setObjectName("V2CardTitle")
-        center.addWidget(self.chart_header)
-        self.chart = MarketChart()
-        center.addWidget(self.chart, 1)
-        tf_row = QHBoxLayout()
-        self.tf_buttons: dict[str, QPushButton] = {}
-        for tf in ("1m", "5m", "15m", "1h", "4h", "1d"):
-            btn = QPushButton(tf)
-            btn.setCheckable(True)
-            btn.setChecked(tf == "15m")
-            btn.clicked.connect(lambda _checked, t=tf: self._on_timeframe_clicked(t))
-            self.tf_buttons[tf] = btn
-            tf_row.addWidget(btn)
-        tf_row.addStretch()
-        center.addLayout(tf_row)
-        center_widget = QWidget()
-        center_widget.setLayout(center)
-        root.addWidget(center_widget, 44)
-
-        right = QVBoxLayout()
-        right.setSpacing(10)
-        candidates_card = Card("NEXT CANDIDATES")
+        candidates_card = Card("NAJLEPSI KANDYDACI")
         self.candidates_table = QTableWidget(0, 4)
         self.candidates_table.setObjectName("V2Table")
-        self.candidates_table.setHorizontalHeaderLabels(["SYM", "SIDE", "SCORE", "GATE"])
+        self.candidates_table.setHorizontalHeaderLabels(["PARA", "STATUS", "OCENA", "R:R"])
         self.candidates_table.verticalHeader().setVisible(False)
         self.candidates_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.candidates_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.candidates_table.horizontalHeader().setStretchLastSection(True)
         self.candidates_table.cellClicked.connect(self._on_candidate_clicked)
         candidates_card.body.addWidget(self.candidates_table)
-        right.addWidget(candidates_card, 1)
+        work_row.addWidget(candidates_card, 24)
 
-        why_card = Card("WHY NO TRADE")
-        why_row = QHBoxLayout()
-        self.why_chips = {
-            "liquidity": WhyNoTradeChip("LIQUIDITY", theme.CYAN),
-            "regime": WhyNoTradeChip("REGIME", theme.WAIT),
-            "corr": WhyNoTradeChip("CORR", theme.PURPLE),
-        }
-        for chip in self.why_chips.values():
-            why_row.addWidget(chip)
-        why_card.body.addLayout(why_row)
-        right.addWidget(why_card)
+        positions_card = Card("OTWARTE POZYCJE")
+        self.positions_card = positions_card
+        pos_head = QHBoxLayout()
+        self.positions_count = QLabel("0/0")
+        self.positions_count.setObjectName("KPI")
+        pos_head.addWidget(self.positions_count)
+        pos_head.addStretch()
+        self.close_all_btn = QPushButton("ZAMKNIJ WSZYSTKIE")
+        self.close_all_btn.setObjectName("V2CloseAll")
+        self.close_all_btn.clicked.connect(self._on_close_all)
+        pos_head.addWidget(self.close_all_btn)
+        positions_card.body.addLayout(pos_head)
+        self.positions_table = QTableWidget(0, 7)
+        self.positions_table.setObjectName("V2Table")
+        self.positions_table.setHorizontalHeaderLabels(
+            ["SYM", "STRONA", "SL", "ZYSK SL", "PNL", "PNL%", "WIEK"]
+        )
+        self.positions_table.verticalHeader().setVisible(False)
+        self.positions_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.positions_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.positions_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.positions_table.horizontalHeader().setStretchLastSection(True)
+        self.positions_table.cellClicked.connect(self._on_position_clicked)
+        positions_card.body.addWidget(self.positions_table, 1)
+        self.sl_legend = QLabel("↓ twardy SL    🔒− breakeven    ▲ trailing podniesiony")
+        self.sl_legend.setObjectName("Muted")
+        positions_card.body.addWidget(self.sl_legend)
+        market_row.addWidget(positions_card, 72)
+        market_row.addWidget(session_card, 28)
+        outer.addLayout(market_row, 5)
 
-        right_widget = QWidget()
-        right_widget.setLayout(right)
-        root.addWidget(right_widget, 28)
+        work_row.addWidget(self.watchlist_panel, 46)
+        work_row.addWidget(self._build_risk_card(), 30)
+        outer.addLayout(work_row, 3)
 
-        outer.addLayout(root, 1)
+        events_card = Card("EVENTY")
+        self.events_table = QTableWidget(0, 3)
+        self.events_table.setObjectName("V2Table")
+        self.events_table.setHorizontalHeaderLabels(["CZAS", "TAG", "TREŚĆ"])
+        self.events_table.verticalHeader().setVisible(False)
+        self.events_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.events_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.events_table.horizontalHeader().setStretchLastSection(True)
+        self.events_table.setMaximumHeight(150)
+        events_card.body.addWidget(self.events_table)
+        outer.addWidget(events_card, 2)
 
         self._selected_timeframe = "15m"
         self._current_chart_symbol: str | None = None
 
+    def _build_session_card(self) -> QWidget:
+        card = Card("PNL / SESJA")
+        mode_row = QHBoxLayout()
+        self.desk_demo_button = QPushButton("●  PAPER", objectName="ModeDemo")
+        self.desk_live_button = QPushButton("●  LIVE", objectName="ModeLive")
+        for button in (self.desk_demo_button, self.desk_live_button):
+            button.setCheckable(True)
+            button.setAutoExclusive(True)
+        self.desk_demo_button.clicked.connect(lambda: self.window_.request_dashboard_mode(False))
+        self.desk_live_button.clicked.connect(lambda: self.window_.request_dashboard_mode(True))
+        mode_row.addWidget(self.desk_demo_button)
+        mode_row.addWidget(self.desk_live_button)
+        mode_row.addStretch()
+        card.body.addLayout(mode_row)
+
+        self.session_daily = QLabel("—")
+        self.session_daily.setObjectName("V2Mono")
+        self.session_daily.setStyleSheet(f"font-size:22px; font-weight:800; color:{theme.TEXT};")
+        card.body.addWidget(self.session_daily)
+        self.session_daily_sub = QLabel("DZIENNY PNL (ZREALIZOWANY + OTWARTE)")
+        self.session_daily_sub.setObjectName("V2CardTitle")
+        card.body.addWidget(self.session_daily_sub)
+
+        self.session_equity = QLabel("—")
+        self.session_unrealized = QLabel("—")
+        self.session_closed = QLabel("—")
+        self.session_uptime = QLabel("—")
+        self.session_regime = QLabel("—")
+        for title, widget in (
+            ("EQUITY", self.session_equity),
+            ("OTWARTE — UNREALIZED", self.session_unrealized),
+            ("ZAMKNIĘTE DZIŚ", self.session_closed),
+            ("SESJA", self.session_uptime),
+            ("REŻIM RYNKU", self.session_regime),
+        ):
+            lab = QLabel(title)
+            lab.setObjectName("V2CardTitle")
+            widget.setObjectName("V2Mono")
+            card.body.addWidget(lab)
+            card.body.addWidget(widget)
+        return card
+
+    def _build_risk_card(self) -> QWidget:
+        card = Card("RYZYKO I KONTO")
+        ring_row = QHBoxLayout()
+        self.risk_ring = RiskRing()
+        self.risk_ring.setMinimumSize(72, 72)
+        self.risk_ring.setMaximumSize(72, 72)
+        ring_row.addWidget(self.risk_ring)
+        nums = QVBoxLayout()
+        self.used_label = QLabel("—")
+        self.free_label = QLabel("—")
+        self.used_label.setObjectName("V2Mono")
+        self.free_label.setObjectName("V2Mono")
+        u_cap = QLabel("UŻYTY MARGIN")
+        u_cap.setObjectName("V2CardTitle")
+        f_cap = QLabel("WOLNE ŚRODKI")
+        f_cap.setObjectName("V2CardTitle")
+        nums.addWidget(u_cap)
+        nums.addWidget(self.used_label)
+        nums.addWidget(f_cap)
+        nums.addWidget(self.free_label)
+        nums.addStretch()
+        ring_row.addLayout(nums, 1)
+        card.body.addLayout(ring_row)
+
+        daily_cap = QLabel("DZIENNY LIMIT STRATY")
+        daily_cap.setObjectName("V2CardTitle")
+        card.body.addWidget(daily_cap)
+        self.daily_label = QLabel("—")
+        self.daily_label.setObjectName("V2Mono")
+        card.body.addWidget(self.daily_label)
+        self.daily_bar = MiniBar(theme.WAIT)
+        card.body.addWidget(self.daily_bar)
+
+        ks_cap = QLabel("KILL SWITCH")
+        ks_cap.setObjectName("V2CardTitle")
+        card.body.addWidget(ks_cap)
+        self.kill_pill = StatePill(objectName="Pill")
+        card.body.addWidget(self.kill_pill)
+        return card
+
     def apply_watchlist_tick(self, prices: dict, changes: dict):
-        """Wolane z MainWindow._on_price_ticker_updated (ten sam ~1s tick,
-        ktory juz aktualizowal BTC/ETH w top barze) - NIE apply_tick()
-        (osobna, istniejaca sciezka: ceny/PnL w tabeli OTWARTYCH POZYCJI,
-        nie watchlista)."""
+        """Wolane z MainWindow._on_price_ticker_updated. Osobna sciezka od
+        apply_tick() (ceny/PnL w tabeli OTWARTYCH POZYCJI)."""
         self.watchlist_panel.apply_tick(prices, changes)
 
     def sync_mode_buttons(self, demo: bool):
-        """Trzyma DEMO/LIVE w synchronizacji z realnym trybem. Wolane
-        zarowno z apply_state() (pelny skan) JAK I bezposrednio co 1s tick
-        z MainWindow._refresh_impl_v2() (tak jak mode_pill_v2) - inaczej po
-        odrzuconej/anulowanej probie zmiany trybu (np. brak kluczy LIVE)
-        przycisk zostawal wizualnie "checked" na zla strone az do
-        nastepnego PELNEGO skanu (15-30s), bo Qt przelacza checked-state
-        checkable+autoExclusive przycisku na sam klik, niezaleznie od tego,
-        czy apply_account_mode() faktycznie zmienil tryb."""
+        """Trzyma PAPER/LIVE w synchronizacji z realnym trybem."""
         self.desk_demo_button.setChecked(demo)
         self.desk_live_button.setChecked(not demo)
         self.desk_mode_status.set_state(
-            "DEMO · NO REAL ORDERS" if demo else "LIVE · REAL ACCOUNT",
+            "PAPER · BEZ REALNYCH ZLECEŃ" if demo else "LIVE · RACHUNEK",
             "green" if demo else "red",
         )
 
-    @staticmethod
-    def _stat_pair(row: QHBoxLayout, title: str) -> QLabel:
-        col = QVBoxLayout()
-        label_title = QLabel(title)
-        label_title.setObjectName("V2CardTitle")
-        value = QLabel("—")
-        value.setObjectName("V2Mono")
-        col.addWidget(label_title)
-        col.addWidget(value)
-        wrap = QWidget()
-        wrap.setLayout(col)
-        row.addWidget(wrap)
-        return value
-
-    # ------------------------------------------------------------------
-    # Odswiezanie
-    # ------------------------------------------------------------------
     def apply_state(self, data: "DataAdapter"):
         """Pelny apply_state (co pelny skan, 15-30s) - patrz apply_tick()
         dla szybszej sciezki (ceny/PnL co 1s)."""
         account = data.account()
+        session = data.session_snapshot()
         self.sync_mode_buttons(account["mode"] == "DEMO")
-        self.equity_kpi.update_value(number(account.get("equity"), 2, "$"))
-        self.equity_chart.set_points(data.equity())
-        self.free_label.setText(number(account.get("available"), 2, "$"))
-        self.used_label.setText(number(account.get("margin"), 2, "$"))
-        daily = account.get("daily")
-        self.daily_label.setText(number(daily, 2, "+$" if (daily or 0) >= 0 else "$"))
+
+        daily = session.get("daily") or 0
+        daily_pct = session.get("daily_pct") or 0
+        self.session_daily.setText(
+            f"{number(daily, 2, '+$' if daily >= 0 else '$')}  ({percent(daily_pct)})"
+        )
+        self.session_daily.setStyleSheet(
+            f"font-size:22px; font-weight:800; color:{theme.LONG if daily >= 0 else theme.SHORT};"
+        )
+        self.session_equity.setText(number(session.get("equity"), 2, "$"))
+        npos = int(session.get("positions") or 0)
+        max_pos = int(session.get("max_positions") or 0)
+        unreal = float(session.get("unrealized") or 0)
+        self.session_unrealized.setText(
+            f"{number(unreal, 2, '+$' if unreal >= 0 else '$')}  ·  {npos} poz."
+        )
+        self.positions_count.setText(f"{npos}/{max_pos}")
+        closed_n = int(session.get("closed_today") or 0)
+        wr = session.get("winrate_today") or 0
+        self.session_closed.setText(f"{closed_n}  ·  winrate {percent(wr, 0, False)}")
+        mode = session.get("mode") or "DEMO"
+        self.session_uptime.setText(f"uptime {session.get('uptime') or '—'}  ·  {mode}")
+        regime = session.get("regime") or "—"
+        self.session_regime.setText(theme.regime_label(regime))
+        self.session_regime.setStyleSheet(f"color:{theme.regime_color(regime)}; font-weight:700;")
+
         equity = float(account.get("equity") or 0)
         margin = float(account.get("margin") or 0)
+        self.free_label.setText(number(account.get("available"), 2, "$"))
+        self.used_label.setText(number(account.get("margin"), 2, "$"))
         self.risk_ring.set_percent((margin / equity * 100.0) if equity > 0 else 0.0)
+        limit = float(session.get("daily_limit_pct") or 5)
+        used_of_limit = 0.0
+        if daily < 0 and limit:
+            used_of_limit = min(100.0, abs(daily_pct) / limit * 100.0)
+        self.daily_label.setText(f"{percent(daily_pct)} / {percent(-limit)}")
+        self.daily_bar.set_percent(used_of_limit)
+        if session.get("kill_switch"):
+            self.kill_pill.set_state("AKTYWNY", "red")
+        else:
+            self.kill_pill.set_state("NIEAKTYWNY", "green")
 
         positions = data.positions()
-        max_pos = int(getattr(config, "MAX_POSITIONS", 10) or 10)
-        self.positions_count.setText(f"{len(positions)}/{max_pos}")
         self._fill_positions(positions)
-
-        candidates = data.candidates(limit=8)
-        self._fill_candidates(candidates)
-
-        why = data.why_no_trade()
-        for key, chip in self.why_chips.items():
-            chip.set_percent(why.get(key, 0))
-
-        if self._current_chart_symbol is None and positions:
-            self.select_symbol(str(positions[0].get("symbol") or ""))
+        self._fill_candidates(data.candidates(limit=8))
+        self._fill_events(data.desk_events(limit=8))
 
     def apply_tick(self, prices: dict):
         """Szybka sciezka (co ~1s): tylko ceny/PnL w tabeli pozycji, bez
@@ -1320,9 +1632,36 @@ class DeskPage(QWidget):
             price = prices.get(symbol)
             if price is None:
                 continue
-            mark_item = self.positions_table.item(row, 3)
-            if mark_item is not None:
-                mark_item.setText(number(price, 4))
+            meta = sym_item.data(Qt.UserRole) or {}
+            entry = meta.get("entry")
+            side = direction(meta.get("side"))
+            size = meta.get("size")
+            sl = meta.get("sl")
+            try:
+                entry_f = float(entry)
+                mark_f = float(price)
+                if entry_f > 0:
+                    move = (mark_f - entry_f) / entry_f if side == "LONG" else (entry_f - mark_f) / entry_f
+                    pnl = float(size or 0) * move
+                    pnl_item = self.positions_table.item(row, 4)
+                    if pnl_item is not None:
+                        pnl_item.setText(number(pnl, 2, "+$" if pnl >= 0 else "$"))
+                        pnl_item.setForeground(QColor(theme.LONG if pnl >= 0 else theme.SHORT))
+                    pct_item = self.positions_table.item(row, 5)
+                    if pct_item is not None:
+                        lev = float(meta.get("leverage") or 1) or 1
+                        pct_item.setText(percent(move * lev * 100.0))
+                if sl is not None and entry_f > 0:
+                    sl_f = float(sl)
+                    zysk = float(size or 0) * (
+                        (sl_f - entry_f) / entry_f if side == "LONG" else (entry_f - sl_f) / entry_f
+                    )
+                    zysk_item = self.positions_table.item(row, 3)
+                    if zysk_item is not None:
+                        zysk_item.setText(number(zysk, 2, "+$" if zysk >= 0 else "$"))
+                        zysk_item.setForeground(QColor(theme.LONG if zysk >= 0 else theme.SHORT))
+            except (TypeError, ValueError):
+                pass
 
     def _fill_positions(self, positions: list[dict]):
         table = self.positions_table
@@ -1332,76 +1671,87 @@ class DeskPage(QWidget):
             side = direction(pos.get("side"))
             entry = pos.get("entry")
             sl = pos.get("sl")
-            mark = pos.get("mark")
             pnl = pos.get("pnl")
-            values = [symbol, side, number(pos.get("size"), 3), number(mark, 4), number(entry, 4), number(sl, 4), number(pnl, 2, "+$" if (pnl or 0) >= 0 else "$")]
+            zysk = pnl_at_stop_value(pos)
+            mark_icon = sl_mark(pos)
+            sl_text = f"{mark_icon} {number(sl, 4)}"
+            pnl_pct = pos.get("pnl_pct")
+            age = pos.get("age") or format_age(pos.get("opened"), pos.get("age_sec"))
+            values = [
+                symbol,
+                side,
+                sl_text,
+                number(zysk, 2, "+$" if (zysk or 0) >= 0 else "$") if zysk is not None else "—",
+                number(pnl, 2, "+$" if (pnl or 0) >= 0 else "$"),
+                percent(pnl_pct) if pnl_pct is not None else "—",
+                age,
+            ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
+                if col == 0:
+                    item.setData(Qt.UserRole, {
+                        "entry": entry, "side": side, "size": pos.get("size"),
+                        "sl": sl, "leverage": pos.get("leverage") or 1,
+                    })
+                    engine = str(pos.get("engine") or "")
+                    if engine:
+                        item.setToolTip(engine)
                 if col == 1:
                     item.setForeground(QColor(theme.side_color(side)))
-                if col == 5:
-                    # SL zielony/cyjan gdy pozycja juz na plusie (spec: "SL
-                    # zielony/cyjan gdy juz na plusie").
+                if col == 2:
                     profitable = (pnl or 0) > 0
-                    item.setForeground(QColor(theme.LONG if profitable else theme.MUTED))
-                if col == 6:
-                    item.setForeground(QColor(theme.LONG if (pnl or 0) >= 0 else theme.SHORT))
+                    item.setForeground(QColor(
+                        sl_mark_color(mark_icon) if mark_icon != "↓" else (
+                            theme.LONG if profitable else theme.MUTED
+                        )
+                    ))
+                if col in (3, 4, 5):
+                    raw = zysk if col == 3 else pnl if col == 4 else pnl_pct
+                    try:
+                        tone_val = float(raw)
+                    except (TypeError, ValueError):
+                        tone_val = 0.0
+                    item.setForeground(QColor(theme.LONG if tone_val >= 0 else theme.SHORT))
                 table.setItem(row, col, item)
 
     def _fill_candidates(self, candidates: list[dict]):
         table = self.candidates_table
         table.setRowCount(len(candidates))
         for row, cand in enumerate(candidates):
-            table.setItem(row, 0, QTableWidgetItem(cand.get("sym", "—")))
-            side_item = QTableWidgetItem(cand.get("side", "—"))
-            side_item.setForeground(QColor(theme.side_color(cand.get("side"))))
-            table.setItem(row, 1, side_item)
+            sym_item = QTableWidgetItem(cand.get("sym", "—"))
+            side = cand.get("side")
+            if side:
+                sym_item.setForeground(QColor(theme.side_color(side)))
+            table.setItem(row, 0, sym_item)
+            gate = str(cand.get("gate") or "WAIT").upper()
+            if gate == "OPEN":
+                badge = GateBadge("OPEN")
+                badge.setText("OK")
+            elif gate == "BLOCK":
+                badge = GateBadge("BLOCK")
+                badge.setText("NA")
+            else:
+                badge = GateBadge("WAIT")
+            table.setCellWidget(row, 1, badge)
             table.setItem(row, 2, QTableWidgetItem(str(cand.get("score", "—"))))
-            badge = GateBadge(cand.get("gate", "WAIT"))
-            table.setCellWidget(row, 3, badge)
+            rr = cand.get("rr")
+            table.setItem(row, 3, QTableWidgetItem(number(rr, 1) if rr is not None else "—"))
 
-    # ------------------------------------------------------------------
-    # Interakcja
-    # ------------------------------------------------------------------
+    def _fill_events(self, events: list[dict]):
+        table = self.events_table
+        table.setRowCount(len(events))
+        for row, ev in enumerate(events):
+            table.setItem(row, 0, QTableWidgetItem(str(ev.get("time") or "—")))
+            tag_item = QTableWidgetItem(str(ev.get("tag") or "LOG"))
+            tag_item.setForeground(QColor(theme.CYAN))
+            table.setItem(row, 1, tag_item)
+            table.setItem(row, 2, QTableWidgetItem(str(ev.get("text") or "")))
+
     def select_symbol(self, symbol: str):
         if not symbol:
             return
         self._current_chart_symbol = symbol
-        self.chart_header.setText(f"{symbol}USDT · {self._selected_timeframe.upper()} · BLOFIN")
-        self.chart.set_loading(f"Ładowanie {symbol}…")
-        feeder = getattr(self.window_.rt, "feeder", None)
-        task = ChartLoadTask(feeder, symbol, self._selected_timeframe)
-        task.signals.loaded.connect(self._on_chart_loaded)
-        self.window_.chart_pool.start(task)
         self.symbol_selected.emit(symbol)
-
-    def _on_chart_loaded(self, symbol: str, interval: str, data: dict, source: str):
-        if symbol != self._current_chart_symbol or interval != self._selected_timeframe:
-            return
-        if data.get("error"):
-            self.chart.set_loading(f"Błąd danych: {data['error']}")
-            return
-        levels = self._protection_levels(symbol)
-        self.chart.set_market_data(data, levels=levels, source=source, interval=interval)
-
-    def _protection_levels(self, symbol: str) -> dict:
-        protection = getattr(self.window_.rt, "protection", None)
-        attachments = getattr(protection, "attachments", None) or {}
-        for key, item in attachments.items():
-            if str(item.get("symbol") or "").upper() == symbol.upper():
-                return {
-                    "ENTRY": item.get("entry_price") or item.get("entry"),
-                    "SL": item.get("sl_price"),
-                    "TP": item.get("tp_price"),
-                }
-        return {}
-
-    def _on_timeframe_clicked(self, tf: str):
-        self._selected_timeframe = tf
-        for name, btn in self.tf_buttons.items():
-            btn.setChecked(name == tf)
-        if self._current_chart_symbol:
-            self.select_symbol(self._current_chart_symbol)
 
     def _on_position_clicked(self, row: int, _col: int):
         item = self.positions_table.item(row, 0)
@@ -1414,8 +1764,6 @@ class DeskPage(QWidget):
             self.select_symbol(item.text())
 
     def _on_close_all(self):
-        # Wykonanie zostawiamy istniejacej infrastrukturze (ta sama sciezka,
-        # co stary UI) - DeskPage tylko wywoluje, nie duplikuje logiki.
         try:
             self.window_.close_all()
         except Exception as exc:
@@ -1438,6 +1786,32 @@ class ScanTableModel(QAbstractTableModel):
         self.beginResetModel()
         self._rows = list(rows or [])
         self.endResetModel()
+
+    def apply_prices(self, prices: dict, changes: dict | None = None) -> None:
+        if not prices or not self._rows:
+            return
+        changes = changes or {}
+        last = None
+        for i, row in enumerate(self._rows):
+            sym = str(row.get("sym") or row.get("symbol") or "").upper()
+            if not sym:
+                continue
+            px = prices.get(sym)
+            chg = changes.get(sym)
+            touched = False
+            if px is not None:
+                row["price"] = px
+                touched = True
+            if chg is not None:
+                row["chg_24h"] = chg
+                touched = True
+            if touched:
+                if last is None:
+                    last = (i, i)
+                else:
+                    last = (last[0], i)
+        if last is not None:
+            self.dataChanged.emit(self.index(last[0], 2), self.index(last[1], 4))
 
     def row_dict(self, row: int) -> dict:
         return self._rows[row] if 0 <= row < len(self._rows) else {}
@@ -1561,16 +1935,26 @@ class ScanItemDelegate(QStyledItemDelegate):
         painter.setBrush(QColor(bg))
         painter.drawRoundedRect(rect, 2, 2)
         painter.setPen(QColor(text_color))
-        painter.drawText(rect, Qt.AlignCenter, str(gate).upper())
+        painter.drawText(rect, Qt.AlignCenter, {"OPEN": "OK", "BLOCK": "NA"}.get(str(gate).upper(), str(gate).upper()))
         painter.restore()
 
     @staticmethod
     def _paint_score(painter: QPainter, option, index) -> None:
         painter.save()
+        raw = index.data(Qt.DisplayRole)
+        text = str(raw).strip() if raw is not None else "—"
+        # V2: PASS/— zamiast dummy paska 0-100 (A1).
+        numeric = None
         try:
-            score = max(0.0, min(100.0, float(index.data(Qt.DisplayRole) or 0)))
+            numeric = float(text.replace(",", "."))
         except (TypeError, ValueError):
-            score = 0.0
+            numeric = None
+        if numeric is None or text in ("PASS", "—", "-", "NA"):
+            painter.setPen(QColor(theme.TEXT if text == "PASS" else theme.MUTED))
+            painter.drawText(option.rect.adjusted(4, 0, -4, 0), Qt.AlignCenter, text if text else "—")
+            painter.restore()
+            return
+        score = max(0.0, min(100.0, numeric))
         bar_h = 4
         bar_rect = QRectF(option.rect.left() + 4, option.rect.center().y() + 6, option.rect.width() - 30, bar_h)
         painter.fillRect(bar_rect, QColor(theme.LINE))
@@ -1616,20 +2000,30 @@ class ScanPage(QWidget):
         self._build()
 
     def _build(self):
-        root = QHBoxLayout(self)
-        root.setContentsMargins(10, 10, 10, 10)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(18, 14, 18, 14)
+        outer.setSpacing(12)
+        outer.addWidget(TerminalPageHeader(
+            "SKANER RYNKU",
+            "Pełne uniwersum perpetual BloFin, filtrowane przez płynność i bramki strategii",
+            "KLIKNIJ PARĘ → SZCZEGÓŁY",
+        ))
+        root = QHBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(10)
+        outer.addLayout(root, 1)
 
         left = QVBoxLayout()
         left.setSpacing(8)
         top_row = QHBoxLayout()
         self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Search symbol..")
+        self.search_box.setPlaceholderText("Szukaj w parach… (np. ETH)")
         self.search_box.textChanged.connect(self._on_search_changed)
         top_row.addWidget(self.search_box, 1)
         self.universe_buttons: dict[str, QPushButton] = {}
         for name in ("LIQUID", "MAJORS", "ALL"):
             btn = QPushButton(name)
+            btn.setObjectName("V2Chip")
             btn.setCheckable(True)
             btn.setChecked(name == "LIQUID")
             btn.clicked.connect(lambda _checked, n=name: self._on_universe_clicked(n))
@@ -1638,6 +2032,7 @@ class ScanPage(QWidget):
         self.side_buttons: dict[str, QPushButton] = {}
         for name in ("LONG", "SHORT", "BOTH"):
             btn = QPushButton(name)
+            btn.setObjectName("V2Chip")
             btn.setCheckable(True)
             btn.setChecked(name == "BOTH")
             btn.clicked.connect(lambda _checked, n=name: self._on_side_clicked(n))
@@ -1645,24 +2040,30 @@ class ScanPage(QWidget):
             top_row.addWidget(btn)
         left.addLayout(top_row)
 
-        # 22.08.2026: GATE chips (OPEN/WAIT/BLOCK/ALL) + stat strip z
-        # mockupu "Krypto Terminal Control Room" (SCAN) - user: "kontynuuj"
-        # przebudowe UI. Stat strip liczy sie z PELNEGO zestawu wierszy
-        # danego universe_filter (przed filtrem gate/side/search), zeby
-        # pokazywac prawdziwy rozklad calego uniwersum, nie tylko tego co
-        # akurat widac po stronie/szukaniu.
+        kpi_row = QHBoxLayout()
+        kpi_row.setSpacing(8)
+        self.scan_kpis = {}
+        for key, title in (("UNI", "UNIWERSUM"), ("OK", "GATE OK"), ("WAIT", "GATE WAIT"), ("NA", "GATE NA")):
+            kpi = KPI(title)
+            self.scan_kpis[key] = kpi
+            kpi_row.addWidget(kpi)
+        left.addLayout(kpi_row)
+
         gate_row = QHBoxLayout()
         self.gate_buttons: dict[str, QPushButton] = {}
+        gate_labels = {"ALL": "Wszystkie", "OPEN": "Gate OK", "WAIT": "Gate WAIT", "BLOCK": "Gate NA"}
         for name in ("ALL", "OPEN", "WAIT", "BLOCK"):
-            btn = QPushButton(name)
+            btn = QPushButton(gate_labels[name])
+            btn.setObjectName("V2Chip")
             btn.setCheckable(True)
             btn.setChecked(name == "ALL")
             btn.clicked.connect(lambda _checked, n=name: self._on_gate_clicked(n))
             self.gate_buttons[name] = btn
             gate_row.addWidget(btn)
         gate_row.addStretch()
-        self.gate_stat_strip = QLabel("OPEN 0 · WAIT 0 · BLOCK 0")
+        self.gate_stat_strip = QLabel("UNIWERSUM —  ·  Gate OK 0  ·  WAIT 0  ·  NA 0")
         self.gate_stat_strip.setObjectName("Muted")
+        self.gate_stat_strip.hide()
         gate_row.addWidget(self.gate_stat_strip)
         left.addLayout(gate_row)
 
@@ -1688,19 +2089,22 @@ class ScanPage(QWidget):
         left_widget.setLayout(left)
         root.addWidget(left_widget, 70)
 
-        self.drawer = Card("SELECTED")
+        self.drawer = Card("WYBRANY SYMBOL")
         self.drawer_symbol = QLabel("—")
         self.drawer_symbol.setObjectName("KPI")
         self.drawer.body.addWidget(self.drawer_symbol)
+        self.drawer_gate = GateBadge("WAIT")
+        self.drawer.body.addWidget(self.drawer_gate)
         self.drawer_why = QLabel("Kliknij wiersz, żeby zobaczyć szczegóły.")
         self.drawer_why.setWordWrap(True)
         self.drawer_why.setObjectName("Muted")
         self.drawer.body.addWidget(self.drawer_why)
-        self.drawer_netr = self._drawer_stat("Expected Net R")
-        self.drawer_size = self._drawer_stat("Size")
+        self.drawer_netr = self._drawer_stat("Oczekiwane Net R")
+        self.drawer_size = self._drawer_stat("Rozmiar")
         self.drawer_sl = self._drawer_stat("Stop Loss")
-        self.drawer_tp = self._drawer_stat("Take Profit")
-        self.view_full_btn = QPushButton("VIEW FULL ANALYSIS")
+        self.drawer_tp = self._drawer_stat("TP1")
+        self.drawer_tp2 = self._drawer_stat("TP2")
+        self.view_full_btn = QPushButton("PEŁNA ANALIZA")
         self.view_full_btn.clicked.connect(self._on_view_full_clicked)
         self.drawer.body.addWidget(self.view_full_btn)
         self.drawer.body.addStretch()
@@ -1723,16 +2127,24 @@ class ScanPage(QWidget):
         rows = data.scan_rows(self._universe_filter)
         self.model.set_rows(rows)
         feed = data.feed_status()
-        self.footer.setText(f"FEED: {feed} | uniwersum: {len(rows)}")
-        # Liczone z PELNEGO 'rows' (przed proxy filter gate/side/search) -
-        # ma pokazywac prawdziwy rozklad calego uniwersum tego
-        # universe_filter, nie tylko to co akurat widac po filtrach.
+        self.footer.setText(f"Feed: {feed}  ·  uniwersum: {len(rows)}")
         counts = {"OPEN": 0, "WAIT": 0, "BLOCK": 0}
         for row in rows:
             gate = str(row.get("gate") or "").upper()
             if gate in counts:
                 counts[gate] += 1
-        self.gate_stat_strip.setText(f"OPEN {counts['OPEN']} · WAIT {counts['WAIT']} · BLOCK {counts['BLOCK']}")
+        self.gate_stat_strip.setText(
+            f"UNIWERSUM {len(rows)} par  ·  Gate OK {counts['OPEN']}  ·  WAIT {counts['WAIT']}  ·  NA {counts['BLOCK']}"
+        )
+        if hasattr(self, "scan_kpis"):
+            self.scan_kpis["UNI"].update_value(str(len(rows)), "par")
+            self.scan_kpis["OK"].update_value(str(counts["OPEN"]), tone="green")
+            self.scan_kpis["WAIT"].update_value(str(counts["WAIT"]), tone="amber")
+            self.scan_kpis["NA"].update_value(str(counts["BLOCK"]), tone="red")
+
+    def apply_tick(self, prices: dict, changes: dict | None = None) -> None:
+        if hasattr(self, "model"):
+            self.model.apply_prices(prices, changes)
 
     def _on_search_changed(self, text: str):
         self.proxy.set_search(text)
@@ -1759,12 +2171,15 @@ class ScanPage(QWidget):
         if not row:
             return
         self._selected_symbol = row.get("sym")
-        self.drawer_symbol.setText(f"SELECTED: {self._selected_symbol}")
-        self.drawer_why.setText(f"{row.get('side','—')} · GATE {row.get('gate','—')} · {row.get('why','—')}")
+        self.drawer_symbol.setText(f"{self._selected_symbol}")
+        if hasattr(self, "drawer_gate"):
+            self.drawer_gate.set_gate(row.get("gate") or "WAIT")
+        self.drawer_why.setText(f"{row.get('side','—')} · bramka {row.get('gate','—')} · {row.get('why','—')}")
         self.drawer_netr.setText(number(row.get("expected_net_r"), 2))
         self.drawer_size.setText(number(row.get("size"), 4, "$"))
         self.drawer_sl.setText(number(row.get("sl_price"), 4))
         self.drawer_tp.setText(number(row.get("tp1_price"), 4))
+        self.drawer_tp2.setText(number(row.get("tp2_price"), 4))
 
     def _on_view_full_clicked(self):
         if self._selected_symbol:
@@ -1890,20 +2305,12 @@ class MainWindow(QMainWindow):
         self.stack_v2 = QStackedWidget()
         self.desk_page = DeskPage(self)
         self.scan_page = ScanPage(self)
-        # LAB = przeniesienie istniejacego Analysis Workspace (spec: "LAB =
-        # przeniesienie istniejacego Analysis Workspace (chart + why)") -
-        # reuzywa 1:1 cala logike (select_analysis_symbol/refresh_analysis/
-        # market_chart/analysis_labels), zamiast budowac drugi raz od zera.
-        self.lab_page = self.analysis_page()
-        # REPLAY = Historical Daytrading Replay (research/backtest tool, nie
-        # zmienia decyzji LIVE/PAPER - patrz README) - w starym shellu byl
-        # osobna zakladka; bez tego wpisu byl calkowicie nieosiagalny z UI_DESK_V2.
-        self.replay_page_v2 = self.historical_replay_page()
-        # HISTORY = nowa zakladka (user: "warto tez dodac historie zamknietych
-        # pozycji") - nie byla czescia oryginalnej referencji DESK/SCAN/LAB/
-        # REPLAY/SET, ale spec wprost dopuszcza wiecej zakladek.
-        self.history_page_v2 = self.history_page()
-        self.set_page = self.settings_page()  # reuzywa istniejacej strony ustawien 1:1
+        # Każda pozycja nowej nawigacji ma własny widok terminalowy. Backend,
+        # modele i callbacki są wspólne, ale nie podpinamy już stron starego UI.
+        self.lab_page = self.terminal_lab_page()
+        self.replay_page_v2 = self.terminal_replay_page()
+        self.history_page_v2 = self.terminal_history_page()
+        self.set_page = self.terminal_settings_page()
         for page in (self.desk_page, self.scan_page, self.lab_page, self.replay_page_v2,
                      self.history_page_v2, self.set_page):
             self.stack_v2.addWidget(page)
@@ -1915,8 +2322,7 @@ class MainWindow(QMainWindow):
     def build_top_v2(self) -> QWidget:
         """Kompaktowy pasek: logo/tryb, ANALIZA/HANDEL jako StatePill (nie
         osobne START/STOP), BTC/ETH, uptime, pigulka rezimu, widoczne
-        przyciski silnika (Start analysis/Start trading/Pause/Resume/
-        Stop trading/Stop bot/Close all - 22.08.2026, bylo ukryte menu
+        przyciski silnika (Start bot/Stop bot/Close all; bylo ukryte menu
         '...'), pod tym 6 przyciskow nawigacji DESK/SCAN/LAB/REPLAY/
         HISTORY/SET."""
         top = QFrame(objectName="V2TopBar")
@@ -1928,6 +2334,10 @@ class MainWindow(QMainWindow):
         brand = QLabel("CRYPTOEDGE")
         brand.setObjectName("Brand")
         bar.addWidget(brand)
+        build_label = QLabel(version.tag())
+        build_label.setObjectName("V2Mono")
+        build_label.setStyleSheet(f"color:{theme.MUTED};")
+        bar.addWidget(build_label)
         self.mode_pill_v2 = StatePill(objectName="V2StatePill")
         bar.addWidget(self.mode_pill_v2)
         bar.addSpacing(12)
@@ -1943,29 +2353,23 @@ class MainWindow(QMainWindow):
         bar.addWidget(self.btc_ticker_v2)
         bar.addWidget(self.eth_ticker_v2)
         bar.addStretch()
+        self.connection_v2 = StatePill(objectName="V2StatePill")
+        self.connection_v2.set_state("BLOFIN · SPRAWDZANIE", "loading")
+        bar.addWidget(self.connection_v2)
         self.uptime_v2 = QLabel("UPTIME —")
         self.uptime_v2.setObjectName("Muted")
         bar.addWidget(self.uptime_v2)
         self.regime_pill_v2 = QLabel("—")
         self.regime_pill_v2.setObjectName("V2RegimePill")
         bar.addWidget(self.regime_pill_v2)
-        # 22.08.2026: przyciski silnika widoczne bezposrednio w pasku zamiast
-        # ukrytego menu "..." - user: "przyciski start, pauza itp moga byc
-        # widoczne zeby szybciej nimi operowac". Reuzywaja dokladnie tych
-        # samych metod co dawne QMenu (self.start_analysis/self.start_trading/
-        # self.pause/self.resume/self.stop_trading/self.stop_engine) - zero
-        # nowej logiki, tylko szybszy dostep z jednego klikniecia zamiast dwoch.
-        # "Start analysis" zostaje widoczny (nie usuniety) - cold-start (auto-
-        # analiza przy uruchomieniu apki) NIE jest jeszcze zaimplementowany,
-        # wiec to nadal jedyny sposob na realne uruchomienie analizy.
+        # Jedna para steruje całym botem: START uruchamia analizę i handel,
+        # STOP wyłącza oba. Pauza/resume oraz osobny stop handlu pozostają
+        # dostępne wewnętrznie dla automatycznych zabezpieczeń i API, ale nie
+        # komplikują głównego interfejsu operatora.
         self._engine_buttons: dict[str, QPushButton] = {}
         engine_specs = [
-            ("start_analysis", "Start analysis", self.start_analysis, None),
-            ("start_trading", "Start trading", self.start_trading, "Good"),
-            ("pause", "Pause", self.pause, None),
-            ("resume", "Resume", self.resume, "Primary"),
-            ("stop_trading", "Stop trading", self.stop_trading, "Danger"),
-            ("stop_bot", "Stop bot", self.stop_engine, "Danger"),
+            ("start_bot", "START BOT", self.start_trading, "Good"),
+            ("stop_bot", "STOP BOT", self.stop_engine, "Danger"),
             # "Close all" bylo w starym menu "..." dostepne z KAZDEJ strony
             # V2 (bo top bar jest wspolny) - zostaje widoczne tutaj rowniez,
             # zeby nie stracic globalnej dostepnosci tej awaryjnej akcji przy
@@ -1982,6 +2386,14 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(slot)
             self._engine_buttons[key] = btn
             bar.addWidget(btn)
+        equity_box = QVBoxLayout()
+        equity_cap = QLabel("KAPITAŁ")
+        equity_cap.setObjectName("V2CardTitle")
+        self.equity_v2 = QLabel("—")
+        self.equity_v2.setObjectName("V2Mono")
+        equity_box.addWidget(equity_cap)
+        equity_box.addWidget(self.equity_v2)
+        bar.addLayout(equity_box)
         outer.addLayout(bar)
 
         nav_row = QHBoxLayout()
@@ -2011,7 +2423,11 @@ class MainWindow(QMainWindow):
             self.stack_v2.setCurrentWidget(page)
 
     def _on_v2_symbol_selected(self, symbol: str):
+        # DESK/SCAN klik w symbol -> LAB z wykresem (Control Room: wykres nie
+        # siedzi na DESK). Ta sama sciezka co przycisk 'pelna analiza' na SCAN.
         self.selected_symbol = symbol
+        self._go_v2("LAB")
+        self.select_analysis_symbol(symbol)
 
     def _on_v2_view_full_analysis(self, symbol: str):
         # SCAN -> "VIEW FULL ANALYSIS" -> stack na LAB i select_symbol()
@@ -2050,9 +2466,8 @@ class MainWindow(QMainWindow):
         row.addWidget(self.uptime)
         row.addWidget(self.cycle_timer)
         controls = [
-            ("ANALIZA", self.start_analysis, "Primary"), ("START BOT", self.start_trading, "Good"),
-            ("STOP TRADING",self.stop_trading,"Danger"), ("PAUSE", self.pause, ""),
-            ("RESUME", self.resume, ""), ("STOP BOT", self.stop_engine, "Danger"),
+            ("START BOT", self.start_trading, "Good"),
+            ("STOP BOT", self.stop_engine, "Danger"),
             ("CLOSE ALL", self.close_all, "Danger"),
         ]
         for text, slot, style in controls:
@@ -2322,7 +2737,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(split)
         return widget
 
-    def analysis_page(self):
+    def terminal_lab_page(self):
         # 21.08.2026: przebudowa wizualna LAB pod referencje UI_DESK_V2 (spec
         # uzytkownika: "LAB = to jest obecny Analysis Workspace, tylko bez
         # pustych 'Brak danych MTF'" + wzorzec DESK/SCAN - naglowek symbol/
@@ -2337,8 +2752,13 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setObjectName("DeskV2Root")
         root = QVBoxLayout(widget)
-        root.setContentsMargins(10, 10, 10, 10)
-        root.setSpacing(8)
+        root.setContentsMargins(18, 14, 18, 14)
+        root.setSpacing(12)
+        root.addWidget(TerminalPageHeader(
+            "LABORATORIUM SYGNAŁU",
+            "Wykres, kontekst wielu interwałów i pełne uzasadnienie decyzji dla wybranej pary",
+            "DANE BLOFIN",
+        ))
 
         header = QHBoxLayout()
         header.addWidget(QLabel("SYMBOL", objectName="V2CardTitle"))
@@ -2346,7 +2766,7 @@ class MainWindow(QMainWindow):
         self.analysis_symbol_select.setMinimumWidth(150)
         self.analysis_symbol_select.currentTextChanged.connect(self.select_analysis_symbol)
         header.addWidget(self.analysis_symbol_select)
-        self.analysis_title = QLabel("Select an asset in SCAN.", objectName="V2Mono")
+        self.analysis_title = QLabel("Wybierz symbol w SCAN.", objectName="V2Mono")
         header.addWidget(self.analysis_title, 1)
         self.analysis_status_banner = QLabel("Wybierz symbol, aby zobaczyć status setupu.", objectName="StatusBanner")
         self.analysis_status_banner.setProperty("tone", "muted")
@@ -2357,27 +2777,39 @@ class MainWindow(QMainWindow):
         body = QHBoxLayout()
         body.setSpacing(10)
 
-        chart_card = Card("BLOFIN MARKET CHART")
+        chart_card = Card("WYKRES ŚWIECOWY")
         chart_tools = QHBoxLayout()
         self.chart_interval = QComboBox()
         self.chart_interval.addItems(["5m", "15m", "1h", "4h", "1d"])
         self.chart_interval.setCurrentText("1h")
         self.chart_interval.currentTextChanged.connect(lambda _: self.load_analysis_chart(force=True))
+        self.chart_interval.hide()
         chart_tools.addWidget(self.chart_interval)
+        self.lab_tf_chips = {}
+        for tf in ("5m", "15m", "1h", "4h", "1d"):
+            chip = QPushButton(tf.upper())
+            chip.setObjectName("V2Chip")
+            chip.setCheckable(True)
+            chip.setChecked(tf == "1h")
+            chip.clicked.connect(lambda _c, t=tf: self._on_lab_tf_chip(t))
+            self.lab_tf_chips[tf] = chip
+            chart_tools.addWidget(chip)
         self.chart_overlay_ema = QCheckBox("EMA")
         self.chart_overlay_ema.setChecked(True)
-        self.chart_overlay_plan = QCheckBox("ENTRY / SL / TP")
+        self.chart_overlay_plan = QCheckBox("ENTRY / SL / TP1 / TP2")
         self.chart_overlay_plan.setChecked(True)
         self.chart_overlay_levels = QCheckBox("FIB + S/R + PIVOT")
         self.chart_overlay_viper = QCheckBox("VIPER")
-        for overlay in (self.chart_overlay_ema, self.chart_overlay_plan, self.chart_overlay_levels, self.chart_overlay_viper):
+        self.chart_overlay_viper.setChecked(False)
+        self.chart_overlay_viper.hide()
+        for overlay in (self.chart_overlay_ema, self.chart_overlay_plan, self.chart_overlay_levels):
             overlay.toggled.connect(self.update_chart_overlays)
             chart_tools.addWidget(overlay)
         chart_tools.addStretch()
-        reload_chart = QPushButton("REFRESH")
+        reload_chart = QPushButton("ODŚWIEŻ")
         reload_chart.clicked.connect(lambda: self.load_analysis_chart(force=True))
         chart_tools.addWidget(reload_chart)
-        open_tv = QPushButton("OPEN IN TRADINGVIEW")
+        open_tv = QPushButton("TRADINGVIEW")
         open_tv.clicked.connect(self.open_selected_tradingview)
         chart_tools.addWidget(open_tv)
         chart_card.body.addLayout(chart_tools)
@@ -2398,7 +2830,7 @@ class MainWindow(QMainWindow):
         right.setContentsMargins(0, 0, 0, 0)
         right.setSpacing(8)
         self.analysis_labels = {}
-        top_sections = [("WHY", "pros", 70), ("WHY NOT", "cons", 70)]
+        top_sections = [("DLACZEGO TAK", "pros", 70), ("DLACZEGO NIE", "cons", 70)]
         for title, key, min_height in top_sections:
             card = Card(title)
             label = QLabel("—", objectName="AnalysisValue")
@@ -2424,7 +2856,7 @@ class MainWindow(QMainWindow):
         # te same .setText() bez ZADNEJ zmiany logiki/NA-handling (spec: "czysty
         # rebuild layoutu/stylu, nie logiki" - ten sam warunek co przy
         # pierwszej przebudowie LAB, patrz komentarz w analysis_page() wyzej).
-        breakdown = Card("SIGNAL BREAKDOWN")
+        breakdown = Card("BREAKDOWN SYGNAŁU")
         mtf_row = QHBoxLayout()
         mtf_row.setSpacing(6)
         self.mtf_pills = {}
@@ -2433,7 +2865,10 @@ class MainWindow(QMainWindow):
             pill.setAlignment(Qt.AlignCenter)
             pill.setMinimumWidth(64)
             self.mtf_pills[tf] = pill
-            mtf_row.addWidget(pill)
+            if tf == "1D":
+                pill.hide()
+            else:
+                mtf_row.addWidget(pill)
         breakdown.body.addLayout(mtf_row)
         indicator_row = QHBoxLayout()
         indicator_row.setSpacing(10)
@@ -2456,12 +2891,12 @@ class MainWindow(QMainWindow):
         right.addWidget(breakdown)
 
         rest_sections = [
-            ("LIQUIDITY / ORDER BOOK", "liquidity", 60),
-            ("PLAN · ENTRY/SL/TP/R:R", "plan", 70),
-            ("Expected Net R", "expectancy", 70),
-            ("FIBONACCI CONFLUENCE", "fib", 90),
-            ("Engine Router", "router", 90),
-            ("Decision Telemetry", "telemetry", 70),
+            ("PŁYNNOŚĆ / ORDER BOOK", "liquidity", 60),
+            ("PLAN · WEJŚCIE / SL / TP / R:R", "plan", 70),
+            ("Oczekiwane Net R", "expectancy", 70),
+            ("STREFA FIBONACCI", "fib", 90),
+            ("Router silnika", "router", 90),
+            ("Telemetria decyzji", "telemetry", 70),
         ]
         for title, key, min_height in rest_sections:
             card = Card(title)
@@ -2473,6 +2908,8 @@ class MainWindow(QMainWindow):
             card.body.addWidget(label)
             self.analysis_labels[key] = label
             right.addWidget(card)
+            if key in ("fib", "expectancy", "router", "telemetry"):
+                card.hide()
         # "decision"/"path"/"mtf"/"indicators" nie maja (juz) wlasnej widocznej
         # karty z plaskim tekstem - "decision"/"path" bo naglowek juz pokazuje
         # symbol/side/score + pigulke Accepted/Rejected, "mtf"/"indicators" bo
@@ -2626,21 +3063,44 @@ class MainWindow(QMainWindow):
         layout.addWidget(closed, 1)
         return widget
 
-    def historical_replay_page(self):
-        widget, layout = self.compact_page(
-            "BloFin closed candles · next-open execution · conservative costs · chronological OOS",
-        )
-        controls = Card("TEST CONFIGURATION")
-        row = QHBoxLayout()
-        row.addWidget(QLabel("UNIVERSE"))
+    def terminal_replay_page(self):
+        widget = QWidget()
+        widget.setObjectName("DeskV2Root")
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(12)
+        layout.addWidget(TerminalPageHeader(
+            "REPLAY HISTORYCZNY",
+            "Ta sama strategia co PAPER/LIVE, zamknięte świece BloFin, wejście na następnej świecy i konserwatywne koszty",
+            "NARZĘDZIE BADAWCZE",
+        ))
+        controls = Card("KONFIGURACJA SESJI")
+        uni_row = QHBoxLayout()
+        uni_row.addWidget(QLabel("UNIWERSUM", objectName="V2CardTitle"))
         self.replay_universe = QComboBox()
         self.replay_universe.addItems(["MANUAL", "LIQUID", "ALL"])
         self.replay_universe.setCurrentText("LIQUID")
         self.replay_universe.setToolTip(
             "MANUAL: dokładnie wpisane symbole · LIQUID: automatyczny ranking BloFin · ALL: wszystkie poprawne perpetuals"
         )
-        row.addWidget(self.replay_universe)
-        row.addWidget(QLabel("SYMBOLS"))
+        self.replay_universe.hide()
+        uni_row.addWidget(self.replay_universe)
+        self.replay_universe_chips = {}
+        for name in ("MANUAL", "LIQUID", "ALL"):
+            chip = QPushButton(name)
+            chip.setObjectName("V2Chip")
+            chip.setCheckable(True)
+            chip.setChecked(name == "LIQUID")
+            chip.clicked.connect(lambda _c, n=name: self._on_replay_universe_chip(n))
+            self.replay_universe_chips[name] = chip
+            uni_row.addWidget(chip)
+        uni_row.addStretch()
+        self.replay_start = QPushButton("PLAY", objectName="Primary")
+        self.replay_start.clicked.connect(self.start_historical_replay)
+        uni_row.addWidget(self.replay_start)
+        controls.body.addLayout(uni_row)
+        row = QHBoxLayout()
+        row.addWidget(QLabel("SYMBOLE"))
         self.replay_symbols = QLineEdit("BTC, ETH, SOL")
         self.replay_symbols.setPlaceholderText("BTC, ETH, SOL")
         self.replay_symbols.setToolTip("Lista jest używana wyłącznie w trybie MANUAL")
@@ -2651,7 +3111,7 @@ class MainWindow(QMainWindow):
         self.replay_liquid_limit.setValue(30)
         self.replay_liquid_limit.setToolTip("Limit rankingu jest używany wyłącznie w trybie LIQUID")
         row.addWidget(self.replay_liquid_limit)
-        row.addWidget(QLabel("DAYS"))
+        row.addWidget(QLabel("DNI"))
         self.replay_days = QSpinBox()
         self.replay_days.setRange(7, 365)
         self.replay_days.setValue(90)
@@ -2671,9 +3131,6 @@ class MainWindow(QMainWindow):
             "silnika V1, ktory nie mial gate'ow HTF/ADX w tej formie."
         )
         row.addWidget(self.replay_counterfactual)
-        self.replay_start = QPushButton("START REPLAY", objectName="Primary")
-        self.replay_start.clicked.connect(self.start_historical_replay)
-        row.addWidget(self.replay_start)
         controls.body.addLayout(row)
         self.replay_universe.currentTextChanged.connect(self._sync_replay_universe_controls)
         self._sync_replay_universe_controls(self.replay_universe.currentText())
@@ -2686,21 +3143,32 @@ class MainWindow(QMainWindow):
         self._sync_replay_universe_controls(self.replay_universe.currentText())
         layout.addWidget(controls)
 
-        summary = Card("Portfolio Result")
+        replay_kpi_row = QHBoxLayout()
+        self.replay_kpis = {}
+        for key, title in (("TRADES", "OOS TRADES"), ("WR", "WINRATE"), ("NET", "NET R"), ("PF", "PROFIT FACTOR")):
+            kpi = KPI(title)
+            self.replay_kpis[key] = kpi
+            replay_kpi_row.addWidget(kpi)
+        layout.addLayout(replay_kpi_row)
+
+        result_row = QHBoxLayout()
+        result_row.setSpacing(12)
+        summary = Card("WYNIK PORTFELA")
         self.replay_summary = QLabel("Brak raportu", objectName="AnalysisValue")
         self.replay_summary.setWordWrap(True)
         summary.body.addWidget(self.replay_summary)
         self.replay_filter_audit = QLabel("Audyt kontrfaktyczny: brak wyniku", objectName="Muted")
         self.replay_filter_audit.setWordWrap(True)
         summary.body.addWidget(self.replay_filter_audit)
-        layout.addWidget(summary)
+        result_row.addWidget(summary, 1)
 
-        details = Card("In-Sample vs Out-of-Sample")
+        details = Card("In-sample vs out-of-sample")
         self.replay_table = self.table(
             ["SYMBOL", "SAMPLE", "TRADES", "WIN RATE", "NET R", "AVG R", "PROFIT FACTOR", "MAX DD R"], 280
         )
         details.body.addWidget(self.replay_table)
-        layout.addWidget(details, 1)
+        result_row.addWidget(details, 2)
+        layout.addLayout(result_row, 1)
         note = QLabel(
             "Silnik DAYTRADING_V2 (ten sam co live/paper). Replay nie optymalizuje progów na OOS. "
             "Wynik OOS jest ważniejszy niż in-sample. Brak historycznego L2 oznacza modelowany "
@@ -2712,6 +3180,13 @@ class MainWindow(QMainWindow):
         note.setWordWrap(True)
         layout.addWidget(note)
         return widget
+
+    def _on_replay_universe_chip(self, name: str):
+        if hasattr(self, "replay_universe"):
+            self.replay_universe.setCurrentText(name)
+        if hasattr(self, "replay_universe_chips"):
+            for n, chip in self.replay_universe_chips.items():
+                chip.setChecked(n == name)
 
     def _sync_replay_universe_controls(self, mode):
         mode = str(mode or "").upper()
@@ -2727,6 +3202,9 @@ class MainWindow(QMainWindow):
             hint = "ALL: replay obejmie wszystkie poprawne perpetuals BloFin; pole SYMBOLS jest nieaktywne."
         if hasattr(self, "replay_status"):
             self.replay_status.setText(hint)
+        if hasattr(self, "replay_universe_chips"):
+            for n, chip in self.replay_universe_chips.items():
+                chip.setChecked(n == mode)
 
     def events_page(self):
         widget, layout = self.page("Logs & Events", "Signals, executions, risk warnings, data and system events")
@@ -2750,8 +3228,17 @@ class MainWindow(QMainWindow):
         """Legacy entry point; source/runtime status now lives in Logs & Events."""
         return self.events_page()
 
-    def settings_page(self):
-        widget, layout = self.compact_page("Values map directly to existing settings_store keys")
+    def terminal_settings_page(self):
+        widget = QWidget()
+        widget.setObjectName("DeskV2Root")
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setSpacing(12)
+        layout.addWidget(TerminalPageHeader(
+            "USTAWIENIA I POŁĄCZENIE",
+            "Tryb konta, zabezpieczenia, alerty oraz dostęp tylko do odczytu rachunku BloFin",
+            "ZMIANY LOKALNE",
+        ))
         current = settings_store.load_settings()
 
         # Account Mode: przeniesione tutaj z control_center_page() (Control
@@ -2760,12 +3247,12 @@ class MainWindow(QMainWindow):
         # Jedyna instancja self.account_mode_select w calej aplikacji -
         # apply_account_mode() i request_dashboard_mode() (dashboard shortcut,
         # tylko stary shell) operuja na tym samym widgecie bez zmian.
-        mode_card = Card("Account Mode")
+        mode_card = Card("TRYB KONTA")
         mode_row = QHBoxLayout()
         self.account_mode_select = QComboBox()
         self.account_mode_select.addItems(["DEMO (PAPER)", "LIVE (BLOFIN)"])
         self.account_mode_select.setCurrentIndex(0 if bool(getattr(config, "PAPER_TRADING", True)) else 1)
-        apply_mode = QPushButton("APPLY ACCOUNT MODE", objectName="Primary")
+        apply_mode = QPushButton("ZASTOSUJ TRYB", objectName="Primary")
         apply_mode.clicked.connect(self.apply_account_mode)
         self.account_mode_status = QLabel(objectName="Muted")
         self.account_mode_status.setWordWrap(True)
@@ -2774,8 +3261,8 @@ class MainWindow(QMainWindow):
         mode_row.addWidget(self.account_mode_status, 1)
         mode_card.body.addLayout(mode_row)
         mode_warning = QLabel(
-            "Changing account mode is allowed only while the engine is stopped and no positions are open. "
-            "LIVE account display does not enable order execution; LIVE_EXECUTION_ENABLED remains a separate safety gate.",
+            "Zmiana trybu tylko przy wyłączonym silniku i braku otwartych pozycji. "
+            "LIVE nie włącza zleceń — LIVE_EXECUTION_ENABLED to osobna blokada.",
             objectName="Muted",
         )
         mode_warning.setWordWrap(True)
@@ -2789,39 +3276,35 @@ class MainWindow(QMainWindow):
         # settings_store.DEFAULTS (nie sa edytowalne z UI, tylko stale
         # config.py), wiec karta jest czysto informacyjna/tylko-do-odczytu -
         # dokladnie tak jak mockup je pokazywal (plain <span>, zero <input>).
-        # "Max margin / pozycje" to nie osobna stala - to wprost z komentarza
-        # przy RISK_PER_TRADE w config.py ("legacy; sizing = kapital /
-        # MAX_POSITIONS"), wiec liczone jako 100/MAX_POSITIONS%, nie zmyslone.
+        # V2 size = DAYTRADING_V2_MARGIN_PCT_FIXED (7.5% equity), nie equal-weight 100/MAX_POSITIONS.
         # "Cold start" (auto-analiza przy starcie apki) i status WebSocket
         # SWIADOMIE pominiete - cold start nie jest jeszcze zaimplementowany
         # (patrz komentarz w analysis_page()), a pokazanie przelacznika dla
         # nieistniejacej funkcji byloby myslace.
-        risk_card = Card("RISK LIMITS & SYSTEM · read-only")
+        risk_card = Card("LIMITY RYZYKA · tylko odczyt")
         risk_form = QFormLayout()
         daily_loss_pct = float(getattr(config, "DAILY_LOSS_LIMIT", 0) or 0) * 100.0
         max_positions = int(getattr(config, "MAX_POSITIONS", 0) or 0)
-        per_position_pct = (100.0 / max_positions) if max_positions else 0.0
-        risk_form.addRow("Daily loss limit", QLabel(percent(-daily_loss_pct, 1, False), objectName="V2Mono"))
-        risk_form.addRow("Max concurrent positions", QLabel(str(max_positions), objectName="V2Mono"))
-        risk_form.addRow("Margin per position (equal-weight)", QLabel(percent(per_position_pct, 1, False), objectName="V2Mono"))
-        risk_form.addRow("Leverage", QLabel(f"{getattr(config, 'LEVERAGE', '—')}x", objectName="V2Mono"))
-        risk_form.addRow("Hide console on UI start", QLabel("TAK" if getattr(config, "HIDE_CONSOLE_ON_UI_START", False) else "NIE", objectName="V2Mono"))
+        v2_margin = float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 7.5) or 7.5)
+        risk_form.addRow("Dzienny limit straty", QLabel(percent(-daily_loss_pct, 1, False), objectName="V2Mono"))
+        risk_form.addRow("Max jednoczesnych pozycji", QLabel(str(max_positions), objectName="V2Mono"))
+        risk_form.addRow("Margin V2 / wejście", QLabel(f"{v2_margin:.1f}% equity  ·  notional ×{getattr(config, 'LEVERAGE', 10)}x", objectName="V2Mono"))
+        risk_form.addRow("Dźwignia", QLabel(f"{getattr(config, 'LEVERAGE', '—')}x", objectName="V2Mono"))
+        risk_form.addRow("Ukryj konsolę po starcie UI", QLabel("TAK" if getattr(config, "HIDE_CONSOLE_ON_UI_START", False) else "NIE", objectName="V2Mono"))
         risk_form.addRow("Build", QLabel(f"{version.tag()} · PySide6", objectName="V2Mono"))
         risk_card.body.addLayout(risk_form)
         risk_note = QLabel(
-            "These values come from config.py (not settings_store) - change them by editing config.py and "
-            "restarting CryptoEdge, not from this page.",
+            "Te wartości są z config.py (nie z settings_store) — zmiana wymaga edycji pliku i restartu.",
             objectName="Muted",
         )
         risk_note.setWordWrap(True)
         risk_card.body.addWidget(risk_note)
-        layout.addWidget(risk_card)
 
         cards = QGridLayout()
         groups = [
-            ("Trading Mode", ["PAPER_TRADING", "STARTING_CAPITAL", "MIN_SIGNAL_STRENGTH", "AGGRESSIVE_MODE"]),
-            ("Strategy Guards", ["BLOCK_OB_THIN", "BLOCK_PUMP_CHASE_PCT", "BLOCK_RANGE_REGIME", "BLOCK_STRAT_NA_IN_RANGE", "REQUIRE_PRIMARY_STRATEGY"]),
-            ("Alerts", ["ALERTS_ENABLED", "ALERT_ON_OPEN", "ALERT_ON_CLOSE", "ALERT_ON_HALT", "ALERT_ON_MARGIN_CALL", "ALERT_ON_FEED_FAIL", "ALERT_SOUND", "ALERT_PUSH"]),
+            ("Tryb handlu", ["STARTING_CAPITAL"]),
+            ("Ochrona strategii", ["BLOCK_OB_THIN", "BLOCK_PUMP_CHASE_PCT", "BLOCK_RANGE_REGIME"]),
+            ("Alerty", ["ALERTS_ENABLED", "ALERT_ON_CLOSE", "ALERT_ON_MARGIN_CALL", "ALERT_ON_FEED_FAIL", "ALERT_SOUND", "ALERT_PUSH"]),
         ]
         for group_index, (title, keys) in enumerate(groups):
             card = Card(title)
@@ -2843,10 +3326,18 @@ class MainWindow(QMainWindow):
                 self._settings_fields[key] = field
                 form.addRow(key.replace("_", " ").title(), field)
             card.body.addLayout(form)
-            cards.addWidget(card, 0, group_index)
-        layout.addLayout(cards)
+            if group_index < 2:
+                cards.addWidget(card, 0, group_index)
+            else:
+                cards.addWidget(card, 1, 0, 1, 2)
 
-        api_card = Card("BloFin API · read-only account preview")
+        set_cols = QHBoxLayout()
+        set_left = QVBoxLayout()
+        set_left.addLayout(cards)
+        set_right = QVBoxLayout()
+        set_right.addWidget(risk_card)
+
+        api_card = Card("BloFin API · podgląd konta")
         api_row = QHBoxLayout()
         api_form = QFormLayout()
         saved_secrets = secrets_store.load_secrets()
@@ -2870,11 +3361,11 @@ class MainWindow(QMainWindow):
         self.api_status.setWordWrap(True)
         api_status_box.addWidget(self.api_status)
         api_buttons = QHBoxLayout()
-        save_api = QPushButton("SAVE API CREDENTIALS", objectName="Primary")
+        save_api = QPushButton("ZAPISZ KLUCZE", objectName="Primary")
         save_api.clicked.connect(self.save_api_credentials)
-        test_api = QPushButton("SAVE & TEST CONNECTION", objectName="Good")
+        test_api = QPushButton("ZAPISZ I TESTUJ", objectName="Good")
         test_api.clicked.connect(self.test_blofin_connection)
-        clear_api = QPushButton("CLEAR CREDENTIALS", objectName="Danger")
+        clear_api = QPushButton("WYCZYŚĆ KLUCZE", objectName="Danger")
         clear_api.clicked.connect(self.clear_api_credentials)
         api_buttons.addWidget(save_api)
         api_buttons.addWidget(test_api)
@@ -2888,22 +3379,24 @@ class MainWindow(QMainWindow):
         )
         api_card.body.addWidget(self.api_positions)
         api_note = QLabel(
-            "The connection test performs authenticated GET requests only. It does not switch to LIVE, "
-            "enable execution or place/cancel orders.", objectName="Muted"
+            "Test połączenia to tylko GET. Nie przełącza na LIVE i nie składa zleceń.", objectName="Muted"
         )
         api_note.setWordWrap(True)
         api_card.body.addWidget(api_note)
-        layout.addWidget(api_card)
-        note = QLabel("Mode and capital changes are persisted immediately after Save. Restart CryptoEdge before switching a running LIVE/DEMO session. Existing positions are never converted between modes.", objectName="Muted")
+        set_right.addWidget(api_card)
+        set_cols.addLayout(set_left, 1)
+        set_cols.addLayout(set_right, 1)
+        layout.addLayout(set_cols, 1)
+        note = QLabel("Zmiana trybu i kapitału zapisuje się od razu. Restart przed przełączeniem działającej sesji LIVE/DEMO. Otwartych pozycji nie konwertujemy.", objectName="Muted")
         note.setWordWrap(True)
         layout.addWidget(note)
-        save = QPushButton("SAVE SETTINGS", objectName="Good")
+        save = QPushButton("ZAPISZ USTAWIENIA", objectName="Good")
         save.clicked.connect(self.save_settings)
         layout.addWidget(save, 0, Qt.AlignRight)
         layout.addStretch()
         return widget
 
-    def history_page(self):
+    def terminal_history_page(self):
         """HISTORY (UI_DESK_V2, nowa zakladka - user: "warto tez dodac
         historie zamknietych pozycji"). Referencja (DESK/SCAN/LAB/REPLAY/SET)
         nie przewidywala osobnej zakladki na historie, ale user wprost
@@ -2926,14 +3419,19 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setObjectName("DeskV2Root")
         outer = QVBoxLayout(widget)
-        outer.setContentsMargins(10, 10, 10, 10)
-        outer.setSpacing(10)
+        outer.setContentsMargins(18, 14, 18, 14)
+        outer.setSpacing(12)
+        outer.addWidget(TerminalPageHeader(
+            "HISTORIA TRANSAKCJI",
+            "Zamknięte pozycje, wynik po stronie rynku i podsumowanie jakości egzekucji",
+            "DANE SESJI",
+        ))
 
         kpi_row = QHBoxLayout()
         kpi_row.setSpacing(10)
         self.history_kpis = {}
-        for key in ("TRADES (ALL-TIME)", "WIN RATE", "NET PNL"):
-            kpi = KPI(key)
+        for key, title in (("TRADES (ALL-TIME)", "TRANSAKCJE"), ("WIN RATE", "WINRATE"), ("NET PNL", "SUMA PNL")):
+            kpi = KPI(title)
             self.history_kpis[key] = kpi
             kpi_row.addWidget(kpi)
         outer.addLayout(kpi_row)
@@ -2948,49 +3446,53 @@ class MainWindow(QMainWindow):
         search_row.addStretch()
         outer.addLayout(search_row)
 
-        root = QHBoxLayout()
-        root.setSpacing(10)
-        outer.addLayout(root, 1)
-
-        left = QVBoxLayout()
-        left.setSpacing(10)
-        summary_card = Card("PERFORMANCE BY SIDE")
-        self.side_performance = QTableWidget(0, 6)
-        self.side_performance.setObjectName("V2Table")
-        self.side_performance.setHorizontalHeaderLabels(["SIDE", "TRADES", "WINS", "LOSSES", "WIN RATE", "PNL"])
-        self.side_performance.verticalHeader().setVisible(False)
-        self.side_performance.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.side_performance.setSelectionBehavior(QTableWidget.SelectRows)
-        self.side_performance.horizontalHeader().setStretchLastSection(True)
-        summary_card.body.addWidget(self.side_performance)
-        left.addWidget(summary_card)
-        stats_card = Card("SUMMARY")
-        self.performance_summary = QLabel(objectName="AnalysisValue")
-        self.performance_summary.setWordWrap(True)
-        stats_card.body.addWidget(self.performance_summary)
-        left.addWidget(stats_card)
-        left.addStretch()
-        left_widget = QWidget()
-        left_widget.setLayout(left)
-        root.addWidget(left_widget, 30)
-
-        right = QVBoxLayout()
-        closed_card = Card("CLOSED POSITIONS")
+        closed_card = Card("ZAMKNIĘTE TRANSAKCJE")
         self.closed_table = QTableWidget(0, 9)
         self.closed_table.setObjectName("V2Table")
         self.closed_table.setHorizontalHeaderLabels(
-            ["TIME", "SIDE", "SYMBOL", "ENTRY", "EXIT", "PNL", "PNL %", "ENGINE", "PATH"]
+            ["CZAS", "STRONA", "SYM", "WEJŚCIE", "WYJŚCIE", "PNL", "PNL%", "STRATEGIA", "POWÓD"]
         )
         self.closed_table.verticalHeader().setVisible(False)
         self.closed_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.closed_table.setSelectionBehavior(QTableWidget.SelectRows)
         self.closed_table.horizontalHeader().setStretchLastSection(True)
-        closed_card.body.addWidget(self.closed_table)
-        right.addWidget(closed_card, 1)
-        right_widget = QWidget()
-        right_widget.setLayout(right)
-        root.addWidget(right_widget, 70)
+        closed_card.body.addWidget(self.closed_table, 1)
+        outer.addWidget(closed_card, 1)
+
+        bottom = QHBoxLayout()
+        bottom.setSpacing(10)
+        summary_card = Card("WYNIK PO STRONIE")
+        self.side_performance = QTableWidget(0, 6)
+        self.side_performance.setObjectName("V2Table")
+        self.side_performance.setHorizontalHeaderLabels(["STRONA", "TRADES", "WINS", "LOSS", "WINRATE", "PNL"])
+        self.side_performance.verticalHeader().setVisible(False)
+        self.side_performance.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.side_performance.setSelectionBehavior(QTableWidget.SelectRows)
+        self.side_performance.horizontalHeader().setStretchLastSection(True)
+        self.side_performance.setMaximumHeight(160)
+        summary_card.body.addWidget(self.side_performance)
+        bottom.addWidget(summary_card, 1)
+        stats_card = Card("PODSUMOWANIE")
+        self.performance_summary = QLabel(objectName="AnalysisValue")
+        self.performance_summary.setWordWrap(True)
+        stats_card.body.addWidget(self.performance_summary)
+        bottom.addWidget(stats_card, 1)
+        outer.addLayout(bottom)
         return widget
+
+    # Punkty wejścia starego shella pozostają wyłącznie jako warstwa
+    # kompatybilności. Nowy shell nie korzysta z tych nazw.
+    def analysis_page(self):
+        return self.terminal_lab_page()
+
+    def historical_replay_page(self):
+        return self.terminal_replay_page()
+
+    def settings_page(self):
+        return self.terminal_settings_page()
+
+    def history_page(self):
+        return self.terminal_history_page()
 
     def _filter_history_table(self, text: str) -> None:
         """Filtr po symbolu dla CLOSED POSITIONS (patrz history_page()) -
@@ -3029,7 +3531,26 @@ class MainWindow(QMainWindow):
             if getattr(self, "_last_ui_error", None) != message:
                 print(f"[PySide6] {message}")
             self._last_ui_error = message
+        self._apply_store_price_tick()
         self._dispatch_price_ticker()
+
+    def _apply_store_price_tick(self):
+        """1s: ceny z STORE + last_price_map, zero REST."""
+        prices, changes = {}, {}
+        try:
+            from market_store import STORE
+            prices, changes = STORE.ticker_snapshot()
+        except Exception:
+            pass
+        extra = getattr(self.rt, "last_price_map", None) or {}
+        for key, val in extra.items():
+            prices.setdefault(str(key).upper(), val)
+        if not prices:
+            return
+        if hasattr(self, "scan_page"):
+            self.scan_page.apply_tick(prices, changes)
+        if hasattr(self, "desk_page"):
+            self.desk_page.apply_tick(prices)
 
     def _refresh_impl_v2(self):
         """Odpowiednik _refresh_impl() dla UI_DESK_V2 - osobna sciezka, bo
@@ -3048,6 +3569,14 @@ class MainWindow(QMainWindow):
         analysis_loading = bool(getattr(self.rt, "analysis_loading", False))
         trade_paused = bool(getattr(getattr(self.rt, "risk", None), "paused", False))
         current_mode = self.data.mode()
+        account = self.data.account()
+        self.equity_v2.setText(number(account.get("equity"), 2, "$"))
+        feed_text = str(self.data.feed_status() or "").strip()
+        feed_ok = any(token in feed_text.lower() for token in ("ok", "live", "connected", "połącz"))
+        self.connection_v2.set_state(
+            "BLOFIN · POŁĄCZONO" if feed_ok else "BLOFIN · BRAK DANYCH",
+            "on" if feed_ok else "off",
+        )
         # 21.08.2026: self.mode_pill_v2/analiza_pill_v2/handel_pill_v2 byly
         # tworzone jako bare StatePill() bez objectName - QSS #V2StatePill w
         # theme.py (obwodka/tlo/kolor per tone) w ogole sie nie stosowal, wiec
@@ -3205,11 +3734,19 @@ class MainWindow(QMainWindow):
         if isinstance(sources, dict):
             sources = " · ".join(f"{key}:{value}" for key, value in list(sources.items())[:4])
         data_ok = "blofin: ok" in str(sources).lower() or "universe:blofinusdt(" in str(sources).lower()
+        wst = st.get("warmup") or {}
+        warming = bool(wst.get("active") and not wst.get("ready"))
         if engine and analysis_loading:
             self.ops_engine.set_state("SILNIK  skan…", "blue")
         else:
             self.ops_engine.set_state("SILNIK  ON" if engine else "SILNIK  OFF", "green" if engine else "muted")
-        if data_ok:
+        if warming:
+            self.ops_data.set_state(
+                f"WARMUP  {float(wst.get('elapsed_s') or 0):.0f}s · "
+                f"{int(wst.get('ready_pairs') or 0)}/{int(wst.get('need_pairs') or 0)} par",
+                "blue",
+            )
+        elif data_ok:
             self.ops_data.set_state(f"DANE  OK · {universe} par", "green")
         elif sources:
             self.ops_data.set_state(f"DANE  {str(sources)[:80]}", "amber")
@@ -3234,7 +3771,15 @@ class MainWindow(QMainWindow):
         strategy_mode = str(st.get("strategy_mode") or getattr(config, "STRATEGY_MODE", "DAYTRADING")).upper()
         runtime_strategy = str(getattr(config, "STRATEGY_MODE", "DAYTRADING") or "DAYTRADING").upper()
         if hasattr(self, "day_empty"):
-            if cycle_n <= 0 and not engine:
+            if warming:
+                self.day_empty.setText(
+                    f"Warmup {float(wst.get('elapsed_s') or 0):.0f}s — uniwersum {universe} par, "
+                    f"świece {int(wst.get('ready_pairs') or 0)}/{int(wst.get('need_pairs') or 0)}. "
+                    f"Bez wejść do bramki."
+                )
+                self.day_empty.setProperty("tone", "blue")
+                self.day_empty.show()
+            elif cycle_n <= 0 and not engine:
                 self.day_empty.setText("Cykl 0 — kliknij ANALIZA. Handel włączysz osobno (START DEMO/LIVE).")
                 self.day_empty.setProperty("tone", "muted")
                 self.day_empty.show()
@@ -3289,7 +3834,7 @@ class MainWindow(QMainWindow):
             rr = rr_value(row)
             tones = {4: "green" if float(row.get("change_24h") or 0) >= 0 else "red", 7: "green" if side == "LONG" else "red" if side == "SHORT" else "cyan", 8: "amber"}
             decision = row.get("decision_path") or row.get("decision") or row.get("signal_status") or "WATCH"
-            self.add_row(self.scanner_table, [index, str(row.get("symbol") or "—").upper(), number(row.get("price"), 8), percent(row.get("change_1h")), percent(row.get("change_24h")), percent(row.get("change_7d")), row.get("trend") or "—", friendly_status(side), number(score_value(row), 1), number(rr, 2), friendly_status(decision)], tones)
+            self.add_row(self.scanner_table, [index, str(row.get("symbol") or "—").upper(), number(row.get("price"), 8), percent(row.get("change_1h")), percent(row.get("change_24h")), percent(row.get("change_7d")), row.get("trend") or "—", friendly_status(side), score_label(row), number(rr, 2), friendly_status(decision)], tones)
 
     def refresh_opportunities(self):
         self.opportunities_table.setRowCount(0)
@@ -3301,13 +3846,13 @@ class MainWindow(QMainWindow):
             mtf_text = " · ".join(f"{tf}:{mtf.get(tf, '—')}" for tf in ("15m", "1h", "4h", "1d")) if isinstance(mtf, dict) else str(mtf)
             decision_text = friendly_status(row.get("decision_path") or row.get("decision") or "WATCH")
             tone = "green" if side == "LONG" else "red" if side == "SHORT" else "cyan"
-            self.add_row(self.opportunities_table, [index, str(row.get("symbol") or "—").upper(), friendly_status(side), number(score_value(row), 1), number(rr_value(row), 2), row.get("trend") or "—", mtf_text, friendly_status(row.get("signal_status") or "NEUTRAL"), decision_text], {2: tone, 3: "amber"})
+            self.add_row(self.opportunities_table, [index, str(row.get("symbol") or "—").upper(), friendly_status(side), score_label(row), number(rr_value(row), 2), row.get("trend") or "—", mtf_text, friendly_status(row.get("signal_status") or "NEUTRAL"), decision_text], {2: tone, 3: "amber"})
             if index <= 6:
                 funnel = row.get("funnel") or {}
                 votes = funnel.get("votes")
                 min_v = funnel.get("min_votes") or 2
                 vote_txt = f"{votes}/{min_v}" if votes is not None else "—"
-                self.add_row(self.top_table, [str(row.get("symbol") or "—").upper(), friendly_status(side), number(score_value(row), 1), vote_txt, decision_text], {1: tone, 2: "amber"})
+                self.add_row(self.top_table, [str(row.get("symbol") or "—").upper(), friendly_status(side), score_label(row), vote_txt, decision_text], {1: tone, 2: "amber"})
 
     def refresh_execution(self):
         self.execution_table.setRowCount(0)
@@ -3316,9 +3861,9 @@ class MainWindow(QMainWindow):
             side = direction(row.get("direction"))
             status = friendly_status(row.get("signal_status") or row.get("decision") or "WATCH")
             tone = "green" if side == "LONG" else "red"
-            self.add_row(self.execution_table, [index, str(row.get("symbol") or "—").upper(), friendly_status(side), number(score_value(row), 1), number(rr_value(row), 2), number(row.get("price"), 8), number(row.get("sl_price"), 8), number(row.get("tp_price") or row.get("tp1_price"), 8), status, friendly_status(row.get("decision_path") or "WATCH")], {2: tone, 3: "amber"})
+            self.add_row(self.execution_table, [index, str(row.get("symbol") or "—").upper(), friendly_status(side), score_label(row), number(rr_value(row), 2), number(row.get("price"), 8), number(row.get("sl_price"), 8), number(row.get("tp1_price") or row.get("tp_price"), 8), status, friendly_status(row.get("decision_path") or "WATCH")], {2: tone, 3: "amber"})
             if index <= 6:
-                self.add_row(self.queue_mini, [index, str(row.get("symbol") or "—").upper(), side, number(score_value(row), 1), status], {2: tone, 3: "amber"})
+                self.add_row(self.queue_mini, [index, str(row.get("symbol") or "—").upper(), side, score_label(row), status], {2: tone, 3: "amber"})
         mode = self.data.mode()
         self.execution_note.setText(f"{mode}: queue is a projection of current scanner decisions. Orders are executed only by BotRuntime when trading is enabled and risk checks pass. Empty queue means no qualified candidate — the UI does not synthesize one.")
 
@@ -3366,7 +3911,7 @@ class MainWindow(QMainWindow):
             return
         self.load_analysis_chart()
         side, rr = direction(row.get("direction")), rr_value(row)
-        self.analysis_title.setText(f"{self.selected_symbol}  ·  {side}  ·  Score {number(score_value(row), 1)}  ·  Price {number(row.get('price'), 8)}")
+        self.analysis_title.setText(f"{self.selected_symbol}  ·  {side}  ·  {score_label(row)}  ·  Price {number(row.get('price'), 8)}")
         status_raw = str(row.get("decision") or row.get("signal_status") or side or "").strip()
         status_text = friendly_status(status_raw)
         reason_text = friendly_reason(row.get("decision_why") or row.get("reject_reason") or row.get("signal_summary"))
@@ -3406,13 +3951,19 @@ class MainWindow(QMainWindow):
                 up = True if norm == "LONG" else False if norm == "SHORT" else None
                 self._style_pill(self.mtf_pills[pill_key], f"{pill_key}\n{raw_text}", up)
         liquidity = row.get("liquidity") or {}
-        fib = row.get("trend_fib") or {}
+        fib = row.get("trend_fib") or row.get("fib_retracement") or {}
         pros = row.get("pros") or row.get("reasons") or row.get("for") or []
         cons = row.get("cons") or row.get("against") or []
         labels = self.analysis_labels
         labels["decision"].setText(f"{status_text}\n{reason_text}")
         labels["path"].setText(friendly_status(row.get("decision_path") or "WATCH"))
-        labels["plan"].setText(f"Entry  {number(row.get('price'), 8)}\nSL     {number(row.get('sl_price'), 8)}\nTP     {number(row.get('tp_price') or row.get('tp1_price'), 8)}\nR:R    {number(rr, 2)}")
+        labels["plan"].setText(
+            f"Entry  {number(row.get('price'), 8)}\n"
+            f"SL     {number(row.get('sl_price'), 8)}\n"
+            f"TP1    {number(row.get('tp1_price') or row.get('tp_price'), 8)}\n"
+            f"TP2    {number(row.get('tp2_price'), 8)}\n"
+            f"R:R    {number(rr, 2)}"
+        )
         labels["mtf"].setText(mtf_text)
         indicator_data = row.get("indicators") or {}
         chop = indicator_data.get("choppiness")
@@ -3450,8 +4001,12 @@ class MainWindow(QMainWindow):
         labels["liquidity"].setText("\n".join(liquidity_lines) or "Brak jeszcze danych orderbooka dla tego cyklu.")
         self._set_reason_list(labels["pros"], pros, positive=True)
         self._set_reason_list(labels["cons"], cons, positive=False)
-        labels["fib"].setText(format_fibonacci(fib))
-        labels["router"].setText(
+        try:
+            labels["fib"].setText(format_fibonacci(fib))
+        except RuntimeError:
+            pass
+        try:
+            labels["router"].setText(
             f"Signal engine  {row.get('engine') or '—'}\n"
             f"Preferred     {row.get('preferred_engine') or '—'}\n"
             f"Reason        {friendly_reason(row.get('engine_route_reason'))}\n"
@@ -3459,6 +4014,8 @@ class MainWindow(QMainWindow):
             f"Residual 24h  {percent(row.get('residual_momentum_24h'), 2)}\n"
             f"Benchmark     {percent(row.get('benchmark_return_24h'), 2)}"
         )
+        except RuntimeError:
+            pass
         expected = row.get("expected_net_r") or row.get("net_expected_r")
         calibration = row.get("expected_r_calibration") or {}
         labels["expectancy"].setText(
@@ -3538,12 +4095,17 @@ class MainWindow(QMainWindow):
         levels = {
             "ENTRY": row.get("price"),
             "SL": row.get("sl_price"),
-            "TP": row.get("tp_price") or row.get("tp1_price"),
+            "TP1": row.get("tp1_price") or row.get("tp_price"),
+            "TP2": row.get("tp2_price"),
         }
-        fib = row.get("trend_fib") or {}
+        fib = row.get("fib_retracement") or row.get("trend_fib") or {}
+        if not isinstance(fib, dict):
+            fib = {}
         fib_map = fib.get("map") if isinstance(fib.get("map"), dict) else fib
-        for name, value in list((fib_map.get("levels") or {}).items())[:6]:
-            levels[f"FIB {name}"] = value
+        level_src = fib_map.get("levels") if isinstance(fib_map.get("levels"), dict) else fib_map
+        for name, value in list(level_src.items())[:8]:
+            if isinstance(value, (int, float)):
+                levels[f"FIB {name}"] = value
         indicators = row.get("indicators") or {}
         for name, value in (indicators.get("pivot_points") or {}).items():
             if name in ("P", "R1", "R2", "R3", "S1", "S2", "S3"):
@@ -3565,11 +4127,21 @@ class MainWindow(QMainWindow):
             viper=self.chart_overlay_viper.isChecked(),
         )
 
+    def _on_lab_tf_chip(self, tf: str):
+        if hasattr(self, "chart_interval"):
+            self.chart_interval.setCurrentText(tf)
+        if hasattr(self, "lab_tf_chips"):
+            for name, chip in self.lab_tf_chips.items():
+                chip.setChecked(name == tf)
+
     def load_analysis_chart(self, force=False):
         symbol = str(self.selected_symbol or "").upper()
         if not symbol or not hasattr(self, "market_chart"):
             return
         interval = self.chart_interval.currentText() if hasattr(self, "chart_interval") else "1h"
+        if hasattr(self, "lab_tf_chips"):
+            for name, chip in self.lab_tf_chips.items():
+                chip.setChecked(name == interval)
         key = (symbol, interval)
         if not force and self._chart_request_key == key:
             return
@@ -3783,12 +4355,16 @@ class MainWindow(QMainWindow):
                 continue
             tone = "red" if level in {"ERROR", "RISK"} else "amber" if level in {"MARKET", "SIGNAL"} else "green" if level == "EXECUTION" else "cyan"
             when = str(row.get("timestamp") or row.get("time") or "")[-19:]
-            values = [when, level, row.get("event") or row.get("reason") or "—", row.get("symbol") or "—", row.get("direction") or "—", row.get("pnl") or "—", row.get("capital") or "—"]
+            compact = compact_trade_event(row)
+            if compact:
+                values = [when, level, compact, row.get("symbol") or "—", "—", "—", "—"]
+            else:
+                values = [when, level, row.get("event") or row.get("reason") or "—", row.get("symbol") or "—", row.get("direction") or "—", row.get("pnl") or "—", row.get("capital") or "—"]
             self.add_row(self.events_table, values, {1: tone})
         for row in rows[:6]:
             level = self.event_level(row)
             tone = "red" if level in {"ERROR", "RISK"} else "amber" if level in {"MARKET", "SIGNAL"} else "green" if level == "EXECUTION" else "cyan"
-            self.add_row(self.events_mini, [str(row.get("timestamp") or row.get("time") or "")[-8:], level, row.get("event") or row.get("reason") or "—", row.get("symbol") or "—"], {1: tone})
+            self.add_row(self.events_mini, [str(row.get("timestamp") or row.get("time") or "")[-8:], level, compact_trade_event(row) or row.get("event") or row.get("reason") or "—", row.get("symbol") or "—"], {1: tone})
 
     def start_historical_replay(self):
         if self._replay_task is not None:
@@ -3855,6 +4431,13 @@ class MainWindow(QMainWindow):
             f"pominięto {universe.get('skipped_count', 0)}\n"
             f"Raport: {report.get('report_path') or '—'}"
         )
+        if hasattr(self, "replay_kpis"):
+            wr = float(oos.get("win_rate") or 0) * 100
+            net_r = float(oos.get("net_r") or 0)
+            self.replay_kpis["TRADES"].update_value(str(int(oos.get("trades") or 0)))
+            self.replay_kpis["WR"].update_value(percent(wr, 1, False), tone="green" if wr >= 50 else "amber")
+            self.replay_kpis["NET"].update_value(number(net_r, 2) + "R", tone="green" if net_r >= 0 else "red")
+            self.replay_kpis["PF"].update_value(number(oos.get("profit_factor"), 2))
         self.replay_filter_audit.setText(
             "Audyt kontrfaktyczny HTF/ADX: niedostępny dla V2 (to mechanizm silnika V1 - "
             "V2 nie ma odpowiednika, patrz per-symbol tabela niżej)."
@@ -3905,6 +4488,8 @@ class MainWindow(QMainWindow):
                 values[key] = field.currentText()
             else:
                 values[key] = field.value()
+        # DEMO/LIVE tylko przez Account Mode (guardy silnika/pozycji/API).
+        values["PAPER_TRADING"] = bool(getattr(config, "PAPER_TRADING", True))
         if not settings_store.save_settings(values):
             QMessageBox.critical(self, "Ustawienia", "Nie udało się zapisać ustawień na dysku.")
             return
@@ -4219,9 +4804,21 @@ class MainWindow(QMainWindow):
             self.refresh()
 
     def close_all(self):
-        if self.confirm("Close all", "Close every open position? In LIVE this affects the real account."):
-            self.rt.kill_switch("manual_close_all")
-            self.refresh()
+        trader = getattr(self.rt, "trader", None)
+        n_local = len(getattr(trader, "positions", []) or [])
+        live = not bool(getattr(config, "PAPER_TRADING", True))
+        live_exec = bool(getattr(config, "LIVE_EXECUTION_ENABLED", False))
+        extra = ""
+        if live and not live_exec:
+            extra = " LIVE execution is off — BloFin positions are not closed."
+        if not self.confirm(
+            "Close all",
+            f"Close {n_local} managed position(s)? Engine stays running (not a kill switch).{extra}",
+        ):
+            return
+        msg = self.rt.close_all()
+        QMessageBox.information(self, "Close all", str(msg))
+        self.refresh()
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_F5:

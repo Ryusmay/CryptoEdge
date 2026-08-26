@@ -95,10 +95,15 @@ class DataFeeder:
             print(f"[DataFeeder] Blofin instrumenty: cooldown po błędzie (próba {self.instruments_fail_streak}), ponowię za {wait_left:.0f}s")
             return self.instruments_cache
 
-        data = self.blofin._get("market/instruments")
+        data = self.blofin.fetch_instruments() if hasattr(self.blofin, "fetch_instruments") else self.blofin._get("market/instruments")
         if not data:
+            err = getattr(self.blofin, "last_error", None) or "brak odpowiedzi"
             self.instruments_fail_ts = time.time()
             self.instruments_fail_streak += 1
+            print(
+                f"[DataFeeder] Blofin instrumenty FAIL: {err} "
+                f"(próba {self.instruments_fail_streak}, cache={len(self.instruments_cache)})"
+            )
             return self.instruments_cache
 
         result = []
@@ -131,9 +136,30 @@ class DataFeeder:
             disk_cache.save("blofin_instruments", result)
             print(f"[DataFeeder] Blofin USDT futures: {len(result)} par")
         else:
+            raw_n = len(data.get("data") or [])
             self.instruments_fail_ts = time.time()
             self.instruments_fail_streak += 1
+            print(
+                f"[DataFeeder] Blofin instrumenty: 0 USDT po filtrze "
+                f"(raw={raw_n}, próba {self.instruments_fail_streak})"
+            )
         return self.instruments_cache
+
+    def _registry_allows(self, symbol: str) -> bool:
+        """FILTER_UNIVERSE_BY_REGISTRY: False gdy spec brak / not tradable.
+        Pusty/niezaładowany registry nie wycina uniwersum."""
+        try:
+            from instrument_registry import InstrumentRegistry
+            reg = getattr(self, "_instrument_registry", None)
+            if reg is None:
+                reg = InstrumentRegistry(feeder=self)
+                self._instrument_registry = reg
+            if not reg.ensure_loaded() or reg.count() <= 0:
+                return True
+            spec = reg.get(symbol)
+            return bool(spec and spec.is_tradable)
+        except Exception:
+            return True
 
     def _refresh_coingecko_top(self) -> Dict[str, Dict]:
         """CG top ~250 do cross-check (symbol -> dane). Cache 2 min."""
@@ -150,7 +176,7 @@ class DataFeeder:
         params = {
             "vs_currency": "usd",
             "order": "market_cap_desc",
-            "per_page": 250,
+            "per_page": max(1, min(250, int(getattr(config, "TOP_N_FETCH", 250) or 250))),
             "page": 1,
             "sparkline": "false",
             "price_change_percentage": "1h,24h,7d,30d"
@@ -200,7 +226,8 @@ class DataFeeder:
         self.last_errors = []
         instruments = self.fetch_blofin_usdt_instruments()
         if not instruments:
-            print("[DataFeeder] Brak instrumentow Blofin – cache")
+            err = getattr(self.blofin, "last_error", None) or "puste"
+            print(f"[DataFeeder] Brak instrumentow Blofin – cache={len(self.instruments_cache)} last={err}")
             return self.cache
 
         # Tickery ze wszystkich zrodel
@@ -246,6 +273,13 @@ class DataFeeder:
         diag_dropped_no_price = 0      # zaden z 4 zrodel nie dal ceny -> instrument znika calkowicie
         for inst in instruments:
             sym = inst["symbol"]
+            try:
+                from universe_policy import crypto_perpetual_allowed
+                if not crypto_perpetual_allowed(sym, inst):
+                    continue
+            except Exception as e:
+                self.last_errors.append(f"UNIVERSE_POLICY:{str(e)[:40]}")
+                continue
             bf = bf_tickers.get(sym) or {}
             bn = bn_tickers.get(sym) or {}
             by = by_tickers.get(sym) or {}
@@ -354,8 +388,11 @@ class DataFeeder:
                 # zachowaj CG price osobno jesli jest – analyze uzywa coin['price'] jako glownej
                 # ale correlation czyta price jako CG – ustawmy flagi
                 coin["coingecko_price"] = cg["price"]
-                # dla correlation.py uzywa coin.get("price") jako CG – 
+                # dla correlation.py uzywa coin.get("price") jako CG –
                 # nadpiszemy w correlation albo dodamy alias
+            if bool(getattr(config, "FILTER_UNIVERSE_BY_REGISTRY", False)):
+                if not self._registry_allows(sym):
+                    continue
             coins.append(coin)
 
             if sym == "BTC":
@@ -383,9 +420,16 @@ class DataFeeder:
         for coin in coins:
             try:
                 self.market_ctx.enrich_coin(coin, fetch_categories=False)
-            except Exception:
+            except Exception as e:
                 coin.setdefault("trend", "SIDEWAYS")
                 coin.setdefault("trend_score", 0)
+                if not getattr(self, "_enrich_fail_logged", False):
+                    self._enrich_fail_logged = True
+                    try:
+                        from feed_log import note
+                        note("DataFeeder", f"enrich {coin.get('symbol')}", e)
+                    except Exception:
+                        pass
 
         self.cache = coins
         self.last_fetch = time.time()
@@ -478,6 +522,8 @@ class DataFeeder:
                 parts.append("WS:brak pakietu websocket-client")
             elif PUBLIC_WS.is_connected():
                 parts.append("WS:OK")
+            elif getattr(PUBLIC_WS, "is_cf_blocked", getattr(PUBLIC_WS, "is_geo_blocked", lambda: False))():
+                parts.append("WS:CF-403")
             else:
                 parts.append("WS:rozlaczony")
         except Exception:

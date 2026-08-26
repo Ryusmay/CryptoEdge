@@ -88,3 +88,4 @@ class TokenBucket:
 # margines bezpieczenstwa, nie tylko teoretyczny.
 PUBLIC_BUCKET = TokenBucket(capacity=3.0, refill_per_sec=3.0)
 TRADING_BUCKET = TokenBucket(capacity=10.0, refill_per_sec=2.5)
+

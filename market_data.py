@@ -298,6 +298,12 @@ def binance_blofin_divergence(coin: dict) -> dict:
 
 
 def apply_divergence_gate(signal: dict, coin: dict = None) -> dict:
+    """Rozjazd źródeł wyłączony — nic nie karze i nic nie blokuje."""
+    import config
+    if not bool(getattr(config, "SOURCE_DIVERGENCE_GATE", False)):
+        d = binance_blofin_divergence(coin or signal)
+        signal["bn_bf_div"] = d
+        return signal
     """
     PRIORYTET 11 — BloFin↔Binance divergence jako filtr ryzyka.
 

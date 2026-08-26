@@ -84,13 +84,29 @@ class InstrumentRegistry:
             return bool(self._by_inst)
 
     def _fetch_instruments(self) -> List[dict]:
-        """Public endpoint – bez auth."""
+        """Public endpoint – bez auth. Ta sama ścieżka co DataFeeder (jeden last_error)."""
+        feed = getattr(self.feeder, "blofin", None) if self.feeder is not None else None
+        if feed is not None:
+            if hasattr(feed, "fetch_instruments"):
+                payload = feed.fetch_instruments()
+            elif hasattr(feed, "_get"):
+                payload = feed._get("market/instruments")
+            else:
+                payload = None
+            rows = (payload or {}).get("data") or []
+            if rows:
+                return rows
+            self.last_error = getattr(feed, "last_error", None) or "brak danych instruments"
+            return []
         import requests
+        from blofin_feed import configure_blofin_session
         url = "https://openapi.blofin.com/api/v1/market/instruments"
+        sess = requests.Session()
+        configure_blofin_session(sess)
         # SWAP USDT-M
         for params in ({"instType": "SWAP"}, None):
             try:
-                r = requests.get(url, params=params, timeout=15)
+                r = sess.get(url, params=params, timeout=15)
                 if r.status_code != 200:
                     self.last_error = f"instruments HTTP {r.status_code}"
                     continue
@@ -112,6 +128,9 @@ class InstrumentRegistry:
             if not inst or "-" not in inst:
                 return None
             base, quote = inst.split("-", 1)
+            from universe_policy import crypto_perpetual_allowed
+            if not crypto_perpetual_allowed(base, row):
+                return None
             # tylko USDT linear swap
             if quote.upper() != "USDT":
                 return None

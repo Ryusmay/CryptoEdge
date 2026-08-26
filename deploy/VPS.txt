@@ -1,0 +1,20 @@
+CryptoEdge na VPS (pełne WS, nie REST 45)
+
+Bez tego 450 par to fikcja. Polska/CF-403 na WS = REST.
+
+1. VPS poza restricted (DE/NL/SG), egress IPv4.
+2. Skopiuj zip do /opt/cryptoedge
+3. python3 -m pip install -r requirements.txt
+   (na VPS bez UI: pip install requests cryptography websocket-client)
+4. cp deploy/cryptoedge.service /etc/systemd/system/
+5. systemctl daemon-reload && systemctl enable --now cryptoedge
+6. DESK lokalnie: ENGINE_API na IP VPS + token.
+
+Sprawdź: journalctl -u cryptoedge -f | grep BlofinWS
+Oczekuj: "połączono", nie CF-403.
+
+90D WF (na VPS, ten sam IP co bot = 429 jeśli równolegle):
+  python3 walk_forward_v2.py --symbols BTC,ETH,SOL,DOGE,PEPE,XAU --days 90
+
+Prefix-audit:
+  python3 -m daytrading_validation prefix-v2 BTC --days 30

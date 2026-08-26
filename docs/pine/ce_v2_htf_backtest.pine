@@ -1,0 +1,106 @@
+//@version=5
+// CryptoEdge V2 — przybliżenie silnika na TradingView.
+// Wykres: 15m. Symbol: BINANCE:BTCUSDT.P (albo ETH/SOL).
+// SL/TP z impulsu 1h (pivot 5, min 8 barów, 2.0 ATR), bias 4h, trigger 15m.
+// To NIE jest 1:1 Python (brak klastra, paper fill, BE-po-TP2 trail 1h).
+strategy("CE V2 HTF 4h/1h/15m", overlay=true, pyramiding=0,
+     process_orders_on_close=true, calc_on_every_tick=false,
+     initial_capital=10000, default_qty_type=strategy.percent_of_equity,
+     default_qty_value=7.5, commission_type=strategy.commission.percent,
+     commission_value=0.06, slippage=3)
+
+pivotLen     = input.int(5, "Pivot L/R (1h)", minval=3, maxval=12)
+minBars      = input.int(8, "Min bary impulsu 1h", minval=3, maxval=24)
+minAtrMult   = input.float(2.0, "Min impuls × ATR 1h", step=0.1)
+slBufAtr     = input.float(1.0, "Bufor SL × ATR 1h", step=0.1)
+emaFast      = input.int(50, "4h EMA fast")
+emaSlow      = input.int(200, "4h EMA slow")
+tp1R         = input.float(1.0, "TP1 R")
+tp2R         = input.float(2.0, "TP2 R fallback")
+tp1QtyPct    = input.int(50, "TP1 % pozycji")
+lookback15   = input.int(12, "15m lookback strefy")
+
+f_bias_4h() =>
+    e1 = ta.ema(close, emaFast)
+    e2 = ta.ema(close, emaSlow)
+    e1 > e2 ? 1 : e1 < e2 ? -1 : 0
+
+bias4h = request.security(syminfo.tickerid, "240", f_bias_4h(), barmerge.gaps_off, barmerge.lookahead_off)
+
+f_impulse_1h() =>
+    atr = ta.atr(14)
+    ph = ta.pivothigh(high, pivotLen, pivotLen)
+    pl = ta.pivotlow(low, pivotLen, pivotLen)
+    var float lastH = na
+    var float lastL = na
+    var int lastHi = na
+    var int lastLi = na
+    if not na(ph)
+        lastH := ph
+        lastHi := bar_index - pivotLen
+    if not na(pl)
+        lastL := pl
+        lastLi := bar_index - pivotLen
+    dir = 0
+    start = 0.0
+    endp = 0.0
+    bars = 0
+    ok = false
+    if not na(lastH) and not na(lastL) and not na(atr) and atr > 0
+        if lastHi > lastLi
+            mv = lastH - lastL
+            bars := lastHi - lastLi
+            if bars >= minBars and mv >= minAtrMult * atr
+                dir := 1
+                start := lastL
+                endp := lastH
+                ok := true
+        else if lastLi > lastHi
+            mv = lastH - lastL
+            bars := lastLi - lastHi
+            if bars >= minBars and mv >= minAtrMult * atr
+                dir := -1
+                start := lastH
+                endp := lastL
+                ok := true
+    [ok, dir, start, endp, atr, bars]
+
+[ok1h, dir1h, st1h, en1h, atr1h, bars1h] = request.security(syminfo.tickerid, "60", f_impulse_1h(), barmerge.gaps_off, barmerge.lookahead_off)
+
+span = math.abs(en1h - st1h)
+fib382 = dir1h == 1 ? en1h - span * 0.382 : en1h + span * 0.382
+fib50  = dir1h == 1 ? en1h - span * 0.5   : en1h + span * 0.5
+fib618 = dir1h == 1 ? en1h - span * 0.618 : en1h + span * 0.618
+loZ = math.min(fib382, fib618)
+hiZ = math.max(fib382, fib618)
+
+touched = ok1h and ta.lowest(low, lookback15) <= hiZ and ta.highest(high, lookback15) >= loZ
+reclaimLong  = close >= fib50
+reclaimShort = close <= fib50
+
+slLong  = st1h - slBufAtr * atr1h
+slShort = st1h + slBufAtr * atr1h
+riskL = close - slLong
+riskS = slShort - close
+tp1L = close + riskL * tp1R
+tp2L = close + riskL * tp2R
+tp1S = close - riskS * tp1R
+tp2S = close - riskS * tp2R
+
+validLong  = ok1h and dir1h == 1 and bias4h == 1 and riskL > 0 and touched and reclaimLong
+validShort = ok1h and dir1h == -1 and bias4h == -1 and riskS > 0 and touched and reclaimShort
+
+if strategy.position_size == 0
+    if validLong
+        strategy.entry("L", strategy.long)
+        strategy.exit("L-tp1", from_entry="L", qty_percent=tp1QtyPct, limit=tp1L)
+        strategy.exit("L-rest", from_entry="L", stop=slLong, limit=tp2L)
+    if validShort
+        strategy.entry("S", strategy.short)
+        strategy.exit("S-tp1", from_entry="S", qty_percent=tp1QtyPct, limit=tp1S)
+        strategy.exit("S-rest", from_entry="S", stop=slShort, limit=tp2S)
+
+plot(ok1h ? st1h : na, "SL swing 1h", color=color.red, style=plot.style_linebr)
+plot(ok1h ? fib50 : na, "Fib 0.5", color=color.aqua, style=plot.style_linebr)
+plotshape(validLong, title="Long", style=shape.triangleup, location=location.belowbar, color=color.lime, size=size.tiny)
+plotshape(validShort, title="Short", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny)

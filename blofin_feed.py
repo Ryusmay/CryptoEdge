@@ -8,13 +8,259 @@ import hmac
 import hashlib
 import base64
 import uuid
+import socket
+import ssl
 from typing import Dict, List, Optional
 import config
 import disk_cache
 from rate_limiter import PUBLIC_BUCKET, TRADING_BUCKET
 from blofin_ws import PUBLIC_WS
 
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPSConnection
+from urllib3.connectionpool import HTTPSConnectionPool
+from urllib3.poolmanager import PoolManager
+from urllib3.util.retry import Retry
+
 BLOFIN_BASE = "https://openapi.blofin.com/api/v1"
+BLOFIN_HOST = "openapi.blofin.com"
+BLOFIN_ORIGIN = "https://blofin.com"
+
+# Chrome UA: Cloudflare WAF 403 na "python-requests" / własnym UA.
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+_ALT_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/128.0.0.0 Safari/537.36 Edg/128.0.0.0"
+)
+# connect krótki (IPv6 blackhole na Windows), read dłuższy (duża lista instrumentów)
+_CONNECT_TIMEOUT_S = 4.0
+_READ_TIMEOUT_S = 20.0
+_DEFAULT_TIMEOUT = (_CONNECT_TIMEOUT_S, _READ_TIMEOUT_S)
+
+try:
+    import certifi
+    _CERTIFI_CA = certifi.where()
+except Exception:
+    _CERTIFI_CA = None
+
+
+def _ssl_context():
+    """Systemowy magazyn CA (Windows + AV HTTPS-scan) PLUS certifi."""
+    ctx = ssl.create_default_context()
+    if _CERTIFI_CA:
+        try:
+            ctx.load_verify_locations(cafile=_CERTIFI_CA)
+        except Exception:
+            pass
+    return ctx
+
+
+def _waf_headers(ua: str = None) -> dict:
+    """Nagłówki jak z przeglądarki — Cloudflare WAF na openapi.blofin.com."""
+    return {
+        "User-Agent": ua or _BROWSER_UA,
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "en-US,en;q=0.9,pl;q=0.8",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+        "Origin": BLOFIN_ORIGIN,
+        "Referer": BLOFIN_ORIGIN + "/",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+    }
+
+
+def _cfg_ipv4_only() -> bool:
+    return bool(getattr(config, "BLOFIN_IPV4_ONLY", True))
+
+
+def _cfg_waf_headers() -> bool:
+    return bool(getattr(config, "BLOFIN_WAF_BROWSER_HEADERS", True))
+
+
+def _connect_timeout_sec(timeout) -> Optional[float]:
+    if timeout is None:
+        return _CONNECT_TIMEOUT_S
+    if hasattr(timeout, "connect_timeout"):
+        ct = timeout.connect_timeout
+        try:
+            return float(ct)
+        except (TypeError, ValueError):
+            return _CONNECT_TIMEOUT_S
+    if isinstance(timeout, (int, float)):
+        return float(timeout)
+    return _CONNECT_TIMEOUT_S
+
+
+def _connect_family(address, timeout, source_address, socket_options, family):
+    """getaddrinfo + connect z wymuszoną rodziną (AF_INET = zero AAAA)."""
+    host, port = address
+    if str(host).startswith("["):
+        host = str(host).strip("[]")
+    err = None
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+        af, socktype, proto, canonname, sa = res
+        sock = None
+        try:
+            sock = socket.socket(af, socktype, proto)
+            if socket_options:
+                for opt in socket_options:
+                    sock.setsockopt(*opt)
+            to = _connect_timeout_sec(timeout)
+            if to is not None:
+                sock.settimeout(to)
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sa)
+            return sock
+        except OSError as e:
+            err = e
+            if sock is not None:
+                sock.close()
+    if err is not None:
+        raise err
+    raise OSError(f"getaddrinfo empty for {host}:{port} family={family}")
+
+
+class _BlofinHTTPSConnection(HTTPSConnection):
+    """HTTPS z DNS+connect tylko IPv4 (albo dual-stack gdy ipv4_only=False).
+
+    urllib3 2.x: allowed_gai_family() = AF_UNSPEC gdy HAS_IPV6. Na Windows
+    AAAA idzie pierwszy; blackhole zjada connect timeout zanim poleci A.
+    `source_address=('0.0.0.0',0)` tego NIE naprawia — bind nie pomija AAAA.
+    """
+    ipv4_only = True
+
+    def _new_conn(self):
+        family = socket.AF_INET if getattr(self, "ipv4_only", True) else socket.AF_UNSPEC
+        try:
+            return _connect_family(
+                (self._dns_host, self.port),
+                self.timeout,
+                self.source_address,
+                self.socket_options,
+                family,
+            )
+        except socket.timeout as e:
+            raise OSError(
+                f"Connection to {self.host} timed out (connect timeout={self.timeout})"
+            ) from e
+        except OSError:
+            raise
+
+
+class _BlofinAdapter(HTTPAdapter):
+    """IPv4-first (prawdziwy AF_INET) + system SSL."""
+
+    def __init__(self, ipv4_only: bool = True, ssl_context=None, **kwargs):
+        self._ipv4_only = bool(ipv4_only)
+        self._ssl_context = ssl_context
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        if self._ssl_context is not None:
+            pool_kwargs["ssl_context"] = self._ssl_context
+        pool_kwargs.setdefault(
+            "socket_options",
+            [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)],
+        )
+        self.poolmanager = PoolManager(
+            num_pools=connections, maxsize=maxsize, block=block, **pool_kwargs
+        )
+        conn_cls = type(
+            "_CE_HTTPSConn",
+            (_BlofinHTTPSConnection,),
+            {"ipv4_only": self._ipv4_only},
+        )
+        pool_cls = type(
+            "_CE_HTTPSPool",
+            (HTTPSConnectionPool,),
+            {"ConnectionCls": conn_cls},
+        )
+        # pool_classes_by_scheme jest współdzieloną mapą modułu — kopia.
+        self.poolmanager.pool_classes_by_scheme = dict(
+            self.poolmanager.pool_classes_by_scheme
+        )
+        self.poolmanager.pool_classes_by_scheme["https"] = pool_cls
+
+
+def _new_retry() -> Retry:
+    # 429 obsługujemy sami (Retry-After / cooldown). Tu tylko dziury sieci.
+    kwargs = dict(
+        total=1,
+        connect=1,
+        read=0,
+        backoff_factor=0.3,
+        status_forcelist=(502, 503, 504),
+        raise_on_status=False,
+    )
+    try:
+        return Retry(allowed_methods=frozenset(["GET"]), **kwargs)
+    except TypeError:
+        try:
+            return Retry(method_whitelist=frozenset(["GET"]), **kwargs)
+        except TypeError:
+            return Retry(total=1, connect=1, read=0)
+
+
+
+def _mount_adapter(session: requests.Session, ipv4_only: bool = True, system_ssl: bool = True) -> None:
+    ctx = _ssl_context() if system_ssl else None
+    adapter = _BlofinAdapter(
+        ipv4_only=ipv4_only,
+        ssl_context=ctx,
+        max_retries=_new_retry(),
+        pool_connections=8,
+        pool_maxsize=8,
+    )
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
+
+def configure_blofin_session(
+    session: requests.Session,
+    ipv4_only: bool = None,
+    waf_headers: bool = None,
+    system_ssl: bool = True,
+) -> requests.Session:
+    """Wspólny transport: IPv4-only DNS + Chrome/WAF headers. Feed i executor."""
+    if ipv4_only is None:
+        ipv4_only = _cfg_ipv4_only()
+    if waf_headers is None:
+        waf_headers = _cfg_waf_headers()
+    if waf_headers:
+        session.headers.update(_waf_headers())
+    else:
+        session.headers["User-Agent"] = _BROWSER_UA
+        session.headers.setdefault("Accept", "application/json")
+        session.headers.setdefault("Accept-Language", "en-US,en;q=0.9")
+    try:
+        _mount_adapter(session, ipv4_only=bool(ipv4_only), system_ssl=system_ssl)
+    except Exception as e:
+        print(f"[Blofin] adapter: {e} — sesja bez IPv4/SSL-force")
+    return session
+
+
+def _timeout_of(timeout) -> tuple:
+    if timeout is None:
+        return _DEFAULT_TIMEOUT
+    if isinstance(timeout, (int, float)):
+        t = float(timeout)
+        return (min(_CONNECT_TIMEOUT_S, t), t)
+    if isinstance(timeout, (tuple, list)) and len(timeout) >= 2:
+        return (float(timeout[0]), float(timeout[1]))
+    return _DEFAULT_TIMEOUT
+
+
+def _timeout_label(timeout) -> str:
+    t = _timeout_of(timeout)
+    return f"{t[0]:.0f}/{t[1]:.0f}"
+
 
 # TTL cache swiec dopasowany do realnego czasu zycia bara (nie plaskie 60/120s
 # dla wszystkiego - patrz komentarz przy uzyciu w fetch_klines_ohlcv).
@@ -46,6 +292,31 @@ _KLINE_CACHE_TTL_S = {
 _KLINE_CACHE_TTL_S_WS_CONNECTED = {
     "5m": 300, "15m": 900, "1H": 3600, "4H": 14400, "1D": 86400, "1W": 604800,
 }
+
+# V2: timestamps = OPEN ostatniej ZAMKNIĘTEJ. Kolejna zamknięta dopiero
+# po 1 barze, więc stale = 2*bar + STALE_KLINES_SECONDS (nie bar+slack —
+# to wyłączało 4H na ~3h50m co cykl). Patrz klines_stale_reason.
+_V2_STALE_BARS = {"15m": 900, "1H": 3600, "4H": 14400}
+
+
+def _ohlcv_too_old_for_v2(data: dict, bar: str) -> bool:
+    """True = serwowanie tego OHLCV daloby V2_STALE_KLINES (albo brak swiec)."""
+    bar_s = _V2_STALE_BARS.get(bar)
+    if bar_s is None:
+        return False
+    ts_list = (data or {}).get("timestamps") or []
+    if not ts_list:
+        return False
+    try:
+        t = float(ts_list[-1])
+    except (TypeError, ValueError):
+        return True
+    if t > 1e16:
+        t /= 1e9
+    elif t > 1e11:
+        t /= 1000.0
+    slack = float(getattr(config, "STALE_KLINES_SECONDS", 600) or 600)
+    return (time.time() - t) > (2 * bar_s + slack)
 # Dlugie interwaly persystujemy na dysk (przetrwaja restart). 5m/1m
 # faktycznie zmieniaja sie za szybko, zeby dysk cokolwiek dal po restarcie.
 #
@@ -63,6 +334,40 @@ _KLINE_CACHE_TTL_S_WS_CONNECTED = {
 # ostatniego timestampu z dysku) to osobny, wiekszy krok - do zrobienia
 # pozniej.
 _KLINE_DISK_PERSIST_BARS = ("1H", "15m", "4H", "1D", "1W")
+
+
+def _publish_ohlcv(symbol: str, bar: str, data: dict) -> dict:
+    """STORE jest gorącym buforem; ohlc_cache zostaje TTL-em REST."""
+    if data and data.get("closes"):
+        try:
+            from market_store import STORE
+            STORE.put_ohlcv(str(symbol).upper(), bar, data)
+        except Exception:
+            pass
+    return data
+
+
+def _synth_instruments_from_tickers(rows) -> list:
+    """instId z tickerów → minimalny wiersz jak market/instruments (tylko USDT SWAP)."""
+    out = []
+    seen = set()
+    for t in rows or []:
+        inst = str(t.get("instId") or "").upper()
+        if "-USDT" not in inst:
+            continue
+        base = inst.split("-")[0]
+        if not base or base in seen:
+            continue
+        seen.add(base)
+        out.append({
+            "instId": f"{base}-USDT",
+            "baseCurrency": base,
+            "quoteCurrency": "USDT",
+            "state": "live",
+            "instType": "SWAP",
+            "contractType": "linear",
+        })
+    return out
 
 
 def _retry_after_seconds(headers, default: float = 12.0) -> tuple:
@@ -235,10 +540,15 @@ def _merge_parsed_klines(old: dict, new: dict, limit: int) -> dict:
 class BlofinFeed:
     def __init__(self):
         self.session = requests.Session()
-        self.session.headers.update({
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 CryptoEdge/17.34",
-        })
+        self._ipv4_only = _cfg_ipv4_only()
+        self._waf = _cfg_waf_headers()
+        self._system_ssl = True
+        configure_blofin_session(
+            self.session,
+            ipv4_only=self._ipv4_only,
+            waf_headers=self._waf,
+            system_ssl=True,
+        )
         self.ticker_cache: Dict[str, Dict] = {}
         self.ticker_cache_ts = 0
         self.ohlc_cache = {}
@@ -246,10 +556,12 @@ class BlofinFeed:
         self.available = True
         self.fail_count = 0
         self._instrument_registry = None
+        self._fail_log_ts = {}
         # 21.08.2026: nieblokujacy cooldown po dlugim (realnym) banie Blofin
         # za zbyt czeste odpytywanie limitu - patrz _get(). 0.0 = brak
         # aktywnego cooldownu.
         self._rate_limited_until = 0.0
+        self._instruments_error = None
 
     def _contract_value(self, symbol: str) -> float:
         """Return base-asset value of one BloFin contract.
@@ -526,7 +838,191 @@ class BlofinFeed:
         return out
 
 
-    def _get(self, path: str, params: dict = None, timeout: int = 12) -> Optional[dict]:
+    def _log_fail(self, path: str, err: str, force: bool = False) -> None:
+        """Jedna linia na pad GET. Dedup 20s, żeby kline fail nie zalał logu."""
+        now = time.time()
+        key = f"{path}|{err}"
+        prev = float((self._fail_log_ts or {}).get(key) or 0.0)
+        if not force and now - prev < 20.0:
+            return
+        if not hasattr(self, "_fail_log_ts") or self._fail_log_ts is None:
+            self._fail_log_ts = {}
+        self._fail_log_ts[key] = now
+        print(f"[Blofin] GET {path} FAIL: {err}")
+
+    @staticmethod
+    def _body_snip(resp, n: int = 160) -> str:
+        try:
+            return (getattr(resp, "text", None) or "").replace("\n", " ").strip()[:n]
+        except Exception:
+            return ""
+
+    def _tcp_probe(self, ips, port: int = 443, per_ip_s: float = 3.0) -> list:
+        """Szybki TCP :443 per IP (max 3). Zwraca listę IP które przyjmują SYN."""
+        ok = []
+        for ip in list(ips or [])[:3]:
+            family = socket.AF_INET6 if ":" in str(ip) else socket.AF_INET
+            sock = socket.socket(family, socket.SOCK_STREAM)
+            sock.settimeout(per_ip_s)
+            try:
+                if family == socket.AF_INET6:
+                    sock.connect((ip, port, 0, 0))
+                else:
+                    sock.connect((ip, port))
+                ok.append(ip)
+                print(f"[Blofin] TCP {ip}:{port} OK")
+            except Exception as e:
+                print(f"[Blofin] TCP {ip}:{port} FAIL {type(e).__name__}: {e}")
+            finally:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+        return ok
+
+    def _tls_probe(self, host: str, timeout: float = 5.0) -> str:
+        """Surowe TLS (SNI) — odróżnia firewall od AV-MITM zanim poleci requests.
+        IPv4-only: connect na A-rekord, nie na AAAA (blackhole)."""
+        try:
+            ctx = _ssl_context()
+            family = socket.AF_INET if self._ipv4_only else socket.AF_UNSPEC
+            infos = socket.getaddrinfo(host, 443, family, socket.SOCK_STREAM)
+            if not infos:
+                return "getaddrinfo empty"
+            af, _socktype, proto, _canon, sa = infos[0]
+            raw = socket.socket(af, socket.SOCK_STREAM, proto)
+            raw.settimeout(timeout)
+            raw.connect(sa)
+            try:
+                tls = ctx.wrap_socket(raw, server_hostname=host)
+                ver = tls.version() or "?"
+                cipher = (tls.cipher() or ("?", "", 0))[0]
+                print(f"[Blofin] TLS OK {ver} {cipher}")
+                try:
+                    tls.close()
+                except Exception:
+                    pass
+                return f"OK {ver}"
+            finally:
+                try:
+                    raw.close()
+                except Exception:
+                    pass
+        except ssl.SSLError as e:
+            print(f"[Blofin] TLS FAIL SSL {e}")
+            return f"SSL {e}"
+        except Exception as e:
+            print(f"[Blofin] TLS FAIL {type(e).__name__}: {e}")
+            return f"{type(e).__name__}: {e}"
+
+    def _remount(self, ipv4_only: bool, system_ssl: bool, why: str) -> None:
+        """Przepina adapter na tej samej Session (testy mockują session.get)."""
+        self._ipv4_only = ipv4_only
+        self._system_ssl = system_ssl
+        try:
+            _mount_adapter(self.session, ipv4_only=ipv4_only, system_ssl=system_ssl)
+            print(f"[Blofin] retry transport: {why} (ipv4={ipv4_only} system_ssl={system_ssl})")
+        except Exception as e:
+            print(f"[Blofin] remount FAIL: {e}")
+
+    def _universe_from_tickers(self, instruments_err: str = "") -> Optional[dict]:
+        """Gdy market/instruments pada: uniwersum z market/tickers (te same instId USDT)."""
+        tick = self._get("market/tickers")
+        synth = _synth_instruments_from_tickers((tick or {}).get("data") or [])
+        if not synth:
+            return None
+        why = instruments_err or "brak odpowiedzi"
+        print(f"[Blofin] instruments pad ({why}) — universe z tickers: {len(synth)} par")
+        self.last_error = None
+        self.available = True
+        return {"code": "0", "msg": "tickers_fallback", "data": synth}
+
+    def fetch_instruments(self) -> dict:
+        """Lista instrumentów. Gdy GET market/instruments pada (Windows SSL/IPv6/WAF),
+        buduje uniwersum z market/tickers (te same instId)."""
+        data = self._get("market/instruments", params={"instType": "SWAP"})
+        rows = (data or {}).get("data") or []
+        if rows:
+            self._instruments_error = None
+            return data
+        err = self.last_error or "brak odpowiedzi"
+        self._instruments_error = err
+        fb = self._universe_from_tickers(err)
+        if fb:
+            return fb
+        return data or {}
+
+    def _print_probe_hints(self, error: str, report: dict) -> None:
+        err_l = (error or "").lower()
+        tls_l = (report.get("tls") or "").lower()
+        if "ssl" in err_l or "certificate" in err_l or "ssl" in tls_l:
+            print("[Blofin] SSL: antywirus (HTTPS scan) na Windows często psuje certyfikat. Wyłącz skan HTTPS dla Pythona albo dodaj CA antywirusa do zaufanych.")
+        elif not report.get("tcp"):
+            print("[Blofin] TCP: żaden IP nie przyjął :443 — firewall/VPN/DNS. Sprawdź w przeglądarce https://openapi.blofin.com/api/v1/market/instruments")
+        elif "timeout" in err_l or "timed out" in err_l:
+            print("[Blofin] timeout: sieć/VPN/IPv6. Domyślnie BLOFIN_IPV4_ONLY=True (tylko A-rekord). Jeśli dalej pada — filtr/ISP.")
+        elif "403" in err_l or "451" in err_l or "blocked" in err_l:
+            print("[Blofin] HTTP 403/451: WAF/geo. Bot wysyła Chrome UA + Origin. VPN albo BLOFIN_WAF_BROWSER_HEADERS=False (bez Origin) zwykle pomaga.")
+        elif "connection" in err_l or "connect" in err_l:
+            print("[Blofin] connection: firewall/DNS. Czy openapi.blofin.com w ogóle wychodzi na 443?")
+
+    def probe_public(self) -> dict:
+        """Start-up: DNS + TCP + TLS + GET market/instruments (tickers fallback). Drukuje etap."""
+        host = BLOFIN_HOST
+        report = {
+            "ok": False, "n": 0, "error": None, "dns": [], "tcp": [],
+            "tls": None, "elapsed_s": 0.0, "source": None,
+        }
+        t0 = time.time()
+        print(
+            f"[Blofin] transport ipv4_only={self._ipv4_only} "
+            f"waf_headers={self._waf} connect={_CONNECT_TIMEOUT_S:.0f}s"
+        )
+        try:
+            infos = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+            report["dns"] = sorted({str(i[4][0]) for i in infos})
+            fam = sorted({getattr(i[0], "name", str(i[0])) for i in infos})
+            print(f"[Blofin] DNS {host} -> {','.join(report['dns'][:8])} ({','.join(fam)})")
+        except Exception as e:
+            report["error"] = f"DNS {type(e).__name__}: {e}"
+            report["elapsed_s"] = round(time.time() - t0, 2)
+            print(f"[Blofin] probe FAIL DNS {host}: {e}")
+            return report
+        report["tcp"] = self._tcp_probe(report["dns"])
+        report["tls"] = self._tls_probe(host)
+        payload = self._get("market/instruments", params={"instType": "SWAP"})
+        report["elapsed_s"] = round(time.time() - t0, 2)
+        rows = (payload or {}).get("data") or []
+        dns_s = ",".join(report["dns"][:6])
+        if rows:
+            report["ok"] = True
+            report["n"] = len(rows)
+            report["error"] = None
+            report["source"] = "instruments"
+            self._instruments_error = None
+            print(f"[Blofin] probe OK {report['n']} instrumentów w {report['elapsed_s']:.2f}s dns={dns_s}")
+            return report
+        inst_err = self.last_error or "pusta lista"
+        self._instruments_error = inst_err
+        report["error"] = inst_err
+        report["source"] = "instruments"
+        print(
+            f"[Blofin] probe FAIL n=0 {report['elapsed_s']:.2f}s dns={dns_s} "
+            f"tcp={len(report['tcp'])}/{len(report['dns'])} tls={report['tls']} err={inst_err}"
+        )
+        self._print_probe_hints(inst_err, report)
+        fb = self._universe_from_tickers(inst_err)
+        fb_rows = (fb or {}).get("data") or []
+        if fb_rows:
+            report["ok"] = True
+            report["n"] = len(fb_rows)
+            report["source"] = "tickers"
+            report["error"] = None
+            report["elapsed_s"] = round(time.time() - t0, 2)
+            print(f"[Blofin] probe recovered via tickers: {report['n']} par")
+        return report
+
+    def _get(self, path: str, params: dict = None, timeout=None, _attempt: int = 0) -> Optional[dict]:
         # 21.08.2026: realny incydent - Blofin zwrocil Retry-After: 3600
         # (godzina) na publicznym endpoincie. Uzytkownik potwierdzil (z
         # wlasnej wiedzy o Blofin): to nie przypadkowo zawyzony naglowek,
@@ -557,8 +1053,9 @@ class BlofinFeed:
             self.last_error = "local rate limit (token bucket)"
             return None
         url = f"{BLOFIN_BASE}/{path}"
+        req_timeout = _timeout_of(timeout)
         try:
-            r = self.session.get(url, params=params or {}, timeout=timeout)
+            r = self.session.get(url, params=params or {}, timeout=req_timeout)
             if r.status_code == 429:
                 self.last_error = "429 rate limit"
                 self.fail_count += 1
@@ -579,39 +1076,91 @@ class BlofinFeed:
                         f"wstrzymuje WSZYSTKIE zapytania publiczne do tego czasu bez ponawiania "
                         f"i bez blokowania watku (realny ban, nie przypadkowy naglowek)"
                     )
+                    try:
+                        from feed_log import note
+                        note("Blofin", f"429 cooldown {wait_s:.0f}s Retry-After {path}")
+                    except Exception:
+                        pass
                     return None
                 print(f"[Blofin] Rate limit – czekam {wait_s:.0f}s" + (" (Retry-After)" if from_header else ""))
+                try:
+                    from feed_log import note
+                    note("Blofin", f"429 wait {wait_s:.0f}s {path}")
+                except Exception:
+                    pass
                 time.sleep(wait_s)
                 PUBLIC_BUCKET.acquire()
-                r = self.session.get(url, params=params or {}, timeout=timeout)
+                r = self.session.get(url, params=params or {}, timeout=req_timeout)
+            if r.status_code in (403, 451) and _attempt == 0:
+                # UA już Chrome — stary retry był martwy. Druga próba: alt UA + pełne WAF.
+                self.session.headers.update(_waf_headers(_ALT_BROWSER_UA))
+                print(f"[Blofin] HTTP {r.status_code} — retry z WAF headers + alt UA")
+                PUBLIC_BUCKET.acquire()
+                r = self.session.get(url, params=params or {}, timeout=req_timeout)
+
             if r.status_code in (403, 451):
-                self.last_error = f"{r.status_code} blocked"
+                snip = self._body_snip(r)
+                self.last_error = f"{r.status_code} blocked" + (f" {snip}" if snip else "")
                 self.fail_count += 1
                 if self.fail_count >= 8:
                     self.available = False
+                self._log_fail(path, self.last_error, force=True)
+                try:
+                    from feed_log import note
+                    note("Blofin", self.last_error)
+                except Exception:
+                    pass
                 return None
             if r.status_code != 200:
-                self.last_error = f"HTTP {r.status_code}"
+                snip = self._body_snip(r)
+                self.last_error = f"HTTP {r.status_code}" + (f" {snip}" if snip else "")
                 self.fail_count += 1
+                self._log_fail(path, self.last_error, force=True)
                 return None
             data = r.json()
-            if str(data.get("code")) not in ("0", "success"):
-                # code "0" = success
-                if data.get("code") != "0":
-                    self.last_error = f"code={data.get('code')} {data.get('msg')}"
-                    self.fail_count += 1
-                    return None
+            if str(data.get("code")) not in ("0", "success") and data.get("code") != 0:
+                self.last_error = f"code={data.get('code')} {data.get('msg')}"
+                self.fail_count += 1
+                self._log_fail(path, self.last_error, force=True)
+                return None
             self.fail_count = max(0, self.fail_count - 1)
             self.available = True
             self.last_error = None
             return data
         except requests.Timeout:
-            self.last_error = "timeout"
+            self.last_error = f"timeout {_timeout_label(timeout)}s GET {path}"
+            if _attempt == 0:
+                self._remount(ipv4_only=True, system_ssl=True, why="timeout → IPv4 + krótki connect")
+                return self._get(path, params=params, timeout=timeout, _attempt=1)
             self.fail_count += 1
+            self._log_fail(path, self.last_error, force=True)
+            return None
+        except requests.exceptions.SSLError as e:
+            self.last_error = f"SSL {e}"
+            if _attempt == 0:
+                self._remount(ipv4_only=True, system_ssl=True, why="SSL → magazyn certyfikatów Windows/systemu")
+                return self._get(path, params=params, timeout=timeout, _attempt=1)
+            self.fail_count += 1
+            self._log_fail(path, self.last_error, force=True)
+            return None
+        except requests.exceptions.ConnectionError as e:
+            self.last_error = f"connection {e}"
+            if _attempt == 0:
+                # IPv4-only mogło zablokować jedyny działający stos — spróbuj dual-stack.
+                self._remount(ipv4_only=False, system_ssl=True, why="connection → dual-stack")
+                return self._get(path, params=params, timeout=timeout, _attempt=1)
+            self.fail_count += 1
+            self._log_fail(path, self.last_error, force=True)
             return None
         except Exception as e:
-            self.last_error = str(e)[:80]
+            self.last_error = f"{type(e).__name__}: {e}"
             self.fail_count += 1
+            self._log_fail(path, self.last_error, force=True)
+            try:
+                from feed_log import note
+                note("Blofin", f"GET {path}", e)
+            except Exception:
+                pass
             return None
 
     def fetch_all_tickers(self) -> Dict[str, Dict]:
@@ -808,23 +1357,30 @@ class BlofinFeed:
             ttl = ttl_table.get(bar, 60)
             if isinstance(data, dict) and time.time() - ts < ttl:
                 merged, gap = _merge_ws_closed_candle(symbol, bar, data)
-                if not gap:
-                    return merged
-                # Luka wykryta w strumieniu WS - nie ufaj samemu merge'owi,
-                # spadnij do prawdziwego fetchu REST ponizej, zeby ja wypelnic.
-                print(f"[Blofin] Luka w świecach WS {inst} {bar} - wymuszam odświeżenie REST")
+                if not gap and not _ohlcv_too_old_for_v2(merged, bar):
+                    return _publish_ohlcv(symbol, bar, merged)
+                if gap:
+                    print(f"[Blofin] Luka w świecach WS {inst} {bar} - wymuszam odświeżenie REST")
+                elif _ohlcv_too_old_for_v2(merged, bar):
+                    print(f"[Blofin] Cache {inst} {bar} za stary na V2 - wymuszam REST")
             # Wiadro nisko (<20%) - swiece sa najbardziej dyskrecjonalnym
             # zapytaniem (najwieksza objetosc: 4 interwaly x N kandydatow co
             # skan). Lepiej oddac stare dane niz pogorszyc sytuacje kolejnym
             # zapytaniem - rezerwujemy pozostaly budzet na tickery/ceny
             # ochronne dla otwartych pozycji.
             if isinstance(data, dict) and PUBLIC_BUCKET.level() < 0.20:
-                print(f"[Blofin] Wiadro <20% - oddaje stare świece {inst} {bar} (sprzed {time.time()-ts:.0f}s)")
-                merged, gap = _merge_ws_closed_candle(symbol, bar, data)
-                # Przy niskim budzecie NIE wymuszamy fetchu nawet gdy jest
-                # luka (to zaprzeczyloby calemu celowi tej galezi) - po
-                # prostu oddajemy dane bez (potencjalnie dziurawego) merge'u.
-                return data if gap else merged
+                if _ohlcv_too_old_for_v2(data, bar):
+                    print(
+                        f"[Blofin] Wiadro <20% ale {inst} {bar} za stare na V2 "
+                        f"- wymuszam REST"
+                    )
+                else:
+                    print(f"[Blofin] Wiadro <20% - oddaje stare świece {inst} {bar} (sprzed {time.time()-ts:.0f}s)")
+                    merged, gap = _merge_ws_closed_candle(symbol, bar, data)
+                    # Przy niskim budzecie NIE wymuszamy fetchu nawet gdy jest
+                    # luka (to zaprzeczyloby calemu celowi tej galezi) - po
+                    # prostu oddajemy dane bez (potencjalnie dziurawego) merge'u.
+                    return _publish_ohlcv(symbol, bar, data if gap else merged)
 
             # 21.08.2026: TTL wygasl i wiadro ma budzet (>=20%, inaczej
             # zwrocilibysmy sie juz wyzej) - zanim zrobimy PELNY re-fetch
@@ -849,7 +1405,7 @@ class BlofinFeed:
                         self.ohlc_cache[cache_key] = (time.time(), merged_data)
                         disk_cache.save(cache_key, merged_data)
                         result, _gap = _merge_ws_closed_candle(symbol, bar, merged_data)
-                        return result
+                        return _publish_ohlcv(symbol, bar, result)
                 # delta_rows is None (pierwsze zapytanie nieudane) albo
                 # merge nie dal uzytecznych danych - spadamy do pelnego
                 # fetchu ponizej jako bezpieczny fallback.
@@ -894,7 +1450,7 @@ class BlofinFeed:
             if bar in _KLINE_DISK_PERSIST_BARS:
                 disk_cache.save(cache_key, data)
         merged, _gap = _merge_ws_closed_candle(symbol, bar, data)
-        return merged
+        return _publish_ohlcv(symbol, bar, merged)
 
 
     def fetch_order_book(self, symbol: str, size: int = 15) -> dict:

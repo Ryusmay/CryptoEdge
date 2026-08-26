@@ -48,4 +48,4 @@ Każda zmiana progu: uzasadnienie na próbie, nie na anegdocie.
 
 Fibo = mapa + confluence + weryfikacja R:R.  
 Nigdy samodzielny sygnał „0.618 → BUY”.  
-Moduł: `fib_confluence.py` (wspólny kontekst dla obu silników).
+V2: `swing_structure` (retracement/extension na 1h). Reversal: `fibonacci_map` w `reversal_engine.py`.

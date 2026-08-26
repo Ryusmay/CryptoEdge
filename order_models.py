@@ -92,6 +92,15 @@ class Order:
     filled_size: float = 0.0
     avg_fill_price: Optional[float] = None
     fee: float = 0.0
+    liquidity_role: Optional[str] = None  # maker | taker, from actual fill
+    decision_ts_ms: Optional[int] = None
+    submitted_ts_ms: Optional[int] = None
+    accepted_ts_ms: Optional[int] = None
+    first_fill_ts_ms: Optional[int] = None
+    last_fill_ts_ms: Optional[int] = None
+    canceled_ts_ms: Optional[int] = None
+    fill_latency_ms: Optional[int] = None
+    fill_events: List[Dict[str, Any]] = field(default_factory=list)
 
     # meta
     created_at: float = field(default_factory=time.time)
@@ -121,6 +130,31 @@ class Order:
         if new == OrderState.TIMEOUT:
             self.timeout = True
         return True
+
+    def record_fill(self, quantity: float, price: float, *, fee: float = 0.0,
+                    liquidity_role: str = None, ts_ms: int = None) -> None:
+        """Append an immutable partial/full-fill event and update VWAP fields."""
+        event_ts = int(ts_ms or time.time() * 1000)
+        qty = max(0.0, float(quantity or 0))
+        px = max(0.0, float(price or 0))
+        if qty <= 0 or px <= 0:
+            return
+        old_qty = max(0.0, float(self.filled_size or 0))
+        old_value = old_qty * float(self.avg_fill_price or 0)
+        self.filled_size = old_qty + qty
+        self.avg_fill_price = (old_value + qty * px) / self.filled_size
+        self.fee += float(fee or 0)
+        role = str(liquidity_role or "").lower()
+        if role in ("maker", "taker"):
+            self.liquidity_role = role if self.liquidity_role in (None, role) else "mixed"
+        self.first_fill_ts_ms = self.first_fill_ts_ms or event_ts
+        self.last_fill_ts_ms = event_ts
+        base_ts = self.decision_ts_ms or self.submitted_ts_ms
+        self.fill_latency_ms = event_ts - int(base_ts) if base_ts is not None else None
+        self.fill_events.append({
+            "ts_ms": event_ts, "quantity": qty, "price": px,
+            "fee": float(fee or 0), "liquidity_role": role or None,
+        })
 
     @property
     def is_terminal(self) -> bool:

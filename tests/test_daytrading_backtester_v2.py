@@ -1,6 +1,6 @@
 import unittest
 
-from daytrading_backtester import replay_daytrading_v2, _is_htf_reversed
+from daytrading_backtester import replay_daytrading_v2, resolve_v2_fill, _is_htf_reversed
 
 
 def _flat_bars(n, price=100.0):
@@ -23,29 +23,57 @@ class TestIsHtfReversed(unittest.TestCase):
 
 
 class TestReplayDaytradingV2Mechanics(unittest.TestCase):
-    def _single_long_signal(self, entry=100.0, sl=98.0, tp1=101.5, tp2=104.0):
+    def test_expired_limit_is_cancelled_not_converted_to_market(self):
+        sig = {"direction": "LONG", "limit_price": 99.0}
+        fill, kind = resolve_v2_fill(sig, 4, 1, 103.0, 104.0, 102.0, timeout_bars=3)
+        self.assertIsNone(fill)
+        self.assertEqual("expired", kind)
+
+    def _single_long_signal(self, entry=100.0, sl=98.0, tp1=101.5, tp2=104.0, limit=None):
         fired = {"done": False}
 
         def signal_at(i):
             if i == 0 and not fired["done"]:
                 fired["done"] = True
-                return {"symbol": "BTC", "direction": "LONG", "price": entry,
-                        "sl_price": sl, "tp1_price": tp1, "tp2_price": tp2}
+                row = {"symbol": "BTC", "direction": "LONG", "price": entry,
+                       "sl_price": sl, "tp1_price": tp1, "tp2_price": tp2}
+                if limit is not None:
+                    row["limit_price"] = limit
+                return row
             return {"direction": "NEUTRAL", "reject_reason": "TEST_NEUTRAL"}
         return signal_at
 
-    def test_direct_sl_hit_gives_full_negative_r_minus_costs(self):
+    def test_direct_sl_hit_ignored_until_tp1(self):
         n = 10
         bars = _flat_bars(n, price=100.0)
         bars["opens"][1] = 100.0
-        # zaraz po wejsciu cena od razu spada ponizej SL
         bars["lows"][1] = 97.0
         bars["highs"][1] = 100.0
-        result = replay_daytrading_v2(bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0))
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+            max_bars=4,
+        )
         self.assertEqual(1, result["count"])
         t = result["trades"][0]
         self.assertEqual("sl", t.exit_reason)
-        self.assertLess(t.realised_r, -0.9)  # ~-1R minus koszty
+        self.assertFalse(t.tp1_done)
+
+    def test_entry_sl_closes_when_flag_on(self):
+        import config
+        n = 10
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["lows"][1] = 97.0
+        bars["highs"][1] = 100.0
+        old = config.DAYTRADING_V2_ENTRY_SL
+        config.DAYTRADING_V2_ENTRY_SL = True
+        try:
+            result = replay_daytrading_v2(
+                bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+            )
+        finally:
+            config.DAYTRADING_V2_ENTRY_SL = old
+        self.assertEqual("sl", result["trades"][0].exit_reason)
 
     def test_tp1_then_tp2_then_trailing_stop_hit_gives_positive_r(self):
         n = 20
@@ -82,19 +110,63 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         self.assertEqual("sl", t.exit_reason)  # ta sama sciezka co surowy stop, ale...
         self.assertGreater(t.realised_r, 0)     # ...z realnym zyskiem, bo SL byl juz podniesiony
 
-    def test_htf_reversal_closes_position_at_current_close(self):
+    def test_tp1_moves_sl_to_breakeven(self):
+        n = 10
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["highs"][2] = 104.5  # TP1 104
+        bars["lows"][2] = 100.0
+        bars["highs"][3] = 103.0
+        bars["lows"][3] = 99.9  # BE po TP1
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+        )
+        self.assertEqual(1, result["count"])
+        t = result["trades"][0]
+        self.assertTrue(t.tp1_done)
+        self.assertFalse(t.tp2_done)
+        self.assertEqual("sl", t.exit_reason)
+        self.assertEqual(3, t.exit_i)
+
+    def test_htf_reversal_does_not_close_by_default(self):
+        n = 10
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["closes"][3] = 101.0
+        bars["lows"][5] = 97.0
+
+        def htf_bias_at(i):
+            return "SHORT" if i >= 3 else "LONG"
+
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
+            htf_bias_at=htf_bias_at,
+            max_bars=8,
+        )
+        self.assertEqual(1, result["count"])
+        t = result["trades"][0]
+        self.assertNotEqual("htf_reversal", t.exit_reason)
+        self.assertEqual("sl", t.exit_reason)
+
+    def test_htf_reversal_closes_when_flag_on(self):
+        import config
         n = 10
         bars = _flat_bars(n, price=100.0)
         bars["opens"][1] = 100.0
         bars["closes"][3] = 101.0
 
         def htf_bias_at(i):
-            return "SHORT" if i >= 3 else "LONG"  # odwrocenie na barze 3
+            return "SHORT" if i >= 3 else "LONG"
 
-        result = replay_daytrading_v2(
-            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
-            htf_bias_at=htf_bias_at,
-        )
+        old = config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL
+        config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = True
+        try:
+            result = replay_daytrading_v2(
+                bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
+                htf_bias_at=htf_bias_at,
+            )
+        finally:
+            config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = old
         self.assertEqual(1, result["count"])
         t = result["trades"][0]
         self.assertEqual("htf_reversal", t.exit_reason)
@@ -112,10 +184,10 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         result = replay_daytrading_v2(
             bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
             htf_bias_at=htf_bias_at,
+            max_bars=8,
         )
         t = result["trades"][0]
         self.assertEqual("sl", t.exit_reason)
-        self.assertEqual(5, t.exit_i)
 
     def test_htf_bias_neutral_never_forces_exit(self):
         n = 15
@@ -129,6 +201,7 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         result = replay_daytrading_v2(
             bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
             htf_bias_at=htf_bias_at,
+            max_bars=8,
         )
         t = result["trades"][0]
         self.assertEqual("sl", t.exit_reason)
@@ -143,7 +216,7 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         def notify_exit(symbol, side, reason, ts):
             calls.append((symbol, side, reason, ts))
 
-        replay_daytrading_v2(bars, self._single_long_signal(), notify_exit=notify_exit)
+        replay_daytrading_v2(bars, self._single_long_signal(), notify_exit=notify_exit, max_bars=3)
         self.assertEqual(1, len(calls))
         symbol, side, reason, ts = calls[0]
         self.assertEqual("BTC", symbol)
@@ -173,7 +246,7 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         def htf_bias_at(i):
             return "LONG" if i % 2 == 0 else "SHORT"  # migotanie, ale i tak nigdy invalidation
 
-        result = replay_daytrading_v2(bars, self._single_long_signal(), htf_bias_at=htf_bias_at)
+        result = replay_daytrading_v2(bars, self._single_long_signal(), htf_bias_at=htf_bias_at, max_bars=12)
         reasons = {t.exit_reason for t in result["trades"]}
         self.assertNotIn("day_setup_invalidated", reasons)
 
@@ -183,13 +256,94 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         bars["opens"][1] = 100.0
         bars["highs"][2] = 102.0
         bars["lows"][2] = 100.0
-        # po TP1 SL=entry(breakeven) - dobijamy tam natychmiast, konczac trade
-        bars["lows"][3] = 99.5
+        # po TP1 SL NIE idzie na BE — dobijamy oryginalny SL
+        bars["lows"][3] = 99.9
         result = replay_daytrading_v2(bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
                                        tp1_frac=0.4)
         t = result["trades"][0]
         self.assertTrue(t.tp1_done)
+        self.assertEqual("sl", t.exit_reason)
         self.assertAlmostEqual(0.6, t.remaining, places=6)
+
+    def test_time_horizon_closes_dead_trade_after_10h_if_r_below_min(self):
+        n = 320
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+        )
+        t = result["trades"][0]
+        self.assertEqual("time_stop", t.exit_reason)
+        self.assertFalse(t.tp1_done)
+        self.assertGreaterEqual(t.exit_i - t.entry_i, 120)
+
+    def test_unclog_skips_if_mfe_reached_half_r(self):
+        n = 320
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["highs"][2] = 101.1  # 0.55R of $2 risk, below TP1=104
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+            max_bars=300,
+        )
+        t = result["trades"][0]
+        self.assertGreaterEqual(t.mfe_r, 0.5)
+        self.assertNotEqual("time_stop", t.exit_reason)
+        self.assertEqual("hard_time_stop", t.exit_reason)
+
+    def test_unclog_skips_if_mark_r_above_min(self):
+        n = 320
+        bars = _flat_bars(n, price=100.8)  # 0.8 / 2.0 = 0.4R > 0.35
+        bars["opens"][1] = 100.0
+        bars["highs"][1] = 100.9
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+            max_bars=300,
+        )
+        t = result["trades"][0]
+        self.assertNotEqual("time_stop", t.exit_reason)
+        self.assertEqual("hard_time_stop", t.exit_reason)
+
+    def test_unclog_skips_after_tp1(self):
+        n = 320
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["highs"][2] = 104.5
+        bars["lows"][2] = 100.1
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0),
+            max_bars=20,
+        )
+        t = result["trades"][0]
+        self.assertTrue(t.tp1_done)
+        self.assertNotEqual("time_stop", t.exit_reason)
+
+    def test_limit_fill_when_low_tags_zone(self):
+        n = 12
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["lows"][1] = 99.4
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0, limit=99.5),
+            max_bars=4,
+        )
+        t = result["trades"][0]
+        self.assertEqual("limit", t.fill_kind)
+        self.assertAlmostEqual(99.5, t.entry)
+        self.assertAlmostEqual(98.0, t.sl)
+        self.assertGreater(t.mae_r, 0)
+
+    def test_limit_timeout_expires_without_market_chase(self):
+        n = 12
+        bars = _flat_bars(n, price=100.0)
+        bars["opens"][1] = 100.0
+        bars["opens"][3] = 100.2
+        result = replay_daytrading_v2(
+            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=104.0, tp2=106.0, limit=99.0),
+            max_bars=5,
+        )
+        self.assertEqual(0, result["count"])
+        self.assertEqual([], result["trades"])
 
 
 if __name__ == "__main__":

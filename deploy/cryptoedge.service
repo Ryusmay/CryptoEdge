@@ -1,0 +1,21 @@
+[Unit]
+Description=CryptoEdge V2 headless (BloFin WS + engine)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/cryptoedge
+ExecStart=/usr/bin/python3 -u app.py
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=8192
+Environment=PYTHONUNBUFFERED=1
+Environment=CRYPTOEDGE_HEADLESS=1
+Environment=QT_QPA_PLATFORM=offscreen
+# Bind API na LAN tylko z tokenem:
+# Environment=CRYPTOEDGE_API_TOKEN=zmien-mnie
+# wtedy w settings ENGINE_API_HOST=0.0.0.0
+
+[Install]
+WantedBy=multi-user.target

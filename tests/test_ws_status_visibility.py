@@ -39,11 +39,13 @@ class TestWsStatusVisibleInSourcesStatus(unittest.TestCase):
             status = self.feeder.sources_status()
         self.assertIn("WS:OK", status)
 
-    def test_shows_disconnected_when_package_present_but_not_connected(self):
+    def test_shows_cf_403_when_handshake_rejected(self):
         with patch("blofin_ws._WS_AVAILABLE", True), \
-                patch("blofin_ws.PUBLIC_WS.is_connected", return_value=False):
+                patch("blofin_ws.PUBLIC_WS.is_connected", return_value=False), \
+                patch("blofin_ws.PUBLIC_WS.is_cf_blocked", return_value=True):
             status = self.feeder.sources_status()
-        self.assertIn("WS:rozlaczony", status)
+        self.assertIn("WS:CF-403", status)
+        self.assertNotIn("WS:rozlaczony", status)
 
     def test_never_raises_even_if_ws_module_state_is_unavailable(self):
         with patch("blofin_ws.PUBLIC_WS.is_connected", side_effect=RuntimeError("boom")), \

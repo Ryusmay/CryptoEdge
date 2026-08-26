@@ -65,7 +65,7 @@ class TestRecoverySafety(unittest.TestCase):
         trader = SimpleNamespace(positions=[])
         reconciler = SimpleNamespace(
             fetch_exchange_positions=lambda: [],
-            reconcile=lambda positions: {
+            reconcile=lambda positions, **kwargs: {
                 "in_sync": False, "only_local": [],
                 "only_exchange": [{"symbol": "BTC", "direction": "LONG", "size": 1}],
             },
@@ -103,6 +103,25 @@ class TestPartialContractSizing(unittest.TestCase):
             Position._shared_registry = previous
         self.assertEqual(pos.size_contracts, 7.0)
         self.assertAlmostEqual(pos.size_usd, 700.0)
+
+    def test_partial_then_final_close_reports_one_cumulative_position_result(self):
+        risk = RiskStub()
+        risk.register_close = lambda *args, **kwargs: None
+        trader = PaperTrader(risk)
+        pos = Position({
+            "symbol": "BTC", "direction": "LONG", "price": 100.0,
+            "strength": 1.0, "sl_price": 90.0, "tp_price": 120.0,
+        }, size_usd=1000.0, leverage=1)
+        trader.positions.append(pos)
+        with patch.object(config, "ALERTS_ENABLED", False):
+            partial_pnl = trader.partial_close(pos, 110.0, reason="partial_tp")
+            capital_after_partial = risk.current_capital
+            total_pnl = trader.close_position(pos, 105.0, reason="manual")
+
+        self.assertAlmostEqual(total_pnl, partial_pnl + pos.final_leg_pnl)
+        self.assertAlmostEqual(risk.current_capital, capital_after_partial + pos.final_leg_pnl)
+        self.assertEqual(1, len(trader.closed_positions))
+        self.assertGreater(pos.partial_realized_pnl, 0.0)
 
 
 if __name__ == "__main__":

@@ -32,7 +32,8 @@ class TestBlofinInstrumentsCooldown(unittest.TestCase):
             first = self.feeder.fetch_blofin_usdt_instruments()
             second = self.feeder.fetch_blofin_usdt_instruments()
             third = self.feeder.fetch_blofin_usdt_instruments()
-        self.assertEqual(1, mock_get.call_count)
+        # instruments pad → jeszcze jeden GET market/tickers (fallback), potem cooldown
+        self.assertEqual(2, mock_get.call_count)
         self.assertEqual([], first)
         self.assertEqual([], second)
         self.assertEqual([], third)
@@ -40,11 +41,11 @@ class TestBlofinInstrumentsCooldown(unittest.TestCase):
     def test_retry_happens_again_after_cooldown_elapses(self):
         with patch.object(self.feeder.blofin, "_get", return_value=None) as mock_get:
             self.feeder.fetch_blofin_usdt_instruments()
-        self.assertEqual(1, mock_get.call_count)
+        self.assertEqual(2, mock_get.call_count)
         self.feeder.instruments_fail_ts = time.time() - 46
         with patch.object(self.feeder.blofin, "_get", return_value=None) as mock_get2:
             self.feeder.fetch_blofin_usdt_instruments()
-        self.assertEqual(1, mock_get2.call_count)
+        self.assertEqual(2, mock_get2.call_count)
 
     def test_cooldown_escalates_on_consecutive_failures_instead_of_staying_flat(self):
         cases = [(1, 45.0), (2, 90.0), (3, 180.0), (4, 360.0), (5, 600.0), (10, 600.0)]
@@ -58,7 +59,7 @@ class TestBlofinInstrumentsCooldown(unittest.TestCase):
             self.feeder.instruments_fail_ts = time.time() - (expected + 1)
             with patch.object(self.feeder.blofin, "_get", return_value=None) as on_time:
                 self.feeder.fetch_blofin_usdt_instruments()
-            self.assertEqual(1, on_time.call_count, f"streak={streak_before}: powinno probowac po {expected}s")
+            self.assertEqual(2, on_time.call_count, f"streak={streak_before}: powinno probowac po {expected}s")
 
     def test_success_clears_the_failure_streak_not_just_the_timestamp(self):
         self.feeder.instruments_fail_streak = 3

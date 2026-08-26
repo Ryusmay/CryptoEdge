@@ -4,6 +4,7 @@
 
 import math
 import threading
+import time
 from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 import config
@@ -27,6 +28,9 @@ class Position:
         except Exception:
             layers = {}
         self.strategy_price = layers.get("strategy_price") or self.entry_price
+        self.decision_price = layers.get("decision_price") or self.strategy_price
+        self.submitted_price = layers.get("submitted_price") or self.decision_price
+        self.fill_price = layers.get("fill_price") or self.entry_price
         self.execution_price = layers.get("execution_price") or self.entry_price
         self.mark_price = layers.get("mark_price") or self.entry_price
         self.index_price = layers.get("index_price")
@@ -45,13 +49,10 @@ class Position:
         try:
             from instrument_registry import InstrumentRegistry
             reg = getattr(type(self), "_shared_registry", None)
-            if reg is None:
-                # lazy singleton na klasie Position
-                try:
-                    reg = InstrumentRegistry()
-                    type(self)._shared_registry = reg
-                except Exception:
-                    reg = None
+            # Never perform an unscoped network instrument lookup from the
+            # fill path. Runtime injects the already-loaded registry through
+            # PaperTrader/RiskManager; tests and degraded PAPER may proceed
+            # without contract conversion.
             if reg is not None:
                 price = float(signal.get("price") or 0)
                 if price > 0:
@@ -63,6 +64,8 @@ class Position:
                         self.actual_notional = float(
                             conv.get("actual_notional_usd") or conv.get("notional_usd") or size_usd
                         )
+                        if self.actual_notional <= 0:
+                            self.actual_notional = size_usd
                         self.contract_value = conv.get("contract_value")
                         # size_usd / margin oparte o actual (spójne z LIVE risk)
                         if bool(getattr(config, "PAPER_USE_ACTUAL_NOTIONAL", True)):
@@ -78,22 +81,38 @@ class Position:
         self.exit_time = None
         self.pnl = 0.0
         self.pnl_pct = 0.0
+        self.partial_realized_pnl = 0.0
+        self.partial_realized_fees = 0.0
+        self.partial_realized_funding = 0.0
 
         # TP / SL poziomy
         self.tp_price = signal.get("tp_price")
         self.sl_price = signal.get("sl_price")
         self.engine = signal.get("engine") or signal.get("score_type") or "trend"
+        self.v2_profile = signal.get("v2_profile")
+        self.reversal_profile = signal.get("reversal_profile")
+        self.market_regime = signal.get("market_regime")
+        self.fill_kind = signal.get("fill_kind") or "market"
+        self.entry_side = "maker" if str(self.fill_kind).lower() in ("maker", "resting_limit", "limit_maker") else "taker"
+        self.exit_side = "taker"
         self.decision_id = signal.get("decision_id")
         self.decision_path = signal.get("decision_path")
         self.tp_plan = signal.get("tp_plan") if isinstance(signal.get("tp_plan"), dict) else None
 
         if self.tp_price is None or self.sl_price is None:
+            # Uzupełniaj TYLKO brakującą nogę. V2 ma sl_price + tp1/tp2, bez
+            # tp_price — stary `or` nadpisywał swing 1h na STOP_LOSS_PCT (~2.2%).
+            has_structured_tp = signal.get("tp1_price") is not None or signal.get("tp2_price") is not None
             if self.direction == "LONG":
-                self.tp_price = self.entry_price * (1 + config.TAKE_PROFIT_PCT / 100 / leverage)
-                self.sl_price = self.entry_price * (1 + config.STOP_LOSS_PCT / 100 / leverage)
+                if self.tp_price is None and not has_structured_tp:
+                    self.tp_price = self.entry_price * (1 + config.TAKE_PROFIT_PCT / 100 / leverage)
+                if self.sl_price is None:
+                    self.sl_price = self.entry_price * (1 + config.STOP_LOSS_PCT / 100 / leverage)
             else:
-                self.tp_price = self.entry_price * (1 - config.TAKE_PROFIT_PCT / 100 / leverage)
-                self.sl_price = self.entry_price * (1 - config.STOP_LOSS_PCT / 100 / leverage)
+                if self.tp_price is None and not has_structured_tp:
+                    self.tp_price = self.entry_price * (1 - config.TAKE_PROFIT_PCT / 100 / leverage)
+                if self.sl_price is None:
+                    self.sl_price = self.entry_price * (1 - config.STOP_LOSS_PCT / 100 / leverage)
 
         self.initial_sl_price = float(self.sl_price) if self.sl_price is not None else None
         self.initial_risk_abs = (
@@ -128,6 +147,9 @@ class Position:
         # Trailing stop
         self.trailing_active = False
         self.trailing_stop_price = None
+        self.live_atr = None  # odświeżany z bieżącego skanu; None = użyj atr z wejścia
+        self.breakeven_active = False
+        self._last_trailing_tighten_at = 0.0
         # Jazda z trendem – bez limitu TP
         self.signal_strength = float(signal.get("strength") or 0)
         self.atr = signal.get("atr")  # do trailing ATR
@@ -143,6 +165,13 @@ class Position:
         self.next_funding_ts = _fi.get("next_funding_ts")
         self.atr_pct = signal.get("atr_pct")
         self.funding_paid = 0.0
+        self.slip_rt = None
+        if str(self.engine) in ("daytrading_v2",) or str(signal.get("strategy_mode") or "") == "DAYTRADING_V2":
+            try:
+                from v2_profiles import paper_slip_round_trip
+                self.slip_rt = paper_slip_round_trip(self.symbol, signal)
+            except Exception:
+                self.slip_rt = 0.0006
         self.partial_taken = False
         self.partial_tp1_done = False
         self.partial_tp2_done = False
@@ -244,22 +273,73 @@ class Position:
         else:
             self.margin_ratio = 1.0
 
-        # Aktualizacja trailing stop (mtf_aligned ustawiane z check_exits)
-        if config.TRAILING_STOP_ENABLED:
+        # V2 przechodzi przez wspólny reducer także przy aktualizacji kwotowania.
+        # Chandelier jest wyłącznie adapterem danych/kotwicą; nie zawiera reguł
+        # decyzji. Stary automatyczny ratchet 15m był runtime-only i został
+        # odłączony, bo replay go nie wykonywał.
+        if _is_v2(self.engine) and getattr(self, "partial_tp2_done", False):
+            self.v2_trailing_anchor_1h = self._chandelier_stop()
+            self.decide_v2_exit(current_price)
+        elif config.TRAILING_STOP_ENABLED:
             self._update_trailing(current_price, mtf_aligned=getattr(self, "_mtf_aligned", False))
 
-    def _trail_distance_pct(self) -> float:
+    def pnl_at_stop(self) -> Optional[float]:
+        """Niezrealizowany PnL (notional) gdyby cena dobiła aktualny SL."""
+        try:
+            sl = float(self.sl_price)
+            entry = float(self.entry_price)
+            size = float(self.size_usd)
+            if entry <= 0:
+                return None
+            if self.direction == "LONG":
+                move = (sl - entry) / entry
+            else:
+                move = (entry - sl) / entry
+            return size * move
+        except (TypeError, ValueError):
+            return None
+
+    def _effective_atr(self) -> Optional[float]:
+        """Żywy ATR gdy flaga ON i jest wartość; inaczej ATR z wejścia."""
+        if getattr(config, "LIVE_ATR_TRAILING_ENABLED", True):
+            live = getattr(self, "live_atr", None)
+            try:
+                if live is not None and float(live) > 0:
+                    return float(live)
+            except (TypeError, ValueError):
+                pass
+        frozen = getattr(self, "atr", None)
+        try:
+            if frozen is not None and float(frozen) > 0:
+                return float(frozen)
+        except (TypeError, ValueError):
+            pass
+        return None
+
+    def _trail_distance_pct(self, current_price: float = None) -> float:
         """
-        Trailing: preferuj ATR (w % ceny), inaczej % z config.
-        Dynamicznie sciska sie przy rosnacym PnL.
+        Trailing: preferuj ATR (w % AKTUALNEJ ceny), inaczej % z config.
+        Żywy ATR = dystans od bieżącej zmienności, nie zamrożonej z wejścia.
         """
-        if getattr(config, "USE_ATR_STOPS", True) and getattr(self, "atr", None) and self.entry_price:
+        atr_now = self._effective_atr()
+        ref = None
+        try:
+            if current_price is not None:
+                ref = float(current_price)
+        except (TypeError, ValueError):
+            ref = None
+        if not ref or ref <= 0:
+            if self.direction == "LONG":
+                ref = float(self.highest_price or self.entry_price or 0)
+            else:
+                ref = float(self.lowest_price or self.entry_price or 0)
+        if getattr(config, "USE_ATR_STOPS", True) and atr_now and ref and ref > 0:
             atr_mult = float(
                 getattr(config, "DAYTRADING_TRAIL_ATR_MULT", 1.10)
                 if self.engine == "daytrading" or _is_v2(self.engine)
                 else getattr(config, "ATR_TRAIL_MULTIPLIER", 1.5)
             )
-            base = (float(self.atr) / self.entry_price) * atr_mult * 100.0 * self.leverage
+            base = (float(atr_now) / ref) * atr_mult * 100.0 * self.leverage
             # floor/ceiling
             base = max(1.5, min(base, 12.0))
         else:
@@ -270,9 +350,148 @@ class Position:
         factor = max(0.4, 1.0 - (pnl - config.TRAILING_STOP_ACTIVATION_PCT) / 30.0)
         return base * factor
 
+    def _trailing_cooldown_blocks(self) -> bool:
+        """True = nie zaciskaj teraz (kolejne zacieśnienie w oknie cooldownu).
+        Pierwsza aktywacja traila (brak trailing_stop_price) zawsze przechodzi."""
+        if self.trailing_stop_price is None:
+            return False
+        interval = float(getattr(config, "TRAILING_MIN_UPDATE_INTERVAL_SEC", 0.0) or 0.0)
+        if interval <= 0:
+            return False
+        last = float(getattr(self, "_last_trailing_tighten_at", 0.0) or 0.0)
+        return (time.monotonic() - last) < interval
+
+    def _clamp_tighter_sl(self, candidate) -> Optional[float]:
+        """LONG tylko w górę, SHORT tylko w dół, nigdy luźniej niż initial_sl."""
+        try:
+            cand = float(candidate)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(cand) or cand <= 0:
+            return None
+        sl = float(self.sl_price) if self.sl_price is not None else None
+        initial = float(self.initial_sl_price) if self.initial_sl_price is not None else None
+        if self.direction == "LONG":
+            if initial is not None:
+                cand = max(cand, initial)
+            if sl is not None and cand <= sl + 1e-12:
+                return None
+            return cand
+        if initial is not None:
+            cand = min(cand, initial)
+        if sl is not None and cand >= sl - 1e-12:
+            return None
+        return cand
+
+    def _apply_tighter_sl(self, candidate, why: str) -> bool:
+        new = self._clamp_tighter_sl(candidate)
+        if new is None:
+            return False
+        self.sl_price = new
+        try:
+            self._sync_exchange_trailing_sl()
+        except Exception:
+            pass
+        print(f"[SL] {self.symbol} {why} -> {new:.8g}")
+        return True
+
+    @staticmethod
+    def _last_confirmed_fractal(lows, highs, direction: str, left: int = 2, right: int = 2):
+        n = len(lows) if direction == "LONG" else len(highs)
+        if n < left + right + 1:
+            return None
+        last_i = n - 1 - right
+        for i in range(last_i, left - 1, -1):
+            if direction == "LONG":
+                pivot = float(lows[i])
+                window = [float(x) for x in list(lows[i - left:i]) + list(lows[i + 1:i + 1 + right])]
+                if window and pivot < min(window):
+                    return pivot
+            else:
+                pivot = float(highs[i])
+                window = [float(x) for x in list(highs[i - left:i]) + list(highs[i + 1:i + 1 + right])]
+                if window and pivot > max(window):
+                    return pivot
+        return None
+
+    def ratchet_structure_sl(self, frame_15m=None) -> bool:
+        """Po TP1: SL na ostatni confirmed 15m HL/LH ± ATR*mult. Tylko zacieśnia."""
+        after = str(getattr(config, "DAYTRADING_V2_SL_RATCHET_AFTER", "tp1") or "none").lower()
+        if after in ("none", "off", "0", ""):
+            return False
+        if getattr(self, "partial_tp2_done", False):
+            return False
+        if after == "tp1" and not getattr(self, "partial_tp1_done", False):
+            return False
+        if after == "tp2":
+            return False
+        if frame_15m is None:
+            try:
+                from market_store import STORE
+                frame_15m = STORE.get_ohlcv(self.symbol, "15m") or {}
+            except Exception:
+                return False
+        lows = list((frame_15m or {}).get("lows") or [])
+        highs = list((frame_15m or {}).get("highs") or [])
+        k = max(1, int(getattr(config, "DAYTRADING_V2_SL_RATCHET_FRACTAL", 2) or 2))
+        pivot = self._last_confirmed_fractal(lows, highs, self.direction, left=k, right=k)
+        if pivot is None:
+            return False
+        atr = self._effective_atr() or 0.0
+        buf = float(getattr(config, "DAYTRADING_V2_SL_RATCHET_ATR_MULT", 0.5) or 0.0) * float(atr)
+        if self.direction == "LONG":
+            candidate = pivot - buf
+        else:
+            candidate = pivot + buf
+        px = float(self.highest_price if self.direction == "LONG" else self.lowest_price)
+        if self.direction == "LONG" and candidate >= px:
+            return False
+        if self.direction == "SHORT" and candidate <= px:
+            return False
+        return self._apply_tighter_sl(candidate, "ratchet 15m")
+
+    def _chandelier_stop(self) -> Optional[float]:
+        atr = self._effective_atr()
+        if not atr:
+            return None
+        k = float(getattr(config, "DAYTRADING_V2_CHANDELIER_ATR_MULT", 1.5) or 1.5)
+        if self.direction == "LONG":
+            hh = float(self.highest_price or self.entry_price)
+            return hh - k * float(atr)
+        ll = float(self.lowest_price or self.entry_price)
+        return ll + k * float(atr)
+
     def _update_trailing(self, current_price: float, mtf_aligned: bool = False):
         """Włącza i przesuwa trailing stop – glowny mechanizm realizacji zysku."""
-        if (self.engine == "daytrading" or _is_v2(self.engine)) and self.initial_risk_abs > 0:
+        price_move = ((current_price - self.entry_price) / self.entry_price
+                      if self.direction == "LONG" else
+                      (self.entry_price - current_price) / self.entry_price)
+        fee_rt = 2.0 * float(getattr(config, "TAKER_FEE", getattr(config, "COMMISSION_RATE", 0.0006)) or 0)
+        slip_rt = float(getattr(self, "slip_rt", None) or getattr(config, "SLIPPAGE", 0.0008) or 0)
+        risk_frac = float(self.initial_risk_abs or 0) / max(float(self.entry_price or 0), 1e-12)
+        net_buffer = float(getattr(config, "TRAILING_MIN_NET_BUFFER_R", 0.15) or 0.15) * risk_frac
+        net_trail_ready = price_move >= (fee_rt + slip_rt + net_buffer)
+        if _is_v2(self.engine) and self.initial_risk_abs > 0:
+            # V2: brak wejściowego SL. BE po TP1, trail po TP2.
+            partial_reached = (
+                getattr(self, "partial_taken", False)
+                or getattr(self, "partial_tp1_done", False)
+                or getattr(self, "partial_tp2_done", False)
+            )
+            if partial_reached and bool(getattr(config, "DAYTRADING_V2_BE_AFTER_TP1", True)):
+                buffer_frac = float(getattr(config, "DAYTRADING_BREAK_EVEN_BUFFER_PCT", 0.18)) / 100.0
+                be_stop = self.entry_price * (1 + buffer_frac if self.direction == "LONG" else 1 - buffer_frac)
+                improved = ((self.direction == "LONG" and be_stop > self.sl_price)
+                            or (self.direction == "SHORT" and be_stop < self.sl_price))
+                if improved:
+                    self.sl_price = be_stop
+                    self.breakeven_active = True
+                    self._sync_exchange_trailing_sl()
+            if getattr(self, "partial_tp2_done", False):
+                if not self.trailing_active and net_trail_ready:
+                    self.trailing_active = True
+                    print(f"[Paper] V2 trailing po TP2 {self.symbol}")
+        elif (self.engine == "daytrading") and self.initial_risk_abs > 0:
             current_r = self._current_r(current_price)
             if current_r >= float(getattr(config, "DAYTRADING_BREAK_EVEN_R", 1.0)):
                 buffer_frac = float(getattr(config, "DAYTRADING_BREAK_EVEN_BUFFER_PCT", 0.18)) / 100.0
@@ -281,36 +500,50 @@ class Position:
                             or (self.direction == "SHORT" and be_stop < self.sl_price))
                 if improved:
                     self.sl_price = be_stop
+                    self.breakeven_active = True
                     self._sync_exchange_trailing_sl()
-            if not self.trailing_active and current_r >= float(getattr(config, "DAYTRADING_TRAIL_ACTIVATION_R", 1.5)):
+            if (not self.trailing_active and net_trail_ready
+                    and current_r >= float(getattr(config, "DAYTRADING_TRAIL_ACTIVATION_R", 1.5))):
                 self.trailing_active = True
                 print(f"[Paper] Day trailing aktywowany dla {self.symbol} @ {current_r:.2f}R")
         elif not self.trailing_active:
-            if self.pnl_pct >= config.TRAILING_STOP_ACTIVATION_PCT:
+            if net_trail_ready and self.pnl_pct >= config.TRAILING_STOP_ACTIVATION_PCT:
                 self.trailing_active = True
                 print(f"[Paper] Trailing STOP aktywowany dla {self.symbol} @ PnL {self.pnl_pct:+.2f}%")
 
         if not self.trailing_active:
             return
 
+        if _is_v2(self.engine) and getattr(self, "partial_tp2_done", False):
+            new_trail = self._chandelier_stop()
+            if new_trail is not None and not self._trailing_cooldown_blocks():
+                if self._apply_tighter_sl(new_trail, "chandelier"):
+                    self.trailing_stop_price = float(self.sl_price)
+                    self._last_trailing_tighten_at = time.monotonic()
+            return
+
         # Candle-gate: gdy 15m/1h nadal zgodne z pozycją – nie zaciskaj trail
         # (zostaw aktualny poziom, tylko pozwól na luźniejsze / bez dalszego raise)
-        trail_dist = self._trail_distance_pct() / 100 / self.leverage
+        trail_dist = self._trail_distance_pct(current_price) / 100 / self.leverage
         if self.engine not in ("daytrading", "daytrading_v2") and getattr(config, "TRAILING_CANDLE_GATE", True) and mtf_aligned:
             # szerszy trail (mniej agresywne zaciskanie)
             trail_dist *= 1.35
 
         if self.direction == "LONG":
             new_trail = self.highest_price * (1 - trail_dist)
-            if self.trailing_stop_price is None or new_trail > self.trailing_stop_price:
+            improved = self.trailing_stop_price is None or new_trail > self.trailing_stop_price
+            if improved and not self._trailing_cooldown_blocks():
                 self.trailing_stop_price = new_trail
+                self._last_trailing_tighten_at = time.monotonic()
                 if self.trailing_stop_price > self.sl_price:
                     self.sl_price = self.trailing_stop_price
                     self._sync_exchange_trailing_sl()
         else:
             new_trail = self.lowest_price * (1 + trail_dist)
-            if self.trailing_stop_price is None or new_trail < self.trailing_stop_price:
+            improved = self.trailing_stop_price is None or new_trail < self.trailing_stop_price
+            if improved and not self._trailing_cooldown_blocks():
                 self.trailing_stop_price = new_trail
+                self._last_trailing_tighten_at = time.monotonic()
                 if self.trailing_stop_price < self.sl_price:
                     self.sl_price = self.trailing_stop_price
                     self._sync_exchange_trailing_sl()
@@ -321,10 +554,23 @@ class Position:
         move = float(current_price) - self.entry_price
         return 0.0 if risk <= 0 else (move if self.direction == "LONG" else -move) / risk
 
+    def _mfe_r(self) -> float:
+        risk = float(getattr(self, "initial_risk_abs", 0.0) or 0.0)
+        if risk <= 0:
+            return 0.0
+        if self.direction == "LONG":
+            return (float(self.highest_price) - self.entry_price) / risk
+        return (self.entry_price - float(self.lowest_price)) / risk
+
     def daytrading_time_stop_due(self, current_price: float, now: datetime = None) -> bool:
         now = now or datetime.now()
         age_h = max(0.0, (now - self.entry_time).total_seconds() / 3600.0)
         if _is_v2(self.engine):
+            if getattr(self, "partial_taken", False) or getattr(self, "partial_tp1_done", False):
+                return False
+            skip_mfe = float(getattr(config, "DAYTRADING_V2_UNCLOG_SKIP_MFE_R", 0.5) or 0.0)
+            if skip_mfe > 0 and self._mfe_r() >= skip_mfe:
+                return False
             hours = float(getattr(config, "DAYTRADING_V2_TIME_STOP_HOURS", 24.0))
             min_r = float(getattr(config, "DAYTRADING_V2_TIME_STOP_MIN_R", 0.35))
             return age_h >= hours and self._current_r(current_price) < min_r
@@ -366,8 +612,10 @@ class Position:
         return "day_setup_invalidated" if self.day_invalidation_count >= required else None
 
     def v2_htf_invalidation(self, signal: Dict) -> Optional[str]:
-        """V2: zamykaj tylko na odwroceniu 1D/4h. Znikniecie 15m nie zamyka."""
+        """V2: 4H/1D nie zamyka pozycji (kontekst wejścia). Flaga = stary exit."""
         if not _is_v2(self.engine) or not signal:
+            return None
+        if not bool(getattr(config, "DAYTRADING_V2_EXIT_ON_HTF_REVERSAL", False)):
             return None
         b1 = signal.get("bias_1d")
         b4 = signal.get("bias_4h")
@@ -577,7 +825,10 @@ class Position:
             if self.trailing_active and self.trailing_stop_price is not None:
                 if current_price <= self.trailing_stop_price:
                     return "trailing_stop"
-            if current_price <= self.sl_price:
+            sl_live = True
+            if _is_v2(self.engine) and not bool(getattr(config, "DAYTRADING_V2_ENTRY_SL", False)):
+                sl_live = bool(getattr(self, "partial_taken", False) or self.trailing_active or self.breakeven_active)
+            if sl_live and self.sl_price is not None and current_price <= self.sl_price:
                 return "stop_loss"
             # TP tylko gdy NIE jedziemy z trendem (awaryjny tryb)
             if not no_hard_tp and self.tp_price and current_price >= self.tp_price:
@@ -586,11 +837,50 @@ class Position:
             if self.trailing_active and self.trailing_stop_price is not None:
                 if current_price >= self.trailing_stop_price:
                     return "trailing_stop"
-            if current_price >= self.sl_price:
+            sl_live = True
+            if _is_v2(self.engine) and not bool(getattr(config, "DAYTRADING_V2_ENTRY_SL", False)):
+                sl_live = bool(getattr(self, "partial_taken", False) or self.trailing_active or self.breakeven_active)
+            if sl_live and self.sl_price is not None and current_price >= self.sl_price:
                 return "stop_loss"
             if not no_hard_tp and self.tp_price and current_price <= self.tp_price:
                 return "take_profit"
         return None
+
+    def decide_v2_exit(self, current_price: float, signal: Optional[Dict] = None):
+        """Adapter PAPER/LIVE do tego samego reducera co replay V2."""
+        if not _is_v2(self.engine) or self.initial_risk_abs <= 0:
+            return None
+        from v2_trade_lifecycle import (
+            V2Observation, V2TradeView, decide_v2_lifecycle,
+        )
+        signal = signal or {}
+        bias = signal.get("bias_1d") or signal.get("bias_4h")
+        # Snapshot runtime może dostarczyć tę samą kotwicę 1h co replay.
+        # Dla starszego payloadu zachowujemy ostatnią kauzalną kotwicę pozycji.
+        anchor = signal.get("trailing_anchor_1h")
+        if anchor is None:
+            anchor = getattr(self, "v2_trailing_anchor_1h", None)
+        else:
+            self.v2_trailing_anchor_1h = anchor
+        age_s = max(0.0, (datetime.now() - self.entry_time).total_seconds())
+        d = decide_v2_lifecycle(
+            V2TradeView(
+                self.direction, float(self.entry_price), float(self.sl_price),
+                float(self.tp1_price), float(self.tp2_price),
+                bool(self.partial_tp1_done), bool(self.partial_tp2_done), self._mfe_r(),
+            ),
+            V2Observation(
+                float(current_price), float(current_price), float(current_price),
+                age_s, bias, anchor,
+            ),
+            initial_risk=self.initial_risk_abs,
+        )
+        if d.new_sl is not None:
+            if self._apply_tighter_sl(float(d.new_sl), "v2_shared_1h_anchor"):
+                self.trailing_stop_price = float(self.sl_price)
+                self.trailing_active = bool(self.partial_tp2_done)
+                self._sync_exchange_trailing_sl()
+        return d
 
     def close(self, exit_price: float, reason: str = "signal"):
         self.exit_price = exit_price
@@ -603,9 +893,10 @@ class Position:
                 self.size_usd, self.entry_price, exit_price, self.direction,
                 leverage=self.leverage,
                 funding_paid=getattr(self, "funding_paid", 0.0) or 0.0,
-                entry_side="taker",
-                exit_side="taker",
+                entry_side=self.entry_side,
+                exit_side=self.exit_side,
                 include_slippage=True,
+                slip_frac=getattr(self, "slip_rt", None),
             )
             self.pnl = float(r["net_usd"])
             self.pnl_pct = float(r["pnl_pct"])
@@ -632,6 +923,9 @@ class PaperTrader:
         self.risk = risk_manager
         self.logger = logger
         self.protection = protection  # ProtectionManager (Etap 2)
+        registry = getattr(risk_manager, "instrument_registry", None)
+        if registry is not None:
+            Position._shared_registry = registry
         from entry_reservations import EntryReservationBook
         self.entry_reservations = EntryReservationBook(
             ttl_seconds=float(getattr(config, "ENTRY_RESERVATION_TTL_SEC", 30.0))
@@ -639,13 +933,126 @@ class PaperTrader:
         self.lock = threading.RLock()
         self.positions: List[Position] = []
         self.closed_positions: List[Position] = []
+        self.partial_closes: List[Position] = []
         self.trade_count = 0
+        self._limit_queue: dict = {}
 
     def has_position(self, symbol: str) -> bool:
         """Czy jest juz otwarta pozycja na ten symbol."""
         return any(p.symbol == symbol for p in self.positions)
 
+    def _should_park_limit(self, signal: Dict) -> bool:
+        if signal.get("limit_fill_now"):
+            return False
+        if not bool(getattr(config, "DAYTRADING_V2_LIMIT_IN_ZONE", True)):
+            return False
+        if not _is_v2(signal.get("engine")):
+            return False
+        if self.has_position(str(signal.get("symbol") or "")):
+            return False
+        return signal.get("limit_price") is not None
+
+    def _park_limit(self, signal: Dict) -> bool:
+        """Park a V2 limit once.
+
+        Replay keeps the first pending signal until fill/expiry and ignores
+        repeated signals for that symbol.  PAPER must do the same: replacing
+        the row every scan used to move ``deadline`` forever and made the
+        original deadline.
+        """
+        import time as _time
+        sym = str(signal.get("symbol") or "").upper()
+        if sym in self._limit_queue:
+            return False
+        from v2_parity_policy import limit_timeout_seconds
+        timeout_seconds = limit_timeout_seconds()
+        bars = max(1, int(timeout_seconds // 900))
+        self._limit_queue[sym] = {
+            "signal": dict(signal),
+            "limit": float(signal["limit_price"]),
+            "queued_at": _time.time(),
+            "deadline": _time.time() + timeout_seconds,
+        }
+        print(f"[Paper] LIMIT queued {signal.get('direction')} {sym} @ {float(signal['limit_price']):.6f} timeout={bars}×15m")
+        return True
+
+    def has_pending_limit(self, symbol: str) -> bool:
+        return str(symbol or "").upper() in self._limit_queue
+
+    def pending_limit_orders(self, now: float = None) -> List[Dict]:
+        """Serializable snapshot for state/UI; pending orders are not positions."""
+        import time as _time
+        now = _time.time() if now is None else float(now)
+        rows = []
+        for sym, row in self._limit_queue.items():
+            sig = row.get("signal") or {}
+            rows.append({
+                "symbol": sym,
+                "direction": sig.get("direction"),
+                "limit_price": float(row["limit"]),
+                "queued_at": float(row.get("queued_at") or 0.0),
+                "deadline": float(row["deadline"]),
+                "seconds_remaining": max(0.0, float(row["deadline"]) - now),
+                "strength": sig.get("strength"),
+                "expected_net_r": sig.get("expected_net_r"),
+                "engine": sig.get("engine"),
+            })
+        return sorted(rows, key=lambda item: (item["deadline"], item["symbol"]))
+
+    def process_limit_queue(self, prices: Dict, now: float = None) -> List[Position]:
+        """Fill a planned retest limit or cancel it after expiry.
+
+        Brak retestu nie jest zgoda na pozniejsze wejscie market. Taki
+        fallback gonil cene i byl bezposrednim zrodlem spoznionych wejsc.
+        """
+        import time as _time
+        now = _time.time() if now is None else float(now)
+        opened: List[Position] = []
+        for sym, row in list(self._limit_queue.items()):
+            sig = dict(row["signal"])
+            limit = float(row["limit"])
+            px = prices.get(sym) or prices.get(sym.replace("-USDT", ""))
+            try:
+                px = float(px) if px is not None else None
+            except (TypeError, ValueError):
+                px = None
+            tagged = False
+            if px is not None:
+                from v2_parity_policy import limit_touched
+                tagged = limit_touched(sig.get("direction"), limit, price=px) is not None
+            if tagged:
+                sig["price"] = limit
+                sig["limit_fill_now"] = True
+                sig["fill_kind"] = "limit"
+            elif now >= float(row["deadline"]):
+                self._limit_queue.pop(sym, None)
+                try:
+                    self.risk.log_reject(
+                        sym, sig.get("direction"), sig.get("strength"),
+                        "V2_LIMIT_EXPIRED_NO_FILL", signal=sig,
+                    )
+                except Exception:
+                    pass
+                print(f"[Paper] LIMIT expired {sig.get('direction')} {sym} @ {limit:.6f} — no chase")
+                continue
+            else:
+                continue
+            self._limit_queue.pop(sym, None)
+            pos = self.open_position(sig)
+            if pos:
+                opened.append(pos)
+        return opened
+
     def open_position(self, signal: Dict) -> Optional[Position]:
+        try:
+            from universe_policy import crypto_perpetual_allowed
+            if not crypto_perpetual_allowed(signal.get("symbol") or "", signal):
+                self.risk.log_reject(signal.get("symbol"), signal.get("direction"),
+                                     signal.get("strength"), "NON_CRYPTO_INSTRUMENT", signal=signal)
+                return None
+        except Exception as e:
+            print(f"[Universe] policy unavailable: {e}")
+            return None
         try:
             price = float(signal.get("price"))
             strength = float(signal.get("strength"))
@@ -742,7 +1149,7 @@ class PaperTrader:
         same = [p for p in self.positions if p.symbol == signal.get("symbol")]
         if same:
             if _is_v2(signal.get("engine") or signal.get("strategy_mode")):
-                max_n = max(1, int(getattr(config, "DAYTRADING_V2_MAX_ENTRIES_PER_SWING", 2)))
+                max_n = max(1, int(getattr(config, "DAYTRADING_V2_MAX_ENTRIES_PER_SWING", 1)))
                 same_dir = [p for p in same if p.direction == signal.get("direction")]
                 if len(same_dir) >= max_n or any(p.direction != signal.get("direction") for p in same):
                     return None
@@ -762,9 +1169,6 @@ class PaperTrader:
         try:
             from instrument_registry import InstrumentRegistry
             reg = getattr(Position, "_shared_registry", None)
-            if reg is None:
-                reg = InstrumentRegistry()
-                Position._shared_registry = reg
             px = float(signal.get("price") or 0)
             if px > 0 and reg is not None:
                 conv = reg.notional_to_contracts(
@@ -773,6 +1177,8 @@ class PaperTrader:
                 )
                 if conv.get("ok"):
                     actual = float(conv.get("actual_notional_usd") or size)
+                    if actual <= 0:
+                        actual = size
         except Exception:
             actual = size
         signal["_planned_notional"] = actual
@@ -807,6 +1213,15 @@ class PaperTrader:
             print(f"[Open skip] {signal.get('symbol')} size=${size:.4f} too small")
             return None
 
+        # Limit wolno zaparkować dopiero po sizingu i kompletnym risk gate.
+        # Wcześniej kolejka powstawała przed can_open_position(), przez co
+        # ujemny Expected Net R był widoczny jako aktywne LIMIT_PENDING.
+        # Fill zostanie sprawdzony ponownie z bieżącymi kosztami i ryzykiem.
+        if self._should_park_limit(signal):
+            self.entry_reservations.release(signal.get("symbol"), engine_name)
+            self._park_limit(signal)
+            return None
+
         try:
             from decision_telemetry import decision_snapshot
             decision_snapshot(signal, "ACCEPT", "PAPER_OPEN")
@@ -816,19 +1231,41 @@ class PaperTrader:
         pos = Position(signal, size)
         with self.lock:
             self.positions.append(pos)
+        if _is_v2(signal.get("engine")):
+            swing_end = (((signal.get("swing") or {}).get("end") or {}).get("index"))
+            engine = getattr(self, "v2_engine", None)
+            if engine is not None and swing_end is not None and hasattr(engine, "notify_entry_fill"):
+                engine.notify_entry_fill(signal.get("symbol"), int(swing_end))
         self.entry_reservations.release(signal.get("symbol"), engine_name)
         # 8. actual-fill recalculation (paper: entry already = exec after spread)
         try:
             pos.recalculate_after_fill(pos.entry_price, pos.size_usd, risk_manager=self.risk)
             if getattr(pos, "risk_invariant_ok", True) is False:
                 reason = getattr(pos, "risk_invariant_reason", "RISK_INVARIANT_FAIL")
-                print(f"[Fill] INVARIANT FAIL {pos.symbol}: {reason} -> close")
-                self.close_position(pos, pos.entry_price, f"RISK_INVARIANT_FAIL:{reason}")
+                print(f"[Fill] VOID {pos.symbol}: {reason} (bez straty, bez cooldown)")
+                with self.lock:
+                    if pos in self.positions:
+                        self.positions.remove(pos)
                 return None
         except Exception as e:
             print(f"[Fill] recalc skip: {e}")
         self.risk.register_open()
         self.trade_count += 1
+        # Pelny lifecycle w jednym CSV: ACCEPT nie zastępuje zdarzenia OPEN.
+        try:
+            if self.logger:
+                self.logger.log_event(
+                    "OPEN", pos.symbol, pos.direction, pos.entry_price,
+                    pos.size_usd, 0.0, 0.0, pos.strength,
+                    list(pos.reasons or [])[:8] + [
+                        f"position_id={pos.id}",
+                        f"sl={float(pos.sl_price):.8g}",
+                        f"tp1={float(pos.tp1_price):.8g}" if pos.tp1_price else "tp1=none",
+                        f"slip_rt={float(pos.slip_rt or 0):.6f}",
+                    ], self.risk.current_capital,
+                )
+        except Exception as e:
+            print(f"[Paper] log OPEN: {e}")
 
         # Etap 2: uzbrój ochronę (exchange SL gdy LIVE, zawsze lokalny SL)
         if self.protection:
@@ -843,10 +1280,14 @@ class PaperTrader:
                     bool(getattr(config, "EXCHANGE_TP_ENABLED", False))
                     and not getattr(config, "NO_HARD_TP", True)
                 )
+                sl_attach = pos.sl_price
+                if _is_v2(getattr(pos, "engine", None)) and not bool(getattr(config, "DAYTRADING_V2_ENTRY_SL", False)):
+                    sl_attach = None
+                    pos.exchange_sl_planned = False
                 self.protection.attach_protection(
                     symbol=pos.symbol,
                     direction=pos.direction,
-                    sl_price=pos.sl_price,
+                    sl_price=sl_attach,
                     tp_price=pos.tp_price if use_tp else None,
                     size_contracts=getattr(pos, "size_contracts", None),
                     entry_price=pos.entry_price,
@@ -855,7 +1296,10 @@ class PaperTrader:
                 print(f"[Protect] attach error: {e}")
 
         print(f"[Paper] OTWARTO {pos.direction} {pos.symbol}")
-        print(f"         Entry: ${pos.entry_price:.6f} | Size: ${size:.2f} | Strength: {pos.strength:.2f}")
+        str_bit = "" if getattr(pos, "engine", "") in ("daytrading_v2", "daytrading") and str(getattr(pos, "engine", "")).endswith("v2") else f" | Strength: {pos.strength:.2f}"
+        if str(getattr(pos, "engine", "") or "").lower() in ("daytrading_v2", "daytradingv2"):
+            str_bit = ""
+        print(f"         Entry: ${pos.entry_price:.6f} | Size: ${size:.2f}{str_bit}")
         print(f"         TP: ${pos.tp_price:.6f} | SL: ${pos.sl_price:.6f}")
         print(
             f"         Margin: ${pos.margin:.4f} ({getattr(pos, 'margin_mode', 'isolated')}) "
@@ -903,6 +1347,19 @@ class PaperTrader:
             else:
                 pos._mtf_aligned = False
 
+            # Żywy ATR z bieżącego skanu (fail-open: zostaje poprzedni / z wejścia)
+            sig_any = all_signal_map.get(pos.symbol)
+            if sig_any:
+                atr_now = sig_any.get("atr")
+                try:
+                    if atr_now is not None and float(atr_now) > 0:
+                        pos.live_atr = float(atr_now)
+                    atr_pct_now = sig_any.get("atr_pct")
+                    if atr_pct_now is not None:
+                        pos.atr_pct = float(atr_pct_now)
+                except (TypeError, ValueError):
+                    pass
+
             pos.update_pnl(current_price)
 
             # 0. Emergency local protection (failsafe nawet przy exchange SL)
@@ -917,8 +1374,32 @@ class PaperTrader:
                 except Exception:
                     pass
 
-            # 1. TP / SL / Trailing (R:R partial stages)
-            reason = pos.check_tp_sl(current_price)
+            # 1. Jeden lifecycle V2 dla runtime i replay. Pozostałe silniki
+            # zachowują swój dotychczasowy adapter.
+            v2_decision = pos.decide_v2_exit(current_price, all_signal_map.get(pos.symbol)) if _is_v2(pos.engine) else None
+            if v2_decision and v2_decision.action == "tp1":
+                self.partial_close(pos, float(v2_decision.price), reason="partial_tp1")
+                pos.partial_tp1_done = True
+                pos.partial_taken = True
+                if v2_decision.new_sl is not None:
+                    pos.sl_price = float(v2_decision.new_sl)
+                    pos.breakeven_active = True
+                    pos._sync_exchange_trailing_sl()
+                continue
+            if v2_decision and v2_decision.action == "tp2":
+                self.partial_close(pos, float(v2_decision.price), reason="partial_tp2")
+                pos.partial_tp2_done = True
+                pos.partial_taken = True
+                pos.trailing_active = True
+                if v2_decision.new_sl is not None:
+                    pos.sl_price = float(v2_decision.new_sl)
+                    pos._sync_exchange_trailing_sl()
+                continue
+            if v2_decision and v2_decision.action:
+                to_close.append((pos, float(v2_decision.price or current_price), v2_decision.action))
+                continue
+
+            reason = None if _is_v2(pos.engine) else pos.check_tp_sl(current_price)
             if reason == "partial_tp":
                 stage = int(getattr(pos, "_partial_stage", 1) or 1)
                 if stage >= 2:
@@ -937,10 +1418,10 @@ class PaperTrader:
                 to_close.append((pos, current_price, reason))
                 continue
 
-            if pos.daytrading_time_stop_due(current_price):
+            if not _is_v2(pos.engine) and pos.daytrading_time_stop_due(current_price):
                 to_close.append((pos, current_price, "day_time_stop"))
                 continue
-            if pos.daytrading_hard_time_stop_due():
+            if not _is_v2(pos.engine) and pos.daytrading_hard_time_stop_due():
                 to_close.append((pos, current_price, "day_hard_time_stop"))
                 continue
             if _is_v2(getattr(pos, "engine", None)):
@@ -973,7 +1454,7 @@ class PaperTrader:
                         continue
 
             # 2. Przeciwny silny sygnal / ST / HTF V1
-            # V2: 15m opposite NIE zamyka — tylko 1D/4h przez v2_htf_invalidation
+            # V2: 15m opposite NIE zamyka. 4H/1D też nie (EXIT_ON_HTF_REVERSAL=False).
             if _is_v2(getattr(pos, "engine", None)):
                 continue
             if pos.symbol in signal_map:
@@ -1074,9 +1555,10 @@ class PaperTrader:
                 close_size, pos.entry_price, exit_price, pos.direction,
                 leverage=pos.leverage,
                 funding_paid=fund_part,
-                entry_side="taker",
+                entry_side=getattr(pos, "entry_side", "taker"),
                 exit_side="taker",
                 include_slippage=True,
+                slip_frac=getattr(pos, "slip_rt", None),
             )
             # partial: entry fee już „zapłacone” przy open całej pozycji –
             # licz exit fee + slip + pro-rata funding; entry fee proporcjonalnie
@@ -1115,6 +1597,9 @@ class PaperTrader:
             except (TypeError, ValueError):
                 pass
         pos.funding_paid = fund_total - fund_part
+        pos.partial_realized_pnl = float(getattr(pos, "partial_realized_pnl", 0.0) or 0.0) + pnl
+        pos.partial_realized_fees = float(getattr(pos, "partial_realized_fees", 0.0) or 0.0) + fees
+        pos.partial_realized_funding = float(getattr(pos, "partial_realized_funding", 0.0) or 0.0) + fund_part
         pos.partial_taken = True
         # Trailing: po TP2 (reversal) albo od razu (trend single partial)
         stage = int(getattr(pos, "partial_stage", 0) or 0)
@@ -1142,8 +1627,7 @@ class PaperTrader:
         hist.exit_price = exit_price
         hist.exit_time = datetime.now()
         hist.status = "PARTIAL"
-        self.closed_positions.append(hist)
-        self.trade_count += 1
+        self.partial_closes.append(hist)
 
         print(f"[Paper] PARTIAL TP {pos.direction} {pos.symbol} | {pct*100:.0f}% @ ${exit_price:.6f}")
         print(f"         PnL czesci: ${pnl:+.4f} ({pnl_pct:+.2f}%) | zostaje size ${remain:.2f} + trailing")
@@ -1152,6 +1636,16 @@ class PaperTrader:
             alert_partial(pos.symbol, pct, pnl)
         except Exception:
             pass
+        try:
+            if self.logger:
+                self.logger.log_event(
+                    "PARTIAL", pos.symbol, pos.direction, exit_price,
+                    close_size, pnl, pnl_pct, pos.strength,
+                    [f"position_id={pos.id}", f"stage={stage}", f"reason={reason}"],
+                    self.risk.current_capital,
+                )
+        except Exception as e:
+            print(f"[Paper] log PARTIAL: {e}")
         return pnl
 
     def close_by_symbol(self, symbol: str, price_map: dict = None, reason: str = "manual") -> Optional[float]:
@@ -1173,19 +1667,28 @@ class PaperTrader:
 
     def close_position(self, pos: Position, exit_price: float, reason: str):
 
-        pnl = pos.close(exit_price, reason)
+        final_leg_pnl = pos.close(exit_price, reason)
+        pnl = float(final_leg_pnl) + float(getattr(pos, "partial_realized_pnl", 0.0) or 0.0)
+        pos.final_leg_pnl = float(final_leg_pnl)
+        pos.pnl = pnl
+        original_size = float(getattr(pos, "original_size", 0.0) or 0.0)
+        if original_size > 0:
+            pos.pnl_pct = pnl / original_size * max(float(getattr(pos, "leverage", 1) or 1), 1.0) * 100.0
+        pos.fees_paid = float(getattr(pos, "fees_paid", 0.0) or 0.0) + float(
+            getattr(pos, "partial_realized_fees", 0.0) or 0.0
+        )
         if pos in self.positions:
             self.positions.remove(pos)
         self.closed_positions.append(pos)
         self.risk.register_close(getattr(pos, "symbol", None), pnl=pnl, engine=getattr(pos, "engine", None))
         if _is_v2(getattr(pos, "engine", None)):
-            mapped = "sl" if reason in ("stop_loss", "trailing_stop", "margin_call") else (
+            mapped = "sl" if reason in ("stop_loss", "margin_call") else (
                 "tp" if "tp" in str(reason) or reason == "take_profit" else (
                 "htf_reversal" if "reversal" in str(reason) else "trailing"))
             try:
                 eng = getattr(self, "v2_engine", None)
                 if eng is not None:
-                    eng.notify_exit(pos.symbol, pos.direction, mapped)
+                    eng.notify_exit(pos.symbol, pos.direction, mapped, pnl=pnl)
             except Exception as e:
                 print(f"[V2] notify_exit: {e}")
         try:
@@ -1209,12 +1712,16 @@ class PaperTrader:
             get_calibrator().update_from_trade(float(getattr(pos, "signal_strength", None) or getattr(pos, "strength", 0) or 0), realized_r)
         except Exception as e:
             print(f"[Calib] update: {e}")
-        if getattr(pos, "engine", None) == "daytrading":
+        if getattr(pos, "engine", None) in ("daytrading", "daytrading_v2"):
             try:
                 from day_expectancy_calibration import get_day_calibrator
                 hit_tp1 = bool(getattr(pos, "partial_tp1_done", False))
                 hit_tp2 = bool(reason == "take_profit" and hit_tp1)
-                get_day_calibrator().record(hit_tp1, hit_tp2)
+                get_day_calibrator().record(
+                    hit_tp1, hit_tp2,
+                    profile=getattr(pos, "v2_profile", None),
+                    regime=getattr(pos, "market_regime", None),
+                )
             except Exception as e:
                 print(f"[DayCalib] update: {e}")
         if self.protection:
@@ -1223,8 +1730,10 @@ class PaperTrader:
             except Exception:
                 pass
 
-        new_capital = self.risk.current_capital + pnl
-        self.risk.update_capital(new_capital, pnl)
+        # Partial legs were credited when they filled. Only the final leg is
+        # booked here; `pnl` is the complete position-level result.
+        new_capital = self.risk.current_capital + final_leg_pnl
+        self.risk.update_capital(new_capital, final_leg_pnl)
 
         label = {
             "take_profit": "TP",
@@ -1246,7 +1755,13 @@ class PaperTrader:
                 self.logger.log_event(
                     "CLOSE", pos.symbol, pos.direction, exit_price,
                     pos.size_usd, pnl, pos.pnl_pct, pos.strength,
-                    list(pos.reasons or [])[:8] + [f"exit={label}"],
+                    list(pos.reasons or [])[:6] + [
+                        f"position_id={pos.id}",
+                        f"exit={label}",
+                        f"gross={float(getattr(pos, 'pnl_gross', 0) or 0):+.6f}",
+                        f"costs={float(getattr(pos, 'fees_paid', 0) or 0):.6f}",
+                        f"funding={float(getattr(pos, 'funding_paid', 0) or 0):+.6f}",
+                    ],
                     self.risk.current_capital,
                 )
         except Exception as e:
@@ -1260,6 +1775,8 @@ class PaperTrader:
                 alert_close(pos.symbol, pos.direction, label, pnl)
         except Exception:
             pass
+
+        return pnl
 
 
 
@@ -1294,16 +1811,24 @@ class PaperTrader:
                 except Exception:
                     pass
                 lev = max(float(getattr(pos, "leverage", 1) or 1), 1.0)
-                # Bufor kosztow: pnl_pct z update_pnl() jest niezrealizowany
-                # (przed prowizja+poslizgiem realizacji), wiec goly ">0" pozwalal
-                # zamykac "na plusie" pozycje, ktore po realnych kosztach
-                # (przy dzwigni) wychodzily na minus - dokladnie odwrotnie niz
-                # zamierzony cel tej funkcji.
-                cost_frac = float(getattr(config, "COMMISSION_RATE", 0.0006) or 0.0006) * 2 \
-                    + float(getattr(config, "SLIPPAGE", 0.0008) or 0.0008)
-                cost_pct_leveraged = cost_frac * lev * 100.0
+                # Ta sama funkcja accounting i ten sam slip_rt co rzeczywisty close.
+                # Nie wolno kwalifikowac zysku statycznym config.SLIPPAGE, gdy fill
+                # uzywa dynamicznego impactu/profilu instrumentu.
+                projected_net = float("-inf")
+                try:
+                    from accounting import realized_pnl
+                    projected_net = float(realized_pnl(
+                        pos.size_usd, pos.entry_price, float(px), pos.direction,
+                        leverage=lev,
+                        funding_paid=getattr(pos, "funding_paid", 0.0) or 0.0,
+                        entry_side=getattr(pos, "entry_side", "taker"),
+                        exit_side="taker", include_slippage=True,
+                        slip_frac=getattr(pos, "slip_rt", None),
+                    )["net_usd"])
+                except Exception as e:
+                    print(f"[STOP] projected net {pos.symbol}: {e}")
                 pnl_pct = float(getattr(pos, "pnl_pct", 0) or 0)
-                if not stale and pnl_pct > cost_pct_leveraged:
+                if not stale and projected_net > 0.0:
                     self.close_position(pos, float(px), "stop_take_profit")
                     closed.append(pos.symbol)
                 else:
@@ -1326,7 +1851,7 @@ class PaperTrader:
                     stale_note = f" [ceny sprzed {price_map_age_s:.0f}s - pominieto decyzje o zamknieciu]" if stale else ""
                     print(
                         f"[STOP] Zostawiam {pos.direction} {pos.symbol} "
-                        f"PnL {pos.pnl_pct:+.2f}% | TP→${pos.tp_price:.6f} (+{take_profit_pct:.0f}% PnL) | SL ${pos.sl_price:.6f}{stale_note}"
+                f"PnL {pos.pnl_pct:+.2f}% | TP->${pos.tp_price:.6f} (+{take_profit_pct:.0f}% PnL) | SL ${pos.sl_price:.6f}{stale_note}"
                     )
         if closed:
             print(f"[STOP] Zamknięto na plusie (po kosztach): {', '.join(closed)}")
@@ -1335,16 +1860,45 @@ class PaperTrader:
         return {"closed_profit": closed, "kept_with_tp": adjusted, "prices_stale": stale}
 
 
-    def close_all(self, price_map: dict, reason: str = "close_all"):
+    def close_all(self, price_map: dict, reason: str = "close_all", price_map_age_s=None):
         with self.lock:
-            return self._close_all_unlocked(price_map, reason)
+            return self._close_all_unlocked(price_map, reason, price_map_age_s)
 
-    def _close_all_unlocked(self, price_map: dict, reason: str = "close_all"):
-        """Zamyka wszystkie otwarte pozycje po aktualnej cenie."""
+    def _close_all_unlocked(self, price_map: dict, reason: str = "close_all",
+                            price_map_age_s=None):
+        """Zamyka wszystkie otwarte pozycje po aktualnej cenie.
+
+        25.08.2026: kill_switch() i close_all() wolaly to bez informacji o
+        wieku mapy cen. Przy zamrozonym feedzie (zaobserwowano 43788 s) ksiega
+        dostawala fill po cenie sprzed godzin, a brak symbolu w mapie ksiegowal
+        PnL = 0 po entry_price - jedno i drugie po cichu. Awaryjne zamkniecie
+        nadal ma sie wykonac, ale ma zostawic slad w powodzie zamkniecia, zeby
+        historia nie udawala normalnej transakcji.
+        """
+        price_map = price_map or {}
+        max_age = float(getattr(config, "STOP_ENGINE_MAX_PRICE_AGE_S", 60.0) or 60.0)
+        try:
+            age = None if price_map_age_s is None else float(price_map_age_s)
+        except (TypeError, ValueError):
+            age = None
+        stale = age is not None and age > max_age
+        # age bywa inf, gdy mapa cen nie zostala ani razu zapisana - int(inf)
+        # rzuca OverflowError, wiec nie wolno go wpuscic do formatowania.
+        age_tag = "NIGDY" if (age is None or age == float("inf")) else f"{int(age)}s"
+        if stale:
+            print(f"[CLOSE_ALL] UWAGA: ceny maja {age_tag} ({max_age:.0f}s limit) - "
+                  f"zamykam mimo to, wyniki oznaczone STALE_PRICE.")
         closed = []
         for pos in list(self.positions):
-            px = price_map.get(pos.symbol) or pos.entry_price
-            pnl = self.close_position(pos, px, reason)
+            px = price_map.get(pos.symbol)
+            tag = reason
+            if px is None or float(px) <= 0:
+                px = pos.entry_price
+                tag = f"{reason}:NO_PRICE"
+                print(f"[CLOSE_ALL] {pos.symbol}: brak ceny w mapie - ksieguje po entry (PnL 0).")
+            elif stale:
+                tag = f"{reason}:STALE_PRICE_{age_tag}"
+            pnl = self.close_position(pos, px, tag)
             closed.append((pos.symbol, pnl))
         return closed
 
@@ -1361,6 +1915,7 @@ class PaperTrader:
         pf = (gp / gl) if gl > 0 else (999.0 if gp > 0 else 0.0)
         longs = [p for p in closed if p.direction == "LONG"]
         shorts = [p for p in closed if p.direction == "SHORT"]
+        breakdowns = [getattr(p, "pnl_breakdown", {}) or {} for p in closed]
         return {
             "trades": len(closed),
             "wins": len(wins),
@@ -1375,6 +1930,11 @@ class PaperTrader:
             "long_pnl": round(sum(p.pnl for p in longs), 4),
             "short_pnl": round(sum(p.pnl for p in shorts), 4),
             "expectancy": round(sum(p.pnl for p in closed) / len(closed), 4) if closed else 0.0,
+            "gross_pnl": round(sum(float(b.get("gross_usd") or 0) for b in breakdowns), 4),
+            "fee_entry": round(sum(float(b.get("fee_entry") or 0) for b in breakdowns), 4),
+            "fee_exit": round(sum(float(b.get("fee_exit") or 0) for b in breakdowns), 4),
+            "slippage": round(sum(float(b.get("slippage") or 0) for b in breakdowns), 4),
+            "funding": round(sum(float(b.get("funding_paid") or 0) for b in breakdowns), 4),
         }
 
     def get_funds_breakdown(self) -> dict:
@@ -1434,6 +1994,11 @@ class PaperTrader:
                 "reasons": list(getattr(p, "reasons", None) or [])[:8],
                 "status": getattr(p, "status", None),
                 "fees": getattr(p, "fees_paid", None),
+                "gross_pnl": (getattr(p, "pnl_breakdown", {}) or {}).get("gross_usd"),
+                "fee_entry": (getattr(p, "pnl_breakdown", {}) or {}).get("fee_entry"),
+                "fee_exit": (getattr(p, "pnl_breakdown", {}) or {}).get("fee_exit"),
+                "slippage": (getattr(p, "pnl_breakdown", {}) or {}).get("slippage"),
+                "funding": (getattr(p, "pnl_breakdown", {}) or {}).get("funding_paid"),
             })
         return list(reversed(rows))
 
@@ -1455,9 +2020,13 @@ class PaperTrader:
                 "direction": p.direction,
                 "entry": p.entry_price,
                 "tp": p.tp_price,
+                "tp1": getattr(p, "tp1_price", None),
+                "tp2": getattr(p, "tp2_price", None),
                 "sl": p.sl_price,
                 "trailing_active": p.trailing_active,
                 "trailing_stop": p.trailing_stop_price,
+                "breakeven_active": bool(getattr(p, "breakeven_active", False)),
+                "pnl_at_stop": p.pnl_at_stop(),
                 "size": p.size_usd,
                 "margin": round(getattr(p, "margin", p.size_usd / max(p.leverage, 1)), 4),
                 "margin_ratio": round(getattr(p, "margin_ratio", 1.0), 3),
@@ -1494,11 +2063,15 @@ class PaperTrader:
                 "reasons": p.reasons,
                 "trailing_active": p.trailing_active,
                 "trailing_stop_price": p.trailing_stop_price,
+                "live_atr": getattr(p, "live_atr", None),
+                "breakeven_active": bool(getattr(p, "breakeven_active", False)),
+                "atr": getattr(p, "atr", None),
                 "highest_price": p.highest_price,
                 "lowest_price": p.lowest_price,
                 "margin_call_price": getattr(p, "margin_call_price", None),
                 "ride_trend": getattr(p, "ride_trend", False),
                 "funding_paid": getattr(p, "funding_paid", 0.0),
+                "slip_rt": getattr(p, "slip_rt", None),
                 "partial_taken": getattr(p, "partial_taken", False),
                 "partial_tp1_done": getattr(p, "partial_tp1_done", False),
                 "partial_tp2_done": getattr(p, "partial_tp2_done", False),
@@ -1535,6 +2108,7 @@ class PaperTrader:
                     "tp_plan": r.get("tp_plan"),
                     "engine": r.get("engine") or "trend",
                     "decision_path": r.get("decision_path"),
+                    "slip_rt": r.get("slip_rt"),
                 }
                 pos = Position(sig, r["size_usd"], r.get("leverage") or config.LEVERAGE)
                 pos.id = r.get("id") or pos.id
@@ -1545,6 +2119,17 @@ class PaperTrader:
                         pass
                 pos.trailing_active = bool(r.get("trailing_active"))
                 pos.trailing_stop_price = r.get("trailing_stop_price")
+                pos.breakeven_active = bool(r.get("breakeven_active"))
+                if r.get("live_atr") is not None:
+                    try:
+                        pos.live_atr = float(r["live_atr"])
+                    except (TypeError, ValueError):
+                        pass
+                if r.get("atr") is not None:
+                    try:
+                        pos.atr = float(r["atr"])
+                    except (TypeError, ValueError):
+                        pass
                 pos.highest_price = r.get("highest_price") or pos.entry_price
                 pos.lowest_price = r.get("lowest_price") or pos.entry_price
                 if r.get("margin_call_price"):
@@ -1554,6 +2139,11 @@ class PaperTrader:
                 pos.size_contracts = r.get("size_contracts", pos.size_contracts)
                 pos.contract_value = r.get("contract_value", pos.contract_value)
                 pos.funding_paid = float(r.get("funding_paid") or 0.0)
+                if r.get("slip_rt") is not None:
+                    try:
+                        pos.slip_rt = float(r["slip_rt"])
+                    except (TypeError, ValueError):
+                        pass
                 pos.partial_taken = bool(r.get("partial_taken"))
                 pos.partial_tp1_done = bool(r.get("partial_tp1_done"))
                 pos.partial_tp2_done = bool(r.get("partial_tp2_done"))

@@ -9,6 +9,7 @@ from blofin_executor import BloFinExecutor
 from order_models import Order, OrderState
 from market_data import aggregate_to_4h, binance_blofin_divergence
 import config
+from unittest.mock import patch
 
 
 class TestReconcileSize(unittest.TestCase):
@@ -18,7 +19,8 @@ class TestReconcileSize(unittest.TestCase):
             {"symbol": "BTC", "direction": "LONG", "size": 2.0}
         ]
         local = [{"symbol": "BTC", "direction": "LONG", "size_contracts": 1.0}]
-        report = rec.reconcile(local)
+        with patch.object(config, "PAPER_TRADING", False):
+            report = rec.reconcile(local)
         self.assertFalse(report["in_sync"])
         self.assertTrue(len(report["size_mismatch"]) >= 1)
         self.assertTrue(report["drift_blocks_entries"])

@@ -91,6 +91,8 @@ class BinancePublicWebSocket:
             pass
 
     def get_price(self, symbol: str, max_age_s: float = 5.0) -> Optional[float]:
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._prices.get(symbol.upper())
         if not row or time.time() - row["local_ts"] > max_age_s:

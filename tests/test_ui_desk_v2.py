@@ -69,13 +69,15 @@ class TestUiDeskV2(unittest.TestCase):
         self.assertIn("self.build_sidebar()", build_src)
         self.assertIn("self.overview, self.markets_workspace,", build_src)
 
-    def test_build_v2_wires_four_pages_into_stack(self):
+    def test_build_v2_wires_six_terminal_pages_into_stack(self):
         self.assertIn("build_v2", self.mainwindow_methods)
         build_v2_src = self.source[self.source.index("    def build_v2(self):"):self.source.index("    def build_top_v2(self) -> QWidget:")]
         self.assertIn("self.desk_page = DeskPage(self)", build_v2_src)
         self.assertIn("self.scan_page = ScanPage(self)", build_v2_src)
-        self.assertIn("self.lab_page = self.analysis_page()", build_v2_src)
-        self.assertIn("self.set_page = self.settings_page()", build_v2_src)
+        self.assertIn("self.lab_page = self.terminal_lab_page()", build_v2_src)
+        self.assertIn("self.replay_page_v2 = self.terminal_replay_page()", build_v2_src)
+        self.assertIn("self.history_page_v2 = self.terminal_history_page()", build_v2_src)
+        self.assertIn("self.set_page = self.terminal_settings_page()", build_v2_src)
 
     def test_nav_buttons_are_checkable_and_auto_exclusive(self):
         top_v2_src = self.source[self.source.index("    def build_top_v2(self) -> QWidget:"):self.source.index("    def _go_v2(self, name: str):")]
@@ -91,7 +93,7 @@ class TestUiDeskV2(unittest.TestCase):
         # osiagalna wylacznie w starym 7-zakladkowym shellu - w UI_DESK_V2
         # (teraz domyslnym) nie dalo sie do niej w ogole dotrzec.
         build_v2_src = self.source[self.source.index("    def build_v2(self):"):self.source.index("    def build_top_v2(self) -> QWidget:")]
-        self.assertIn("self.replay_page_v2 = self.historical_replay_page()", build_v2_src)
+        self.assertIn("self.replay_page_v2 = self.terminal_replay_page()", build_v2_src)
         go_v2_src = self.source[self.source.index("    def _go_v2(self, name: str):"):self.source.index("    def _on_v2_symbol_selected(self, symbol: str):")]
         self.assertIn('"REPLAY": self.replay_page_v2', go_v2_src)
 
@@ -103,8 +105,8 @@ class TestUiDeskV2(unittest.TestCase):
         # settings_page() jest zdefiniowana po control_center_page() w pliku
         # i jest ostatnia metoda buildujaca strone przed pomocniczymi metodami
         # akcji (save_settings itd.) - szukamy od jej naglowka do konca pliku.
-        settings_start = self.source.index("    def settings_page(self):")
-        settings_src = self.source[settings_start:]
+        settings_start = self.source.index("    def terminal_settings_page(self):")
+        settings_src = self.source[settings_start:self.source.index("    def terminal_history_page(self):")]
         self.assertIn("self.account_mode_select = QComboBox()", settings_src)
         self.assertIn('"DEMO (PAPER)", "LIVE (BLOFIN)"', settings_src)
         cc_start = self.source.index("    def control_center_page(self):")
@@ -120,7 +122,7 @@ class TestUiDeskV2(unittest.TestCase):
         desk_start = self.source.index("class DeskPage(QWidget):")
         desk_end = self.source.index("class MainWindow(QMainWindow):")
         desk_src = self.source[desk_start:desk_end]
-        self.assertIn('self.desk_demo_button = QPushButton("●  DEMO"', desk_src)
+        self.assertIn('self.desk_demo_button = QPushButton("●  PAPER"', desk_src)
         self.assertIn('self.desk_live_button = QPushButton("●  LIVE"', desk_src)
         self.assertIn("self.window_.request_dashboard_mode(False)", desk_src)
         self.assertIn("self.window_.request_dashboard_mode(True)", desk_src)
@@ -153,19 +155,20 @@ class TestUiDeskV2(unittest.TestCase):
         # engine_specs w build_top_v2() to teraz jedyne miejsce, z ktorego
         # mozna faktycznie uruchomic analize/handel w layoucie DESK/SCAN/LAB.
         # Zastapilo dawne ukryte menu "..." (_show_v2_menu, usuniete) -
-        # user: "przyciski start, pauza itp moga byc widoczne zeby szybciej
-        # nimi operowac". Start* musza byc obecne, nie tylko stop/pauza.
+        # Główne sterowanie ma dokładnie jeden START i jeden STOP.
         top_v2_src = self.source[self.source.index("    def build_top_v2(self) -> QWidget:"):self.source.index("    def _go_v2(self, name: str):")]
         self.assertIn("engine_specs = [", top_v2_src)
         for label, callback in (
-            ("Start analysis", "self.start_analysis"), ("Start trading", "self.start_trading"),
-            ("Pause", "self.pause"), ("Resume", "self.resume"),
-            ("Stop trading", "self.stop_trading"), ("Stop bot", "self.stop_engine"),
+            ("START BOT", "self.start_trading"),
+            ("STOP BOT", "self.stop_engine"),
             ("Close all", "self.close_all"),
         ):
             self.assertIn(f'"{label}"', top_v2_src)
             self.assertIn(callback, top_v2_src)
         self.assertIn("btn.clicked.connect(slot)", top_v2_src)
+        self.assertNotIn('"Pause"', top_v2_src)
+        self.assertNotIn('"Resume"', top_v2_src)
+        self.assertNotIn('"Stop trading"', top_v2_src)
         self.assertNotIn("_show_v2_menu", top_v2_src)
 
     def test_show_v2_menu_and_stray_menu_button_are_gone(self):
@@ -239,6 +242,12 @@ class TestUiDeskV2(unittest.TestCase):
         for tone in ("loading", "paused", "demo", "live"):
             self.assertIn(f"[tone='{tone}']", self.theme_source)
 
+    def test_terminal_component_styles_are_not_inside_a_qss_comment(self):
+        card_rule = self.theme_source.index("QFrame#Card {{")
+        comment_start = self.theme_source.rfind("/*", 0, card_rule)
+        comment_end = self.theme_source.rfind("*/", 0, card_rule)
+        self.assertGreater(comment_end, comment_start)
+
     def test_full_apply_state_is_gated_by_state_file_mtime_change(self):
         # Spec: "Odswiezanie: tick 1 s tylko ceny i PnL wierszy. Pelny
         # apply_state przy pelnym skanie (15-30 s)." - nie co 1s tyk timera.
@@ -286,22 +295,22 @@ class TestUiDeskV2(unittest.TestCase):
         self.assertIn("self.risk_ring.set_percent((margin / equity * 100.0) if equity > 0 else 0.0)", apply_state_src)
 
     def test_watchlist_panel_wired_into_desk_page(self):
-        # Watchlist musi zyc NAD glownym 3-kolumnowym layoutem (outer =
-        # QVBoxLayout), nie wewnatrz jednej z kolumn - patrz user: "watchlist
-        # zmiejszyc do 4 par" + finalna wersja mockupu "Krypto Terminal
-        # Control Room" (watchlist tiles ponad grid2/grid3).
+        # Pozycje są największym panelem u góry, watchlista jest niżej.
         desk_start = self.source.index("class DeskPage(QWidget):")
         desk_end = self.source.index("class MainWindow(QMainWindow):")
         desk_src = self.source[desk_start:desk_end]
         self.assertIn("outer = QVBoxLayout(self)", desk_src)
-        self.assertIn("self.watchlist_panel = WatchlistPanel()", desk_src)
-        self.assertIn("outer.addWidget(self.watchlist_panel)", desk_src)
-        self.assertIn("outer.addLayout(root, 1)", desk_src)
-        # apply_watchlist_tick() musi byc osobna sciezka od apply_tick()
-        # (ten drugi ma wlasny, dawno ustalony kontrakt: ceny/PnL w tabeli
-        # OTWARTYCH POZYCJI, nie watchlista).
+        self.assertIn("self.watchlist_panel = WatchlistPanel(compact=True)", desk_src)
+        self.assertIn("work_row.addWidget(self.watchlist_panel", desk_src)
+        self.assertIn("market_row.addWidget(positions_card, 72)", desk_src)
+        self.assertIn("outer.addLayout(market_row, 5)", desk_src)
         self.assertIn("def apply_watchlist_tick(self, prices: dict, changes: dict):", desk_src)
         self.assertIn("self.watchlist_panel.apply_tick(prices, changes)", desk_src)
+
+    def test_watchlist_tiles_use_two_by_two_grid(self):
+        panel_src = self.source[self.source.index("class WatchlistPanel(Card):"):self.source.index("class DeskPage(QWidget):")]
+        self.assertIn("grid = QGridLayout()", panel_src)
+        self.assertIn("grid.addWidget(tile, index // 2, index % 2)", panel_src)
 
     def test_data_adapter_has_v2_methods(self):
         adapter_methods = {
@@ -318,15 +327,15 @@ class TestUiDeskV2(unittest.TestCase):
         method_src = self.source[self.source.index("    def candidates(self, limit: int = 8) -> list[dict]:"):self.source.index("    def why_no_trade(self) -> dict:")]
         self.assertIn("risk.can_open_position(dict(row))", method_src)
 
-    def test_desk_page_reuses_existing_market_chart_and_chart_load_task(self):
-        # Spec: "reuzywa istniejace EquityChart/MarketChart/ChartLoadTask,
-        # nie duplikuje ich" - test przeciwko przypadkowej duplikacji logiki
-        # wykresu w nowej klasie.
+    def test_desk_page_sends_chart_to_lab_not_embedded(self):
+        # Control Room: wykres na LAB, DESK nie duplikuje MarketChart.
         desk_page_src = self.source[self.source.index("class DeskPage(QWidget):"):self.source.index("class MainWindow(QMainWindow):")]
-        self.assertIn("self.chart = MarketChart()", desk_page_src)
-        self.assertIn("self.equity_chart = EquityChart()", desk_page_src)
-        self.assertIn("task = ChartLoadTask(feeder, symbol, self._selected_timeframe)", desk_page_src)
-        self.assertNotIn("class MarketChart", desk_page_src)  # nie zdefiniowano drugi raz lokalnie
+        self.assertNotIn("self.chart = MarketChart()", desk_page_src)
+        self.assertNotIn("class MarketChart", desk_page_src)
+        self.assertIn("self.symbol_selected.emit(symbol)", desk_page_src)
+        go = self.source[self.source.index("    def _on_v2_symbol_selected(self, symbol: str):"):self.source.index("    def _on_v2_view_full_analysis(self, symbol: str):")]
+        self.assertIn('self._go_v2("LAB")', go)
+        self.assertIn("self.select_analysis_symbol(symbol)", go)
 
     def test_close_all_button_delegates_to_existing_close_all_method(self):
         desk_page_src = self.source[self.source.index("class DeskPage(QWidget):"):self.source.index("class MainWindow(QMainWindow):")]
@@ -337,6 +346,28 @@ class TestUiDeskV2(unittest.TestCase):
         fill_positions_src = self.source[self.source.index("    def _fill_positions(self, positions: list[dict]):"):self.source.index("    def _fill_candidates(self, candidates: list[dict]):")]
         self.assertIn("profitable = (pnl or 0) > 0", fill_positions_src)
         self.assertIn("theme.LONG if profitable else theme.MUTED", fill_positions_src)
+
+    def test_open_positions_v14_columns_and_sl_markers(self):
+        desk_src = self.source[self.source.index("class DeskPage(QWidget):"):self.source.index("class MainWindow(QMainWindow):")]
+        self.assertIn(
+            '["SYM", "STRONA", "SL", "ZYSK SL", "PNL", "PNL%", "WIEK"]',
+            desk_src,
+        )
+        self.assertIn("def sl_mark(row: dict) -> str:", self.source)
+        self.assertIn('return "▲"', self.source)
+        self.assertIn('return "🔒−"', self.source)
+        self.assertIn('return "↓"', self.source)
+        self.assertIn("pnl_at_stop_value", desk_src)
+        self.assertIn("trailing podniesiony", desk_src)
+
+    def test_control_room_layout_has_session_risk_events(self):
+        desk_src = self.source[self.source.index("class DeskPage(QWidget):"):self.source.index("class MainWindow(QMainWindow):")]
+        self.assertIn('Card("PNL / SESJA")', desk_src)
+        self.assertIn('Card("RYZYKO I KONTO")', desk_src)
+        self.assertIn('Card("EVENTY")', desk_src)
+        self.assertIn('Card("NAJLEPSI KANDYDACI")', desk_src)
+        self.assertIn("data.session_snapshot()", desk_src)
+        self.assertIn("data.desk_events", desk_src)
 
 
 class TestUiScanV2(unittest.TestCase):
@@ -429,7 +460,8 @@ class TestUiScanV2(unittest.TestCase):
         for name in ("ALL", "OPEN", "WAIT", "BLOCK"):
             self.assertIn(f'"{name}"', scan_page_src)
         self.assertIn("self.gate_buttons: dict[str, QPushButton] = {}", scan_page_src)
-        self.assertIn("self.gate_stat_strip = QLabel(", scan_page_src)
+        self.assertIn("self.scan_kpis = {}", scan_page_src)
+        self.assertIn("self.gate_stat_strip.hide()", scan_page_src)
         self.assertIn("def _on_gate_clicked(self, name: str):", scan_page_src)
         self.assertIn("self.proxy.set_gate_filter(name)", scan_page_src)
         # Stat strip liczony z PELNEGO 'rows' (przed proxy filter), nie z
@@ -446,17 +478,16 @@ class TestUiScanV2(unittest.TestCase):
 
 
 class TestUiLabV2(unittest.TestCase):
-    """Testy statyczne dla LAB - krok 5 kolejnosci wdrozenia. LAB reuzywa
-    istniejacy analysis_page() 1:1, zamiast budowac drugi raz od zera
-    (spec: "LAB = przeniesienie istniejacego Analysis Workspace")."""
+    """Testy statyczne samodzielnego widoku terminalowego LAB."""
 
     @classmethod
     def setUpClass(cls):
         cls.source = UI_PATH.read_text(encoding="utf-8")
 
-    def test_lab_page_reuses_existing_analysis_page_not_rebuilt(self):
+    def test_lab_page_is_a_dedicated_terminal_view(self):
         build_v2_src = self.source[self.source.index("    def build_v2(self):"):self.source.index("    def build_top_v2(self) -> QWidget:")]
-        self.assertIn("self.lab_page = self.analysis_page()", build_v2_src)
+        self.assertIn("self.lab_page = self.terminal_lab_page()", build_v2_src)
+        self.assertNotIn("self.lab_page = self.analysis_page()", build_v2_src)
 
     def test_view_full_analysis_uses_existing_select_analysis_symbol(self):
         # Metoda napedzajaca LAB juz istnieje na MainWindow
@@ -495,13 +526,13 @@ class TestUiLabV2(unittest.TestCase):
     # czysto dodatkowych widgetow.
 
     def test_signal_breakdown_card_has_four_mtf_pills(self):
-        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
-        self.assertIn('breakdown = Card("SIGNAL BREAKDOWN")', page_src)
+        page_src = self.source[self.source.index("    def terminal_lab_page(self):"):self.source.index("    def execution_page(self):")]
+        self.assertIn('breakdown = Card("BREAKDOWN SYGNAŁU")', page_src)
         self.assertIn("self.mtf_pills = {}", page_src)
         self.assertIn('for tf in ("15M", "1H", "4H", "1D"):', page_src)
 
     def test_signal_breakdown_has_trend_pill_and_rsi_minibar(self):
-        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
+        page_src = self.source[self.source.index("    def terminal_lab_page(self):"):self.source.index("    def execution_page(self):")]
         self.assertIn("self.indicator_trend_pill = QLabel(", page_src)
         self.assertIn("self.indicator_rsi_bar = MiniBar(theme.CYAN)", page_src)
         self.assertIn("self.indicator_rsi_value = QLabel(", page_src)
@@ -510,7 +541,7 @@ class TestUiLabV2(unittest.TestCase):
         # refresh_analysis() dalej wola labels["mtf"].setText(...)/
         # labels["indicators"].setText(...) bez zadnej zmiany - te QLabel
         # musza wiec dalej istniec (jako ukryte), inaczej KeyError na starcie.
-        page_src = self.source[self.source.index("    def analysis_page(self):"):self.source.index("    def execution_page(self):")]
+        page_src = self.source[self.source.index("    def terminal_lab_page(self):"):self.source.index("    def execution_page(self):")]
         self.assertIn('self.analysis_labels["mtf"] = QLabel(self)', page_src)
         self.assertIn('self.analysis_labels["mtf"].hide()', page_src)
         self.assertIn('self.analysis_labels["indicators"] = QLabel(self)', page_src)
@@ -549,9 +580,9 @@ class TestUiHistoryV2(unittest.TestCase):
         cls.source = UI_PATH.read_text(encoding="utf-8")
 
     def test_history_page_has_kpi_strip_and_search_box(self):
-        page_src = self.source[self.source.index("    def history_page(self):"):self.source.index("    def _filter_history_table(self, text: str) -> None:")]
+        page_src = self.source[self.source.index("    def terminal_history_page(self):"):self.source.index("    def analysis_page(self):")]
         self.assertIn("self.history_kpis = {}", page_src)
-        self.assertIn('for key in ("TRADES (ALL-TIME)", "WIN RATE", "NET PNL"):', page_src)
+        self.assertIn('for key, title in (("TRADES (ALL-TIME)", "TRANSAKCJE"), ("WIN RATE", "WINRATE"), ("NET PNL", "SUMA PNL")):', page_src)
         self.assertIn("self.history_search = QLineEdit()", page_src)
         self.assertIn("self.history_search.textChanged.connect(self._filter_history_table)", page_src)
 
@@ -588,8 +619,8 @@ class TestUiSettingsV2(unittest.TestCase):
         self.assertIn("import version", self.source)
 
     def test_settings_page_has_read_only_risk_card(self):
-        page_src = self.source[self.source.index("    def settings_page(self):"):self.source.index("    def history_page(self):")]
-        self.assertIn('risk_card = Card("RISK LIMITS & SYSTEM · read-only")', page_src)
+        page_src = self.source[self.source.index("    def terminal_settings_page(self):"):self.source.index("    def terminal_history_page(self):")]
+        self.assertIn('risk_card = Card("LIMITY RYZYKA · tylko odczyt")', page_src)
         self.assertIn('getattr(config, "DAILY_LOSS_LIMIT", 0)', page_src)
         self.assertIn('getattr(config, "MAX_POSITIONS", 0)', page_src)
         self.assertIn("getattr(config, 'LEVERAGE', ", page_src)
@@ -600,17 +631,14 @@ class TestUiSettingsV2(unittest.TestCase):
         # Te wartosci NIE sa w settings_store.DEFAULTS - musza zostac
         # jawnie tylko-do-odczytu (QLabel), nie edytowalnym polem (self.
         # _settings_fields), zeby nie sugerowac falszywej edytowalnosci.
-        page_src = self.source[self.source.index('risk_card = Card("RISK LIMITS & SYSTEM · read-only")'):self.source.index("cards = QGridLayout()")]
+        page_src = self.source[self.source.index('risk_card = Card("LIMITY RYZYKA · tylko odczyt")'):self.source.index("cards = QGridLayout()")]
         self.assertNotIn("self._settings_fields[", page_src)
         self.assertIn('QLabel(percent(-daily_loss_pct, 1, False), objectName="V2Mono")', page_src)
 
     def test_margin_per_position_derived_from_max_positions_not_hardcoded(self):
-        # "Max margin / pozycje" nie jest osobna stala w config.py - to
-        # 100/MAX_POSITIONS (patrz komentarz przy RISK_PER_TRADE: "legacy;
-        # sizing = kapital / MAX_POSITIONS"). Test pilnuje, zeby to zostalo
-        # policzone, a nie zmyslone jako staly tekst.
-        page_src = self.source[self.source.index('risk_card = Card("RISK LIMITS & SYSTEM · read-only")'):self.source.index("cards = QGridLayout()")]
-        self.assertIn("per_position_pct = (100.0 / max_positions) if max_positions else 0.0", page_src)
+        page_src = self.source[self.source.index('risk_card = Card("LIMITY RYZYKA · tylko odczyt")'):self.source.index("cards = QGridLayout()")]
+        self.assertIn("DAYTRADING_V2_MARGIN_PCT_FIXED", page_src)
+        self.assertIn("v2_margin", page_src)
 
 
 if __name__ == "__main__":

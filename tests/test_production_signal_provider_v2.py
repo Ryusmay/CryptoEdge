@@ -130,8 +130,8 @@ class TestProductionSignalProviderV2Smoke(unittest.TestCase):
         # Jedna, trwala instancja silnika obsluguje caly ciag wywolan - to
         # ona (nie osobna instancja za kazdym razem) trzyma stan hamulcow
         # czestotliwosci (cooldown, jedno wejscie na swing).
-        self.assertIsInstance(engine._last_exit, dict)
         self.assertIsInstance(engine._consumed_swing_end, dict)
+        self.assertIsInstance(engine._active_swing_key, dict)
 
 
 if __name__ == "__main__":

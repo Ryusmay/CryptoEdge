@@ -31,9 +31,7 @@ Since 19.10.3, the V2 entry gate is less strict than before, based on real PAPER
 
 ### V2 sizing vs. the portfolio risk cap
 
-V2 position size is set from a fixed % of equity as margin (`DAYTRADING_V2_MARGIN_PCT_FIXED`, 5-10% of equity) times leverage, independent of stop-loss distance. Separately, `MAX_PORTFOLIO_OPEN_RISK` (2.5% equity) caps the total dollar risk (notional × SL distance) across open positions. With a wide SL (common in higher-volatility conditions), a single margin-sized V2 trade's own dollar risk could exceed that whole-portfolio cap by itself, so every qualifying signal was rejected regardless of how many other positions were open.
-
-`config.DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE = 1.0` (%) now caps a single V2 trade's dollar risk before it reaches the portfolio check, shrinking the position instead of guaranteeing a reject. If shrinking would put the trade under `MIN_NOTIONAL_USD`, it's rejected cleanly rather than opened undersized. Set this to a very large value (e.g. `100.0`) to disable it and go back to pure margin-based sizing.
+V2 position size is a fixed 7.5% of equity as margin (`DAYTRADING_V2_MARGIN_PCT_FIXED`, range 5–10%) times leverage, independent of stop-loss distance and independent of dummy `strength=0.75`. From 19.25.2 the SL-dollar check `_portfolio_open_risk_ok` is skipped for V2 `capital_pct` (a 3% SL on 75% notional was exhausting the 2.5% portfolio cap on a single empty book). Gross/margin caps stay. `DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE = 0` (off). Set it to e.g. `1.0` if you want the old shrink-to-fit SL$ ceiling.
 
 ## Control Center
 

@@ -7,10 +7,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-MAJOR = 19
-MINOR = 25
+MAJOR = 20
+MINOR = 14
 PATCH = 0
-BUILT = "2026-08-22T02:51:07Z"
+BUILT = "2026-08-26T01:47:27Z"
 
 ROOT = Path(__file__).resolve().parent
 

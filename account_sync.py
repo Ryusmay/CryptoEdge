@@ -59,6 +59,18 @@ class AccountSync:
                 "read_only": True,
             }
 
+        if not bool(getattr(config, "LIVE_SYNC_BALANCE", True)):
+            snap = self.snapshot() or {
+                "mode": "LIVE",
+                "equity": None,
+                "available": None,
+                "source": "live-sync-off",
+                "positions": list(self._last_positions or []),
+                "read_only": True,
+            }
+            snap["source"] = "live-sync-off"
+            return snap
+
         if not self.ready_for_live():
             self._last_error = "Brak kluczy Blofin (Ustawienia → API Key/Secret/Passphrase)"
             return {

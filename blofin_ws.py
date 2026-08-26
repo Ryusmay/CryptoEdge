@@ -23,9 +23,10 @@ wie/nie musi wiedzieć, czy WS w ogóle działa.
 from __future__ import annotations
 
 import json
+import re
 import threading
 import time
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional
 
 try:
     import websocket  # websocket-client
@@ -38,6 +39,94 @@ PUBLIC_WS_URL = "wss://openapi.blofin.com/ws/public"
 _PING_IDLE_SECONDS = 15.0     # < 30s wymagane przez specyfikację Blofin
 _PONG_TIMEOUT_SECONDS = 10.0
 _MAX_ARGS_PER_SUBSCRIBE = 80  # margines ponizej limitu 4096 bajtow/wiadomosc
+_CF_BACKOFF_S = 30.0
+# Polaczenie, ktore przezylo tyle sekund, uznajemy za udane - backoff wraca
+# do 1 s. Bez tego jedna seria bledow podnosila backoff do 30 s na stale i
+# kazdy pozniejszy reconnect kosztowal pol minuty bez cen mimo zdrowej sieci.
+_BACKOFF_RESET_AFTER_S = 60.0
+_CF_MARKED = False
+_WS_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+_WS_ORIGIN = "https://blofin.com"
+
+
+def looks_like_geo_block(error) -> bool:
+    """403 na handshake WSS (Cloudflare). Szablon HTML bywa 'restricted countries',
+    ale to nie jest ban kraju - ten sam IP dziala w przegladarce i na REST."""
+    text = str(error or "")
+    if not text:
+        return False
+    low = text.lower()
+    if "restricted countries" in low or "restricted country" in low:
+        return True
+    if "handshake status 403" in low:
+        return True
+    return False
+
+
+def summarize_handshake_error(error) -> str:
+    """Jedna linia zamiast 5 KB HTML przy kazdym reconnect."""
+    text = str(error or "")
+    status = "?"
+    m = re.search(r"Handshake status (\d+)", text, re.I)
+    if m:
+        status = m.group(1)
+    ray = "?"
+    m = re.search(r"'cf-ray':\s*'([^']+)'", text, re.I)
+    if m:
+        ray = m.group(1)
+    return f"HTTP {status} cf-ray={ray}"
+
+
+def summarize_ws_error(error) -> str:
+    """Skracamy TYLKO handshake (5 KB HTML). Reszte pokazujemy w calosci.
+
+    25.08.2026: wczesniej kazdy blad szedl przez summarize_handshake_error(),
+    ktory dla bledu spoza handshake'u nie trafial zadnym regexem i zwracal
+    "HTTP ? cf-ray=?". Prawdziwa tresc byla wyrzucana, wiec log pokazywal
+    Cloudflare tam, gdzie realnie serwer zamykal polaczenie ramka CLOSE
+    (opcode 8, kod 1000). Diagnoza szla w zla strone.
+    """
+    text = str(error or "")
+    low = text.lower()
+    if "handshake status" in low or "cf-ray" in low:
+        return summarize_handshake_error(error)
+    kind = type(error).__name__ if isinstance(error, BaseException) else ""
+    body = " ".join(text.split())[:300]
+    if kind and body:
+        return f"{kind}: {body}"
+    return kind or body or "brak szczegolow"
+
+
+def ws_handshake_header_sets(ua: Optional[str] = None) -> List[List[str]]:
+    """Warianty handshake. NIGDY Connection/Accept JSON - to naglowki REST.
+    Chrome na Upgrade wysyla Connection: Upgrade (doklada biblioteka).
+    Restowe `Connection: keep-alive` psuje handshake (RFC 6455) i CF 403."""
+    ua = ua or _WS_UA
+    return [
+        [
+            f"User-Agent: {ua}",
+            f"Origin: {_WS_ORIGIN}",
+            "Accept-Language: en-US,en;q=0.9,pl;q=0.8",
+            "Cache-Control: no-cache",
+            "Pragma: no-cache",
+        ],
+        [f"User-Agent: {ua}", f"Origin: {_WS_ORIGIN}"],
+        [f"User-Agent: {ua}"],
+    ]
+
+
+def _headers_are_ws_safe(headers: List[str]) -> bool:
+    for raw in headers or []:
+        key = raw.split(":", 1)[0].strip().lower()
+        if key == "connection":
+            return False
+        if key == "accept" and "json" in raw.lower():
+            return False
+    return True
 
 
 def _chunk(seq: list, size: int):
@@ -67,6 +156,9 @@ class BlofinPublicWebSocket:
         self._last_message_ts = 0.0
         self._subscribed_symbols: set = set()
         self._subscribed_candle_pairs: set = set()  # {(symbol, bar)}
+        self._geo_blocked = False
+        self._geo_reason = ""
+        self._handshake_variant = 0
 
     @property
     def available(self) -> bool:
@@ -121,6 +213,8 @@ class BlofinPublicWebSocket:
             self._send_subscribe_candles(new_pairs)
 
     def get_price(self, symbol: str, max_age_s: float = 5.0) -> Optional[float]:
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._prices.get(symbol.upper())
         if not row or "local_ts" not in row or time.time() - row["local_ts"] > max_age_s:
@@ -128,6 +222,8 @@ class BlofinPublicWebSocket:
         return row.get("last")
 
     def get_ticker(self, symbol: str, max_age_s: float = 5.0) -> Optional[dict]:
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._prices.get(symbol.upper())
         if not row or "local_ts" not in row or time.time() - row["local_ts"] > max_age_s:
@@ -135,6 +231,8 @@ class BlofinPublicWebSocket:
         return dict(row)
 
     def get_mark_price(self, symbol: str, max_age_s: float = 5.0) -> Optional[float]:
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._prices.get(symbol.upper())
         if not row or "mark_price_local_ts" not in row or time.time() - row["mark_price_local_ts"] > max_age_s:
@@ -142,6 +240,8 @@ class BlofinPublicWebSocket:
         return row.get("mark_price")
 
     def get_order_book_top(self, symbol: str, max_age_s: float = 5.0) -> Optional[dict]:
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._prices.get(symbol.upper())
         if not row or "book_local_ts" not in row or time.time() - row["book_local_ts"] > max_age_s:
@@ -155,6 +255,8 @@ class BlofinPublicWebSocket:
     def get_live_candle(self, symbol: str, bar: str, max_age_s: float = 5.0) -> Optional[dict]:
         """Aktualna (moze wciaz trwac) swieca - NIE do wskaznikow, tylko do
         podgladu/monitoringu. Do wskaznikow uzyj get_last_closed_candle()."""
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._candles.get((symbol.upper(), bar))
         if not row or time.time() - row["local_ts"] > max_age_s:
@@ -167,6 +269,8 @@ class BlofinPublicWebSocket:
         serii z REST/cache w fetch_klines_ohlcv(). Domyslny max_age_s wiekszy
         niz get_live_candle(), bo zamkniecie bara to rzadkie zdarzenie (raz
         na caly bar), nie cos co powinno "wygasac" po kilku sekundach."""
+        if max_age_s <= 0:
+            return None
         with self._lock:
             row = self._last_closed_candles.get((symbol.upper(), bar))
         if not row or time.time() - row["local_ts"] > max_age_s:
@@ -175,6 +279,25 @@ class BlofinPublicWebSocket:
 
     def is_connected(self) -> bool:
         return self._connected
+
+    def is_cf_blocked(self) -> bool:
+        return bool(self._geo_blocked)
+
+    def is_geo_blocked(self) -> bool:
+        return self.is_cf_blocked()
+
+    def _mark_geo_blocked(self, error) -> None:
+        global _CF_MARKED
+        self._geo_blocked = True
+        self._geo_reason = str(error or "")[:240]
+        if _CF_MARKED:
+            return
+        _CF_MARKED = True
+        print(
+            "[BlofinWS] CF-403 na WSS — to nie 429 i nie ban PL. "
+            "Przeglądarka/REST mogą działać. Handshake bez Connection: keep-alive "
+            "(wcześniej szły nagłówki REST i psuły Upgrade)."
+        )
 
     def snapshot(self) -> Dict[str, dict]:
         with self._lock:
@@ -185,30 +308,68 @@ class BlofinPublicWebSocket:
     def _run_forever(self) -> None:
         backoff = 1.0
         while self._running:
+            attempt_started = time.time()
             try:
                 self._connect_once()
             except Exception as e:
                 print(f"[BlofinWS] błąd połączenia: {e}")
+                try:
+                    from feed_log import note
+                    note("BlofinWS", "connect", e)
+                except Exception:
+                    pass
+                if looks_like_geo_block(e):
+                    self._mark_geo_blocked(e)
             self._connected = False
             if not self._running:
                 break
-            time.sleep(min(backoff, 30.0))
+            if time.time() - attempt_started >= _BACKOFF_RESET_AFTER_S:
+                backoff = 1.0
+            wait = _CF_BACKOFF_S if self._geo_blocked else min(backoff, 30.0)
+            time.sleep(wait)
             backoff = min(backoff * 2, 30.0)
+            if self._geo_blocked:
+                self._handshake_variant += 1
 
     def _connect_once(self) -> None:
+        sets = ws_handshake_header_sets()
+        header = sets[self._handshake_variant % len(sets)]
+        sslopt = None
+        try:
+            import blofin_feed as _bf
+            sslopt = {"context": _bf._ssl_context()}
+            ua = getattr(_bf, "_BROWSER_UA", None)
+            if ua:
+                sets = ws_handshake_header_sets(ua)
+                header = sets[self._handshake_variant % len(sets)]
+        except Exception as e:
+            try:
+                from feed_log import note
+                note("BlofinWS", "ssl/UA handshake setup", e)
+            except Exception:
+                pass
+        if not _headers_are_ws_safe(header):
+            header = [f"User-Agent: {_WS_UA}"]
+        names = ",".join(h.split(":", 1)[0] for h in header)
+        print(f"[BlofinWS] handshake variant={self._handshake_variant % len(sets)} headers={names}")
         self._ws = websocket.WebSocketApp(
             PUBLIC_WS_URL,
+            header=header,
             on_open=self._on_open,
             on_message=self._on_message,
             on_error=self._on_error,
             on_close=self._on_close,
         )
-        # ping_interval=0: wlasny mechanizm ping wg specyfikacji Blofin
-        # (string 'ping', nie ramka protokolu WS), nie wbudowany w bibliotece.
-        self._ws.run_forever(ping_interval=0)
+        # ping_interval=0: wlasny ping (string 'ping'), nie ramka protokolu.
+        # origin NIE tu - jest w header. run_forever(origin=) dublowalby Origin.
+        kwargs = {"ping_interval": 0}
+        if sslopt:
+            kwargs["sslopt"] = sslopt
+        self._ws.run_forever(**kwargs)
 
     def _on_open(self, ws) -> None:
         self._connected = True
+        self._geo_blocked = False
         self._last_message_ts = time.time()
         print("[BlofinWS] połączono")
         if self._subscribed_symbols:
@@ -285,6 +446,19 @@ class BlofinPublicWebSocket:
                 "local_ts": time.time(),
             })
             self._prices[symbol] = existing
+        try:
+            from market_store import STORE
+            STORE.set_tickers({
+                symbol: {
+                    "symbol": symbol,
+                    "price": last,
+                    "blofin_price": last,
+                    "blofin_bid": existing.get("bid"),
+                    "blofin_ask": existing.get("ask"),
+                }
+            }, from_ws=True)
+        except Exception:
+            pass
 
     def _store_candle(self, inst_id, bar: str, row) -> None:
         # Format wg dokumentacji Blofin: [ts, open, high, low, close, vol, volCcy, volCcyQuote]
@@ -354,7 +528,14 @@ class BlofinPublicWebSocket:
             self._prices[symbol] = existing
 
     def _on_error(self, ws, error) -> None:
-        print(f"[BlofinWS] błąd: {error}")
+        print(f"[BlofinWS] błąd: {summarize_ws_error(error)}")
+        try:
+            from feed_log import note
+            note("BlofinWS", "on_error", error)
+        except Exception:
+            pass
+        if looks_like_geo_block(error):
+            self._mark_geo_blocked(error)
 
     def _on_close(self, ws, status_code, msg) -> None:
         self._connected = False

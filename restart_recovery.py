@@ -14,6 +14,19 @@ from typing import Optional, Dict, Any, List
 import config
 
 
+# UI "Close all" zostawia KILL_SWITCH + protection_state.json.
+# W PAPER to leftover po przycisku, nie operator halt — zdejmujemy przy starcie.
+# LIVE i reason=operator zostają.
+_PAPER_UI_STOP_REASONS = frozenset({"manual_close_all"})
+
+
+def _is_paper_ui_stop_kill(reason: str) -> bool:
+    raw = str(reason or "").strip().lower()
+    if raw.startswith("kill_switch:"):
+        raw = raw.split(":", 1)[1].strip()
+    return raw in _PAPER_UI_STOP_REASONS
+
+
 class RestartRecovery:
     def __init__(
         self,
@@ -45,25 +58,11 @@ class RestartRecovery:
             "protection_rearmed": 0,
             "reconcile": None,
             "kill_switch": False,
+            "paper_ui_stop_cleared": False,
             "errors": [],
         }
 
-        # 1) Kill switch file?
-        try:
-            kill_path = Path(__file__).resolve().parent / "KILL_SWITCH"
-            if kill_path.exists() and self.protection:
-                self.protection.kill_switch_active = True
-                self.protection.kill_reason = kill_path.read_text(encoding="utf-8").strip() or "file"
-                report["kill_switch"] = True
-                if self.risk:
-                    self.risk.is_halted = True
-                    self.risk.halt_reason = f"KILL_SWITCH: {self.protection.kill_reason}"
-                    self.risk.paused = True
-                print(f"[Recovery] KILL SWITCH aktywny z pliku: {self.protection.kill_reason}")
-        except Exception as e:
-            report["errors"].append(f"kill_file: {e}")
-
-        # 2) Protection state
+        # 1) Protection state (JSON) — kill + attachmenty
         if self.protection:
             try:
                 self.protection.load_state()
@@ -71,7 +70,52 @@ class RestartRecovery:
             except Exception as e:
                 report["errors"].append(f"protect_load: {e}")
 
-        # 3) Pozycje lokalne – już zwykle z load_previous_state w app.py
+        # 2) Plik KILL_SWITCH nadpisuje JSON (operator drop-file)
+        from_file = False
+        try:
+            kill_path = Path(__file__).resolve().parent / "KILL_SWITCH"
+            if kill_path.exists() and self.protection:
+                self.protection.kill_switch_active = True
+                self.protection.kill_reason = kill_path.read_text(encoding="utf-8").strip() or "file"
+                from_file = True
+                report["kill_switch"] = True
+        except Exception as e:
+            report["errors"].append(f"kill_file: {e}")
+
+        # 3) PAPER leftover Close-All ≠ disaster halt. Operator/LIVE zostaje.
+        paper = getattr(config, "PAPER_TRADING", True)
+        if isinstance(paper, str):
+            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
+        paper = bool(paper)
+        if self.protection and (
+            getattr(self.protection, "kill_switch_active", False)
+            or (hasattr(self.protection, "is_killed") and self.protection.is_killed())
+        ):
+            reason = str(getattr(self.protection, "kill_reason", None) or "")
+            if paper and _is_paper_ui_stop_kill(reason):
+                try:
+                    self.protection.clear_kill_switch()
+                except Exception as e:
+                    report["errors"].append(f"paper_kill_clear: {e}")
+                report["kill_switch"] = False
+                report["paper_ui_stop_cleared"] = True
+                if self.risk:
+                    hr = str(getattr(self.risk, "halt_reason", None) or "")
+                    if (not hr) or ("KILL_SWITCH" in hr.upper() and _is_paper_ui_stop_kill(hr)):
+                        self.risk.is_halted = False
+                        self.risk.halt_reason = None
+                        self.risk.paused = False
+                print("[Recovery] PAPER: zdjęto leftover Close-All (manual_close_all) — handel dozwolony")
+            else:
+                report["kill_switch"] = True
+                if self.risk:
+                    self.risk.is_halted = True
+                    self.risk.paused = True
+                    self.risk.halt_reason = f"KILL_SWITCH: {reason or 'file'}"
+                src = "z pliku" if from_file else "z protection_state"
+                print(f"[Recovery] KILL SWITCH aktywny {src}: {reason or 'file'}")
+
+        # 4) Pozycje lokalne – już zwykle z load_previous_state w app.py
         if self.trader:
             report["positions_restored"] = len(getattr(self.trader, "positions", []) or [])
 
@@ -153,12 +197,14 @@ class RestartRecovery:
                         except (TypeError, ValueError):
                             pass
                     if sl is not None:
+                        reattach_ex = bool(getattr(config, "RECOVERY_REATTACH_EXCHANGE_SL", True))
                         self.protection.attach_protection(
                             symbol=sym,
                             direction=direction,
                             sl_price=sl,
                             size_contracts=contracts if contracts > 0 else None,
                             entry_price=float(entry) if entry else None,
+                            place_exchange=reattach_ex,
                         )
                         report["protection_rearmed"] += 1
                 except Exception as e:
@@ -188,12 +234,14 @@ class RestartRecovery:
                         continue
                     sl = getattr(pos, "sl_price", None)
                     if sl is not None:
+                        reattach_ex = bool(getattr(config, "RECOVERY_REATTACH_EXCHANGE_SL", True))
                         self.protection.attach_protection(
                             symbol=sym,
                             direction=direction,
                             sl_price=sl,
                             size_contracts=getattr(pos, "size_contracts", None),
                             entry_price=getattr(pos, "entry_price", None),
+                            place_exchange=reattach_ex,
                         )
                         report["protection_rearmed"] += 1
                 except Exception as e:
@@ -204,7 +252,8 @@ class RestartRecovery:
             try:
                 paper = bool(getattr(config, "PAPER_TRADING", True))
                 if not paper or bool(getattr(config, "RECOVERY_RECONCILE_IN_PAPER", False)):
-                    rec = self.reconciler.reconcile(self.trader.positions)
+                    rec = self.reconciler.reconcile(self.trader.positions, executor=self.executor,
+                                                    protection=self.protection)
                     report["reconcile"] = {
                         "in_sync": rec.get("in_sync"),
                         "only_local": len(rec.get("only_local") or []),
@@ -222,6 +271,9 @@ class RestartRecovery:
                                 f"[Recovery] ORPHAN exchange {o.get('symbol')} {o.get('direction')} "
                                 f"size={o.get('size')} – ręczna decyzja / kolejny etap"
                             )
+                    if self.executor and bool(getattr(config, "AUTO_CANCEL_ORPHAN_ORDERS", True)):
+                        active = [self.reconciler._norm_symbol(p) for p in self.reconciler.fetch_exchange_positions()]
+                        report["orphan_orders_canceled"] = self.executor.cancel_orphan_orders(active)
             except Exception as e:
                 report["errors"].append(f"reconcile: {e}")
 

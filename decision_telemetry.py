@@ -6,6 +6,8 @@ import math
 import threading
 import time
 import uuid
+import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -29,7 +31,14 @@ def _append(row: Dict[str, Any]) -> None:
     try:
         path = Path(getattr(config, "DECISION_TELEMETRY_PATH", "logs/decision_telemetry.jsonl"))
         if not path.is_absolute():
-            path = Path(__file__).resolve().parent / path
+            # Unit tests must never contaminate PAPER/LIVE research logs, even
+            # when an individual test forgets to patch the configured path.
+            in_test_process = any(
+                name == "tests" or name.startswith("tests.")
+                for name in sys.modules
+            )
+            root = Path(tempfile.gettempdir()) / "cryptoedge-tests" if in_test_process else Path(__file__).resolve().parent
+            path = root / path
         path.parent.mkdir(parents=True, exist_ok=True)
         with _LOCK, path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
@@ -42,6 +51,10 @@ def decision_snapshot(signal: Dict[str, Any], decision: str, reason: str = "") -
     signal["decision_id"] = decision_id
     impact = signal.get("_ob_impact") or {}
     liquidity = signal.get("liquidity") or {}
+    candle = signal.get("candle_confirmation") or {}
+    rsi_structure = signal.get("rsi_structure") or {}
+    target_path = signal.get("target_path") or {}
+    probabilities = signal.get("expected_r_probabilities") or {}
     decision_upper = str(decision).upper()
     now = time.time()
     if decision_upper == "REJECT":
@@ -70,6 +83,7 @@ def decision_snapshot(signal: Dict[str, Any], decision: str, reason: str = "") -
         "symbol": signal.get("symbol"), "direction": signal.get("direction"),
         "strategy_mode": str(signal.get("strategy_mode") or getattr(config, "STRATEGY_MODE", "DAYTRADING")).upper(),
         "engine": signal.get("engine") or signal.get("score_type"),
+        "profile": signal.get("reversal_profile") or signal.get("v2_profile"),
         "preferred_engine": signal.get("preferred_engine"),
         "regime": signal.get("market_regime"),
         "panic_trigger": signal.get("panic_trigger"),
@@ -80,6 +94,20 @@ def decision_snapshot(signal: Dict[str, Any], decision: str, reason: str = "") -
         "strength": _number(signal.get("strength")), "price": _number(signal.get("price")),
         "expected_net_r": _number(signal.get("expected_net_r")),
         "expected_r_status": signal.get("expected_r_status"),
+        "net_reward_potential_r": _number(signal.get("net_reward_potential_r")),
+        "p_tp1": _number(probabilities.get("p_tp1")),
+        "p_tp2_given_tp1": _number(probabilities.get("p_tp2_given_tp1")),
+        "setup_probability_multiplier": _number(signal.get("setup_probability_multiplier")),
+        "candle_confirmation_score": _number(candle.get("score")),
+        "candle_touch_age": _number(candle.get("touch_age")),
+        "candle_directional_wick": _number(candle.get("directional_wick_fraction")),
+        "candle_close_location": _number(candle.get("close_location")),
+        "rsi_divergence_confirmed": bool(rsi_structure.get("divergence")),
+        "rsi_failure_swing": bool(rsi_structure.get("failure_swing")),
+        "rsi_slope": _number(rsi_structure.get("rsi_slope")),
+        "target_obstacle_r": _number(target_path.get("obstacle_r")),
+        "target_clearance": _number(target_path.get("clearance")),
+        "tp1_capped_by_structure": bool(target_path.get("tp1_capped")),
         "planned_notional": _number(signal.get("_planned_notional")),
         "spread_pct": _number(liquidity.get("spread_pct") or signal.get("ob_spread_pct")),
         "vwap": _number(impact.get("vwap")), "impact_pct": _number(impact.get("impact_pct")),
@@ -104,6 +132,7 @@ def outcome_snapshot(position: Any, pnl: float, reason: str) -> None:
         "direction": getattr(position, "direction", None),
         "strategy_mode": str(getattr(config, "STRATEGY_MODE", "DAYTRADING")).upper(),
         "engine": getattr(position, "engine", None),
+        "profile": getattr(position, "reversal_profile", None) or getattr(position, "v2_profile", None),
         "entry_price": _number(getattr(position, "entry_price", None)),
         "exit_price": _number(getattr(position, "exit_price", None)),
         "pnl_usd": _number(pnl), "pnl_pct": _number(getattr(position, "pnl_pct", None)),

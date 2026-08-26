@@ -298,7 +298,11 @@ class TestDownloadBundleDeltaOnStaleCache(unittest.TestCase):
                             f"{bar}: zadano {limit} swiec, pelne okno to {full_count} - delta powinna byc mniejsza")
         # Zmergowany bundle zawiera zarowno stara historie, jak i nowa delte,
         # posortowane i bez duplikatow (dlugosc >= dlugosci starych danych).
+        # 1m is intentionally opt-in because downloading it multiplies the
+        # replay dataset.  This call uses the default 5m execution model.
         for tf, (bar, per_day) in historical_replay.TIMEFRAMES.items():
+            if tf == "1m":
+                continue
             self.assertGreaterEqual(len(payload["bundle"][tf]["closes"]), len(old_bundle[tf]["closes"]))
             ts = payload["bundle"][tf]["timestamps"]
             self.assertEqual(ts, sorted(ts))

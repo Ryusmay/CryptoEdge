@@ -15,7 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 OUT_DIR = ROOT.parent
-SKIP_PARTS = {"__pycache__", "logs", ".git"}
+SKIP_PARTS = {"__pycache__", ".venv", "logs", ".git", "reports", "disk_cache", "replay"}
+SKIP_FILES = {".env", "secrets.bin", ".secrets_salt"}
 
 
 def _load_version():
@@ -27,7 +28,7 @@ def _load_version():
 
 
 def _should_skip(path: Path) -> bool:
-    return any(part in SKIP_PARTS for part in path.parts)
+    return path.name in SKIP_FILES or any(part in SKIP_PARTS for part in path.parts)
 
 
 def pack(version_mod) -> Path:

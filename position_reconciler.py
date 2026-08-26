@@ -94,7 +94,10 @@ class PositionReconciler:
                         pass
         return 0.0
 
-    def reconcile(self, local_positions: List[Any]) -> dict:
+    def reconcile(self, local_positions: List[Any], executor=None, protection=None) -> dict:
+        # Błąd z poprzedniego cyklu nie może zatruwać kolejnego raportu, ale
+        # błąd bieżącego odczytu pozycji musi pozostać stanem UNKNOWN.
+        self.last_error = None
         exchange = self.fetch_exchange_positions()
         local_map: Dict[Tuple[str, str], Any] = {}
         for p in local_positions or []:
@@ -185,9 +188,14 @@ class PositionReconciler:
             and len(only_exchange) == 0
             and len(size_mismatch) == 0
         )
-        # Drift blokuje LIVE entry
+        # Drift blokuje TYLKO LIVE. Paper trzyma pozycje lokalnie, a konto
+        # BloFin (read-only / puste) jest puste — only_local ≠ drift.
+        paper = getattr(config, "PAPER_TRADING", True)
+        if isinstance(paper, str):
+            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
         block_on_drift = bool(getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True))
-        self.drift_blocks_entries = (not in_sync) and block_on_drift
+        self.drift_blocks_entries = (not in_sync) and block_on_drift and (not bool(paper))
+
 
         report = {
             "ts": time.time(),
@@ -201,6 +209,39 @@ class PositionReconciler:
             "drift_blocks_entries": self.drift_blocks_entries,
             "error": self.last_error,
         }
+        if report.get("error"):
+            # Brak odpowiedzi z venue nie jest dowodem płaskiego konta.
+            # W LIVE fail closed; PAPER może dalej zarządzać lokalnym stanem.
+            report["in_sync"] = False
+            if not bool(paper):
+                self.drift_blocks_entries = True
+                report["drift_blocks_entries"] = True
+        # Pelny startup/runtime audit: working orders oraz protective orders.
+        try:
+            orders = executor.fetch_open_orders() if executor is not None else []
+        except Exception as e:
+            orders = []
+            report["orders_error"] = str(e)
+        active_symbols = {key[0] for key in ex_map}
+        report["open_orders"] = orders
+        report["orphan_orders"] = [o for o in orders if self._norm_symbol(o) not in active_symbols]
+        attachments = getattr(protection, "by_key", {}) if protection is not None else {}
+        report["protective_missing"] = ([
+            {"symbol": key[0], "direction": key[1]}
+            for key in ex_map if key not in attachments and key[0] not in attachments
+        ] if protection is not None else [])
+        if report.get("orders_error"):
+            # UNKNOWN is not the same as an empty exchange order set. In LIVE
+            # fail closed until a later reconciliation can prove the state.
+            report["in_sync"] = False
+            if not bool(paper):
+                self.drift_blocks_entries = True
+                report["drift_blocks_entries"] = True
+        if report["orphan_orders"] or report["protective_missing"]:
+            report["in_sync"] = False
+            if not bool(paper):
+                self.drift_blocks_entries = True
+                report["drift_blocks_entries"] = True
         self.last_report = report
         return report
 

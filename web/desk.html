@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>CryptoEdge — Control Room</title>
+<style>
+:root{--bg:#07090C;--side:#0A0D12;--panel:#0C0F14;--panel2:#10141B;--line:#1C2330;--text:#D6DEEA;--muted:#7C8A9C;--long:#3DDC97;--short:#F07178;--wait:#E6B84F;--cyan:#2BC4FF;--mono:"JetBrains Mono",ui-monospace,monospace;--sans:"Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100%}
+body{padding:12px 16px 24px}
+.top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.brand{font-weight:800;letter-spacing:.04em}.ver{color:var(--muted);font-size:12px}
+.pill{border:1px solid var(--line);border-radius:2px;padding:3px 8px;font-size:11px;font-weight:700}
+.pill.on{color:var(--long);border-color:#1E6A4C;background:#0D2B22}
+.pill.off{color:var(--muted)}.pill.live{color:var(--short);border-color:#6B2634;background:#33131A}
+.pill.wait{color:var(--wait);border-color:#6B4D17;background:#332711}
+.pill.ok{color:var(--long);border-color:#1E6A4C;background:#0D2B22}
+.pill.na{color:var(--short);border-color:#6B2634;background:#33131A}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:2px;padding:7px 12px;font-weight:600;cursor:pointer}
+button:hover{border-color:var(--cyan)}button.good{color:var(--long);background:#0D2B22;border-color:#1E6A4C}
+button.danger{color:var(--short);background:#33131A;border-color:#6B2634}
+button.primary{color:var(--cyan);background:#0C2B3D;border-color:#175B7C}
+.banner{display:none;padding:8px 12px;border:1px solid #6B4D17;background:#332711;color:var(--wait);margin-bottom:10px;font-weight:700}
+.banner.show{display:block}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:12px 14px;flex:1;min-width:240px}
+.card h2{margin:0 0 8px;color:var(--muted);font-size:10px;letter-spacing:1px}
+.daily{font-family:var(--mono);font-size:22px;font-weight:800}
+.kv{color:var(--muted);font-size:10px;letter-spacing:1px;margin-top:8px}
+.kv+div{font-family:var(--mono);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);font-size:10px;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+td{padding:7px 4px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap}
+.long{color:var(--long)}.short{color:var(--short)}.muted{color:var(--muted)}
+.pos{flex:1.6}.scan{flex:.9}.risk{flex:.9}
+.events{margin-top:10px}
+.ring{width:72px;height:72px}
+.riskbox{display:flex;gap:14px;align-items:center}
+.wl{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.tile{background:var(--panel2);border:1px solid var(--line);padding:8px 10px;min-width:120px;flex:1}
+.tile .s{color:var(--muted);font-size:11px;font-weight:700}
+.tile .p{font-family:var(--mono);font-size:16px;font-weight:600}
+.legend{color:var(--muted);font-size:11px;margin-top:6px}
+.top .grow{flex:1}
+</style>
+</head>
+<body>
+<div id="banner" class="banner">Brak połączenia z silnikiem — ponawiam…</div>
+<div class="top">
+  <div class="brand">◈ CryptoEdge</div>
+  <div class="ver" id="ver">—</div>
+  <span class="pill" id="mode">PAPER</span>
+  <span class="pill" id="analiza">ANALIZA: —</span>
+  <span class="pill" id="handel">HANDEL: —</span>
+  <span class="pill" id="link">API</span>
+  <div class="grow"></div>
+  <button id="btn-analysis">Start analysis</button>
+  <button id="btn-trade" class="good">Start trading</button>
+  <button id="btn-pause">Pause</button>
+  <button id="btn-resume" class="primary">Resume</button>
+  <button id="btn-stop-trade" class="danger">Stop trading</button>
+  <button id="btn-stop" class="danger">Stop bot</button>
+</div>
+<div class="row">
+  <div class="card pos">
+    <h2>OTWARTE POZYCJE <span id="pcnt" class="muted"></span>
+      <button id="btn-close" class="danger" style="float:right">Zamknij wszystkie</button>
+    </h2>
+    <table>
+      <thead><tr><th>SYM</th><th>STRONA</th><th>SL</th><th>ZYSK SL</th><th>PNL</th><th>PNL%</th><th>WIEK</th></tr></thead>
+      <tbody id="pos"></tbody>
+    </table>
+    <div class="legend">↓ twardy SL &nbsp; 🔒− breakeven &nbsp; ▲ trailing podniesiony</div>
+  </div>
+  <div class="card">
+    <h2>PNL / SESJA</h2>
+    <div class="daily" id="daily">—</div>
+    <div class="kv">EQUITY</div><div id="equity">—</div>
+    <div class="kv">OTWARTE — UNREALIZED</div><div id="unreal">—</div>
+    <div class="kv">ZAMKNIĘTE DZIŚ</div><div id="closed">—</div>
+    <div class="kv">SESJA</div><div id="uptime">—</div>
+    <div class="kv">REŻIM</div><div id="regime">—</div>
+  </div>
+</div>
+<div class="wl" id="watchlist"></div>
+<div class="row" style="margin-top:10px">
+  <div class="card scan">
+    <h2>SKANER — KANDYDACI</h2>
+    <table><thead><tr><th>SYM</th><th>GATE</th><th>SCORE</th><th>R:R</th></tr></thead><tbody id="cands"></tbody></table>
+  </div>
+  <div class="card risk">
+    <h2>RYZYKO I KONTO</h2>
+    <div class="riskbox">
+      <svg class="ring" viewBox="0 0 72 72" id="ring"></svg>
+      <div>
+        <div class="kv">UŻYTY MARGIN</div><div id="used">—</div>
+        <div class="kv">WOLNE ŚRODKI</div><div id="free">—</div>
+      </div>
+    </div>
+    <div class="kv">DZIENNY LIMIT STRATY</div><div id="dlimit">—</div>
+    <div class="kv">KILL SWITCH</div><div id="kill">—</div>
+  </div>
+</div>
+<div class="card events">
+  <h2>EVENTY</h2>
+  <table><thead><tr><th>CZAS</th><th>TAG</th><th>TREŚĆ</th></tr></thead><tbody id="ev"></tbody></table>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const money = (n, s=true) => {
+  if (n==null || Number.isNaN(n)) return "—";
+  const v = Number(n);
+  const sign = s && v>=0 ? "+$" : "$";
+  return (s ? (v>=0? "+$":"-$") : "$") + Math.abs(v).toFixed(2);
+};
+const pct = n => n==null ? "—" : (Number(n)>=0?"+":"") + Number(n).toFixed(2) + "%";
+function tone(el, v){ el.className = (Number(v)||0)>=0 ? "long" : "short"; }
+function gatePill(g){
+  const map = {OPEN:["ok","OK"], WAIT:["wait","WAIT"], BLOCK:["na","NA"]};
+  const [c,t] = map[g] || ["off", g||"—"];
+  return `<span class="pill ${c}">${t}</span>`;
+}
+function drawRing(pct){
+  const p = Math.max(0, Math.min(100, Number(pct)||0));
+  const color = p>=80 ? "#F07178" : p>=50 ? "#E6B84F" : "#3DDC97";
+  const r=30, c=2*Math.PI*r, dash = c*p/100;
+  $("ring").innerHTML = `<circle cx="36" cy="36" r="${r}" fill="none" stroke="#1C2330" stroke-width="6"/>
+    <circle cx="36" cy="36" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${dash} ${c}" transform="rotate(-90 36 36)"/>
+    <text x="36" y="40" text-anchor="middle" fill="#D6DEEA" font-size="12" font-weight="700">${Math.round(p)}%</text>`;
+}
+async function cmd(action, needConfirm, msg){
+  if (needConfirm && !confirm(msg || action + "?")) return;
+  const r = await fetch("/api/engine/"+action, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({confirm:true})
+  });
+  const j = await r.json();
+  if (!j.ok) alert(j.error || j.message || "błąd");
+}
+$("btn-analysis").onclick = () => cmd("start_analysis", false);
+$("btn-trade").onclick = () => cmd("start_trading", true, "Start trading?");
+$("btn-pause").onclick = () => cmd("pause", false);
+$("btn-resume").onclick = () => cmd("resume", false);
+$("btn-stop-trade").onclick = () => cmd("stop_trading", false);
+$("btn-stop").onclick = () => cmd("stop", true, "Stop silnika?");
+$("btn-close").onclick = () => cmd("close_all", true, "Zamknąć wszystkie pozycje? Silnik zostaje.");
+
+function render(d){
+  $("ver").textContent = "v"+d.version;
+  const e = d.engine || {}, s = d.session || {}, a = d.account || {};
+  $("mode").textContent = e.mode==="LIVE" ? "LIVE" : "PAPER";
+  $("mode").className = "pill " + (e.mode==="LIVE"?"live":"on");
+  $("analiza").textContent = "ANALIZA: " + (e.loading?"ŁADUJE": e.analysis?"ON":"OFF");
+  $("analiza").className = "pill " + (e.analysis?"on":"off");
+  $("handel").textContent = "HANDEL: " + (e.paused?"PAUZA": e.trading?"ON":"OFF");
+  $("handel").className = "pill " + (e.paused?"wait": e.trading?"on":"off");
+  $("link").textContent = "API · połączono";
+  $("link").className = "pill on";
+  $("daily").textContent = money(s.daily) + "  (" + pct(s.daily_pct) + ")";
+  tone($("daily"), s.daily);
+  $("equity").textContent = money(s.equity, false);
+  $("unreal").textContent = money(s.unrealized) + "  ·  " + (s.positions||0) + " poz.";
+  $("closed").textContent = (s.closed_today||0) + "  ·  winrate " + (s.winrate_today||0) + "%";
+  $("uptime").textContent = "uptime " + (s.uptime||"—") + "  ·  " + (s.mode||"");
+  $("regime").textContent = s.regime || "—";
+  $("used").textContent = money(a.margin, false);
+  $("free").textContent = money(a.available, false);
+  $("dlimit").textContent = pct(s.daily_pct) + " / " + pct(-(s.daily_limit_pct||5));
+  $("kill").innerHTML = s.kill_switch ? '<span class="pill live">AKTYWNY</span>' : '<span class="pill on">NIEAKTYWNY</span>';
+  $("pcnt").textContent = (s.positions||0)+"/"+(s.max_positions||0);
+  drawRing(s.used_pct);
+  const prices = d.prices || {};
+  $("watchlist").innerHTML = ["BTC","ETH","SOL","XRP"].map(sym =>
+    `<div class="tile"><div class="s">${sym}</div><div class="p">${prices[sym]!=null?Number(prices[sym]).toLocaleString("pl-PL"):"—"}</div></div>`
+  ).join("");
+  $("cands").innerHTML = (d.candidates||[]).map(c =>
+    `<tr><td>${c.sym}</td><td>${gatePill(c.gate)}</td><td>${c.score??"—"}</td><td>${c.rr??"—"}</td></tr>`
+  ).join("") || `<tr><td colspan="4" class="muted">brak</td></tr>`;
+  $("pos").innerHTML = (d.positions||[]).map(p => {
+    const mk = p.sl_mark || "↓";
+    const sl = (mk+" "+(p.sl??"—"));
+    const z = p.pnl_at_stop;
+    return `<tr>
+      <td>${p.symbol}</td>
+      <td class="${p.side==="SHORT"?"short":"long"}">${p.side}</td>
+      <td>${sl}</td>
+      <td class="${(z||0)>=0?"long":"short"}">${z==null?"—":money(z)}</td>
+      <td class="${(p.pnl||0)>=0?"long":"short"}">${money(p.pnl)}</td>
+      <td>${p.pnl_pct==null?"—":pct(p.pnl_pct)}</td>
+      <td>${p.age||"—"}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" class="muted">brak otwartych</td></tr>`;
+  $("ev").innerHTML = (d.events||[]).map(ev =>
+    `<tr><td>${ev.time||""}</td><td class="long">${ev.tag||""}</td><td>${ev.text||""}</td></tr>`
+  ).join("") || `<tr><td colspan="3" class="muted">cisza</td></tr>`;
+}
+let misses = 0;
+async function tick(){
+  try{
+    const r = await fetch("/api/status", {cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    render(await r.json());
+    misses = 0;
+    $("banner").classList.remove("show");
+  }catch(e){
+    misses++;
+    $("banner").classList.add("show");
+    $("link").textContent = "API · rozłączono";
+    $("link").className = "pill wait";
+  }
+}
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

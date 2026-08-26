@@ -5,11 +5,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 import config
-from decision_telemetry import decision_snapshot
+from decision_telemetry import decision_snapshot, _append
 from risk_manager import RiskManager
 
 
 class TestDecisionTelemetry(unittest.TestCase):
+    def test_default_runtime_path_is_redirected_inside_test_process(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             patch.object(config, "DECISION_TELEMETRY_PATH", "logs/decision_telemetry.jsonl"), \
+             patch("decision_telemetry.tempfile.gettempdir", return_value=tmp):
+            _append({"event": "TEST_ISOLATION"})
+            isolated = Path(tmp) / "cryptoedge-tests" / "logs" / "decision_telemetry.jsonl"
+            self.assertTrue(isolated.exists())
     def test_reject_snapshot_contains_execution_context(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "decisions.jsonl"

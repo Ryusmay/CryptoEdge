@@ -202,10 +202,52 @@ def portfolio_snapshot(positions: List[Any], equity: float) -> dict:
     exp = compute_exposure(positions, equity)
     lev = aggregate_leverage(positions, equity)
     cl = cluster_exposure(positions, equity)
+    risk = compute_open_risk(positions, equity)
     return {
         "exposure": exp,
         "leverage": lev,
         "clusters": cl,
+        "open_risk": risk,
+    }
+
+
+def _position_risk_usd(raw: Any) -> float:
+    p = raw if isinstance(raw, dict) else getattr(raw, "__dict__", {})
+    explicit = p.get("actual_risk_usd")
+    if explicit is None:
+        explicit = p.get("risk_usd") or p.get("open_risk_usd")
+    if explicit is not None:
+        return max(0.0, float(explicit or 0))
+    entry = float(p.get("entry") or p.get("entry_price") or 0)
+    stop = float(p.get("sl") or p.get("sl_price") or p.get("stop_loss") or 0)
+    notional = abs(float(p.get("actual_notional") or p.get("size_usd") or p.get("notional") or 0))
+    if entry <= 0 or stop <= 0 or notional <= 0:
+        return 0.0
+    return notional * abs(entry - stop) / entry
+
+
+def compute_open_risk(positions: List[Any], equity: float = None) -> dict:
+    """Loss at active stops, total and per correlation cluster."""
+    eq = max(0.0, float(equity or 0))
+    cmap = build_symbol_cluster_map()
+    clusters: Dict[str, float] = {}
+    total = 0.0
+    unknown = 0
+    for raw in positions or []:
+        fields = _pos_fields(raw)
+        risk = _position_risk_usd(raw)
+        if risk <= 0:
+            unknown += 1
+            continue
+        total += risk
+        cid = cluster_of(fields["symbol"], cmap)
+        clusters[cid] = clusters.get(cid, 0.0) + risk
+    return {
+        "total_usd": round(total, 4),
+        "total_pct": round(total / eq, 6) if eq else None,
+        "cluster_usd": {k: round(v, 4) for k, v in clusters.items()},
+        "cluster_pct": {k: round(v / eq, 6) for k, v in clusters.items()} if eq else {},
+        "positions_without_stop_risk": unknown,
     }
 
 
@@ -235,17 +277,25 @@ def check_portfolio_limits(
             "size_usd": float(new_notional or new_signal.get("size_usd") or 0),
             "margin": float(new_notional or 0) / max(float(getattr(config, "LEVERAGE", 10)), 1),
             "leverage": float(getattr(config, "LEVERAGE", 10)),
+            "entry": float(new_signal.get("fill_price") or new_signal.get("decision_price") or new_signal.get("price") or 0),
+            "sl": float(new_signal.get("sl") or new_signal.get("sl_price") or new_signal.get("stop_loss") or 0),
         })
 
     exp = compute_exposure(sim, eq)
     lev = aggregate_leverage(sim, eq)
     cl = cluster_exposure(sim, eq)
+    open_risk = compute_open_risk(sim, eq)
 
     max_gross_mult = float(getattr(config, "MAX_GROSS_EXPOSURE_MULT", 5.0))  # gross ≤ 5× equity
     max_net_mult = float(getattr(config, "MAX_NET_EXPOSURE_MULT", 3.5))
     max_eff_lev = float(getattr(config, "MAX_EFFECTIVE_LEVERAGE", 8.0))
     max_cluster_mult = float(getattr(config, "MAX_CLUSTER_EXPOSURE_MULT", 2.5))
     max_cluster_count = int(getattr(config, "MAX_CLUSTER_POSITIONS", 4))
+    max_open_risk = float(getattr(config, "MAX_PORTFOLIO_OPEN_RISK_PCT", 0.025))
+    max_cluster_risk = float(getattr(config, "MAX_CLUSTER_OPEN_RISK_PCT", 0.0125))
+
+    if (open_risk.get("total_pct") or 0) > max_open_risk:
+        return False, f"OPEN_RISK({open_risk['total_pct']:.2%}>{max_open_risk:.2%})"
 
     if exp["gross_to_equity"] is not None and exp["gross_to_equity"] > max_gross_mult:
         return False, f"GROSS_EXPOSURE({exp['gross_to_equity']:.2f}x>{max_gross_mult}x)"
@@ -266,6 +316,9 @@ def check_portfolio_limits(
                 return False, f"CLUSTER_EXPOSURE({cid}:{row['gross_to_equity']:.2f}x)"
             if row["count"] > max_cluster_count:
                 return False, f"CLUSTER_COUNT({cid}:{row['count']}>{max_cluster_count})"
+            cluster_risk = float((open_risk.get("cluster_pct") or {}).get(cid) or 0)
+            if cluster_risk > max_cluster_risk:
+                return False, f"CLUSTER_RISK({cid}:{cluster_risk:.2%}>{max_cluster_risk:.2%})"
             # ten sam kierunek w klastrze – limit
             direction = str(new_signal.get("direction") or "").upper()
             same_dir = row["long_usd"] if direction == "LONG" else row["short_usd"]

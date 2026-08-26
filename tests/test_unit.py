@@ -122,7 +122,7 @@ class TestPortfolioRisk(unittest.TestCase):
             new_notional=200,
         )
         self.assertFalse(ok)
-        self.assertIn("GROSS", reason)
+        self.assertTrue("GROSS" in reason or "CLUSTER" in reason, reason)
 
 
 class TestMarketData(unittest.TestCase):

@@ -486,7 +486,32 @@ class TestTradingBucketGatesPrivateGet(unittest.TestCase):
                 feed.fetch_klines_ohlcv("BTC", bar="5m", limit=1)
             self.assertIsNone(disk_cache.load("ohlcv_BTC-USDT_5m_1"))
 
-    def test_fetch_klines_ohlcv_subscribes_ws_candles_when_available(self):
+    def test_stale_4h_cache_fetches_even_when_ttl_and_bucket_low(self):
+        """Regresja 22.08: 4h z dysku (16:00 UTC) + wiadro <20% = V2_STALE
+        przez cala sesje. Cache TTL i niski budzet nie moga blokowac fetchu
+        gdy bar jest starszy niz 2*bar+STALE_KLINES (brak nastepnego close)."""
+        feed = BlofinFeed()
+        old_ms = int((time.time() - 30_000) * 1000)
+        stale = {
+            "timestamps": [old_ms], "opens": [1.0], "highs": [1.0],
+            "lows": [1.0], "closes": [1.0], "volumes": [1.0],
+        }
+        feed.ohlc_cache["ohlcv_BTC-USDT_4H_1"] = (time.time() - 1, stale)
+        fake_ws = MagicMock()
+        fake_ws.is_connected.return_value = False
+        fake_ws.available = False
+        fake_ws.get_last_closed_candle.return_value = None
+        bucket = MagicMock()
+        bucket.level.return_value = 0.05
+        bucket.acquire.return_value = True
+        now_ms = int(time.time() * 1000)
+        payload = {"code": "0", "data": [[str(now_ms), "1", "1", "1", "1", "1"]]}
+        with patch.object(blofin_feed, "PUBLIC_WS", fake_ws), \
+             patch.object(blofin_feed, "PUBLIC_BUCKET", bucket), \
+             patch.object(feed.session, "get", return_value=_ok_response(payload)) as mock_get:
+            feed.fetch_klines_ohlcv("BTC", bar="4H", limit=1)
+        self.assertGreaterEqual(mock_get.call_count, 1)
+
         feed = BlofinFeed()
         fake_ws = MagicMock()
         fake_ws.available = True

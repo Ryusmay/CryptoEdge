@@ -153,16 +153,44 @@ class RiskManager:
         """Aktualizuj serię strat / wygranych po zamknięciu."""
         if pnl < 0:
             self.consecutive_losses += 1
-            limit = int(getattr(config, "CONSECUTIVE_LOSS_LIMIT", 5) or 5)
-            if self.consecutive_losses >= limit:
+            limit = int(getattr(config, "CONSECUTIVE_LOSS_LIMIT", 0) or 0)
+            if limit > 0 and self.consecutive_losses >= limit:
                 mins = int(getattr(config, "CONSECUTIVE_LOSS_PAUSE_MIN", 45) or 45)
                 self.loss_pause_until = datetime.now() + timedelta(minutes=mins)
                 print(f"[Risk] Circuit breaker: {self.consecutive_losses} strat z rzędu → pauza {mins} min")
         else:
             self.consecutive_losses = 0
 
+    def prepare_signal_for_sizing(self, signal: Dict) -> Dict:
+        """Nakłada wyłącznie deterministyczne mnożniki znane przed sizingiem.
+
+        Bramka ryzyka nie może dopiero po obliczeniu notionalu zmniejszyć
+        `_size_mult`, bo projected loss i rzeczywista pozycja używałyby innych
+        wielkości. Metoda jest idempotentna (zawsze bierze minimum).
+        """
+        regime = str(signal.get("market_regime") or self.last_regime or "UNKNOWN").upper()
+        if regime != "PANIC":
+            return signal
+        engine = str(signal.get("engine") or "trend").lower()
+        multiplier = 1.0
+        if engine == "daytrading":
+            multiplier = getattr(config, "DAYTRADING_PANIC_SIZE_MULT", 1.0)
+        elif engine not in ("reversal", "daytrading_v2", "daytradingv2"):
+            multiplier = getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", None)
+            if multiplier is None:
+                multiplier = getattr(config, "REGIME_PANIC_SIZE_MULT", 1.0)
+        try:
+            multiplier = float(multiplier)
+        except (TypeError, ValueError):
+            multiplier = 1.0
+        if 0.0 <= multiplier < 1.0:
+            signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), multiplier)
+        return signal
+
     def can_open_position(self, signal: Dict, open_directions: List[str] = None) -> tuple:
         self._check_new_day()
+        if str(getattr(self, "risk_state", "NORMAL")).upper() == "REDUCE_ONLY":
+            return False, "RISK_REDUCE_ONLY"
         direction = str(signal.get("direction") or "").upper()
         if direction not in ("LONG", "SHORT"):
             return False, "INVALID_DIRECTION"
@@ -173,11 +201,20 @@ class RiskManager:
                 return False, f"INVALID_{field.upper()}"
             if not math.isfinite(value) or (field == "price" and value <= 0):
                 return False, f"INVALID_{field.upper()}"
+        self.prepare_signal_for_sizing(signal)
         # DEMO nigdy nie blokuj przez „LIVE”
         if self.paused:
             return False, "Pauza (STOP/PAUSE) – kliknij START"
         if self.is_halted:
             return False, self.halt_reason or "Bot zatrzymany"
+        try:
+            planned = float(signal.get("_planned_notional") or 0)
+            projected_risk = planned * self._sl_distance_pct(signal)
+            remaining = self.daily_start_capital * float(config.DAILY_LOSS_LIMIT) + self.daily_pnl
+            if projected_risk > max(0.0, remaining):
+                return False, f"DAILY_PROJECTED_LOSS({projected_risk:.4f}>{max(0.0, remaining):.4f})"
+        except (TypeError, ValueError, AttributeError):
+            return False, "DAILY_PROJECTED_LOSS_UNAVAILABLE"
         # Circuit breaker po serii strat
         if self.loss_pause_until and datetime.now() < self.loss_pause_until:
             left = (self.loss_pause_until - datetime.now()).total_seconds() / 60
@@ -192,30 +229,39 @@ class RiskManager:
         if regime == "RANGE":
             max_pos = min(max_pos, int(getattr(config, "REGIME_RANGE_MAX_POSITIONS", 5) or 5))
         elif regime == "PANIC":
-            # PANIC ≠ wyłączenie systemu:
-            #   Trend  → mocno ograniczony (wysoki próg + mały size)
-            #   Reversal → aktywny (niższy próg, konz. size z REVERSAL_RISK_*)
+            # PANIC = silny jednokierunkowy ruch, nie halt.
+            # V2/Trend/Reversal wchodzą; sloty jak zawsze (MAX_POSITIONS).
             eng = (signal.get("engine") or "trend").lower()
-            max_pos = min(max_pos, int(getattr(config, "REGIME_PANIC_MAX_POSITIONS", 3) or 3))
+            max_pos = min(max_pos, int(getattr(config, "REGIME_PANIC_MAX_POSITIONS", 10) or 10))
             if eng == "reversal":
-                # Reversal w PANIC: wpuszczaj od normalnego MIN / REVERSAL_MIN
                 min_rev = float(getattr(config, "REVERSAL_MIN_STRENGTH", config.MIN_SIGNAL_STRENGTH))
                 if float(signal.get("strength") or 0) < min_rev:
                     return False, f"REGIME_PANIC_REV_WEAK({float(signal.get('strength') or 0):.2f}<{min_rev})"
-                # size i tak schodzi z REVERSAL_RISK_PCT_* — lekki cap
-                signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.7)
+            elif eng in ("daytrading_v2", "daytradingv2"):
+                pass  # V2: checklista w silniku, dummy strength nie jest bramką
             elif eng == "daytrading":
-                signal["_size_mult"] = min(
-                    float(signal.get("_size_mult") or 1.0),
-                    float(getattr(config, "DAYTRADING_PANIC_SIZE_MULT", 0.25)),
-                )
-                min_panic = float(getattr(config, "DAYTRADING_PANIC_MIN_STRENGTH", 0.75))
-                if float(signal.get("strength") or 0) < min_panic:
+                panic_mult = getattr(config, "DAYTRADING_PANIC_SIZE_MULT", 1.0)
+                try:
+                    panic_mult = float(panic_mult)
+                except (TypeError, ValueError):
+                    panic_mult = 1.0
+                if 0 <= panic_mult < 1.0:
+                    signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), panic_mult)
+                min_panic = float(getattr(config, "DAYTRADING_PANIC_MIN_STRENGTH", 0.0) or 0.0)
+                if min_panic > 0 and float(signal.get("strength") or 0) < min_panic:
                     return False, f"REGIME_PANIC_DAY({float(signal.get('strength') or 0):.2f}<{min_panic})"
             else:
-                signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.35)
-                min_panic = float(getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.72) or 0.72)
-                if float(signal.get("strength") or 0) < min_panic:
+                panic_mult = getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", None)
+                if panic_mult is None:
+                    panic_mult = getattr(config, "REGIME_PANIC_SIZE_MULT", 1.0)
+                try:
+                    panic_mult = float(panic_mult)
+                except (TypeError, ValueError):
+                    panic_mult = 1.0
+                if 0 <= panic_mult < 1.0:
+                    signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), panic_mult)
+                min_panic = float(getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.0) or 0.0)
+                if min_panic > 0 and float(signal.get("strength") or 0) < min_panic:
                     return False, f"REGIME_PANIC_TREND({float(signal.get('strength') or 0):.2f}<{min_panic})"
         if self.open_positions_count >= max_pos:
             return False, f"Max pozycji ({max_pos}" + (f" RANGE)" if regime == "RANGE" else ")")
@@ -223,23 +269,24 @@ class RiskManager:
             return False, "Kapital zbyt niski"
         # PRIORYTET 5: osobny score per silnik
         eng_s = (signal.get("engine") or signal.get("score_type") or "trend").lower()
-        if eng_s == "reversal":
-            score = float(
-                signal["reversal_score"]
-                if signal.get("reversal_score") is not None
-                else (signal.get("strength") or 0)
-            )
-            min_s = float(getattr(config, "REVERSAL_MIN_STRENGTH", config.MIN_SIGNAL_STRENGTH))
-        else:
-            score = float(
-                signal["trend_score"]
-                if signal.get("trend_score") is not None
-                else (signal.get("strength") or 0)
-            )
-            min_s = float(config.MIN_SIGNAL_STRENGTH)
-        signal["strength"] = score
-        if score < min_s:
-            return False, f"Za slaby sygnal {eng_s} ({score:.2f}<{min_s})"
+        if eng_s not in ("daytrading_v2", "daytradingv2"):
+            if eng_s == "reversal":
+                score = float(
+                    signal["reversal_score"]
+                    if signal.get("reversal_score") is not None
+                    else (signal.get("strength") or 0)
+                )
+                min_s = float(getattr(config, "REVERSAL_MIN_STRENGTH", config.MIN_SIGNAL_STRENGTH))
+            else:
+                score = float(
+                    signal["trend_score"]
+                    if signal.get("trend_score") is not None
+                    else (signal.get("strength") or 0)
+                )
+                min_s = float(config.MIN_SIGNAL_STRENGTH)
+            signal["strength"] = score
+            if score < min_s:
+                return False, f"Za slaby sygnal {eng_s} ({score:.2f}<{min_s})"
         if bool(getattr(config, "USE_EXPECTED_R_FILTER", False)):
             try:
                 from strength_calibration import get_calibrator
@@ -261,8 +308,12 @@ class RiskManager:
         if same >= max_same:
             return False, f"HEAT_{direction}({same}>={max_same})"
 
-        # Drift reconciliation – blokuj LIVE gdy local↔exchange rozjechane
-        if getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
+        # Drift reconciliation – TYLKO LIVE. PAPER: lokalne pozycje vs pusta
+        # giełda to stan oczekiwany, nie blokada wejść (RECONCILE_DRIFT).
+        paper = getattr(config, "PAPER_TRADING", True)
+        if isinstance(paper, str):
+            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
+        if (not bool(paper)) and getattr(config, "BLOCK_ENTRIES_ON_RECONCILE_DRIFT", True):
             try:
                 rec = getattr(self, "_reconciler_ref", None)
                 if rec is not None and hasattr(rec, "blocks_new_entries") and rec.blocks_new_entries():
@@ -309,7 +360,8 @@ class RiskManager:
             or (direction == "SHORT" and short_votes >= min_votes)
         )
 
-        is_day = eng_s == "daytrading" or signal.get("strategy_mode") == "DAYTRADING"
+        is_v2 = eng_s in ("daytrading_v2", "daytradingv2") or signal.get("strategy_mode") == "DAYTRADING_V2"
+        is_day = (eng_s == "daytrading" or signal.get("strategy_mode") == "DAYTRADING") and not is_v2
         if is_day:
             intraday = signal.get("intraday") or {}
             setup = str(signal.get("setup") or "")
@@ -322,7 +374,7 @@ class RiskManager:
                 return False, "DAY_SETUP_NOT_CONFIRMED"
             if str(signal.get("signal_source") or "") != "BLOFIN_NATIVE":
                 return False, "DAY_NON_NATIVE_SOURCE"
-        if require_pri and not aggressive and not is_day:
+        if require_pri and not aggressive and not is_day and not is_v2:
             strat = signal.get("strategy")
             strength = float(signal.get("strength") or 0)
             reasons_u = " ".join(str(r) for r in (signal.get("reasons") or []))
@@ -412,10 +464,17 @@ class RiskManager:
             if not ok_ob:
                 return False, why_ob
 
-        # Portfolio open risk + correlated risk
-        ok_pr, why_pr = self._portfolio_open_risk_ok(signal)
-        if not ok_pr:
-            return False, why_pr
+        # Portfolio open risk (SL$) — V2 capital_pct liczy size z 7.5% margin,
+        # nie z odległości SL. Szeroki SL 1h * 7.5% * x10 przebijał 2.5%
+        # MAX_PORTFOLIO_OPEN_RISK i zerował wejścia. Ekspozycja V2 = gross/margin.
+        is_v2_pct = (
+            (signal.get("engine") == "daytrading_v2" or signal.get("strategy_mode") == "DAYTRADING_V2")
+            and str(getattr(config, "DAYTRADING_V2_SIZE_MODE", "capital_pct")) == "capital_pct"
+        )
+        if not is_v2_pct:
+            ok_pr, why_pr = self._portfolio_open_risk_ok(signal)
+            if not ok_pr:
+                return False, why_pr
 
         # P2.9 dynamic correlation
         if bool(getattr(config, "DYN_CORR_FILTER", True)):
@@ -667,6 +726,14 @@ class RiskManager:
         signal["_liq_price"] = liq_px
         signal["_liq_dist"] = liq_dist
 
+        paper = getattr(config, "PAPER_TRADING", True)
+        if isinstance(paper, str):
+            paper = paper.strip().lower() in ("1", "true", "yes", "on", "demo", "paper")
+        # PAPER + model MMR (~10% przy x10) vs 1.5×SL+ATR dawało LIQ_TOO_CLOSE
+        # bez prawdziwej ceny liq z giełdy. LIVE z blofin_liq nadal twardy.
+        if bool(paper) and str(liq_src).startswith("model"):
+            return True, "OK"
+
         if liq_dist <= required:
             return False, (
                 f"LIQ_TOO_CLOSE(liq_dist={liq_dist*100:.2f}% ≤ "
@@ -730,6 +797,7 @@ class RiskManager:
           notional = risk_usd / sl_distance_pct
         Cap: max margin allocation + free equity.
         """
+        self.prepare_signal_for_sizing(signal)
         equity = self.equity_for_sizing() if bool(getattr(config, "SIZE_ON_EQUITY", True)) else float(self.current_capital or 0)
         if not math.isfinite(equity) or equity <= 0:
             return 0.0
@@ -766,8 +834,15 @@ class RiskManager:
                     # Margin niezalezny od strength (domyslnie) - stala
                     # wartosc, przyciety do [MIN,MAX] nawet gdyby ktos
                     # ustawil DAYTRADING_V2_MARGIN_PCT_FIXED poza zakresem.
-                    fixed_pct = float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 7.5)) / 100.0
+                    if signal.get("margin_pct") is not None:
+                        fixed_pct = float(signal.get("margin_pct")) / 100.0
+                    else:
+                        fixed_pct = float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_FIXED", 7.5)) / 100.0
                     margin_frac = max(lo, min(hi, fixed_pct))
+                htf_mult = float(signal.get("_htf_size_mult") or 1.0)
+                if 0.0 < htf_mult < 1.0:
+                    margin_frac = max(lo, margin_frac * htf_mult)
+                    signal["_htf_size_applied"] = round(htf_mult, 3)
                 signal["_v2_margin_pct"] = round(margin_frac * 100.0, 3)
                 v2_fixed_notional = equity * margin_frac * lev
                 print(f"[Size] {signal.get('symbol')} V2 margin={margin_frac*100:.1f}% "
@@ -820,11 +895,18 @@ class RiskManager:
                 print(f"[Size] {signal.get('symbol')} REV margin={margin_frac*100:.1f}% "
                       f"(${equity*margin_frac:.2f}) notional=${v2_fixed_notional:.2f}")
 
-        # regime: RANGE half risk; PANIC — trend mocno cięty, reversal z _size_mult
+        # regime: RANGE half risk; PANIC = strong move (mult 1.0 = pełny size)
         if regime == "RANGE":
             risk_pct *= float(getattr(config, "REGIME_RANGE_SIZE_MULT", 0.50))
-        elif regime == "PANIC" and not is_rev and not is_day:
-            risk_pct *= float(getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", 0.35))
+        elif regime == "PANIC" and not is_rev and not is_day and not is_day_v2:
+            panic_mult = getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", None)
+            if panic_mult is None:
+                panic_mult = getattr(config, "REGIME_PANIC_SIZE_MULT", 1.0)
+            try:
+                panic_mult = float(panic_mult)
+            except (TypeError, ValueError):
+                panic_mult = 1.0
+            risk_pct *= panic_mult
         # 7. proxy 4H → mniejszy risk
         if signal.get("ohlcv_source") == "proxy_4h" or signal.get("proxy_4h"):
             risk_pct *= float(getattr(config, "PROXY_4H_RISK_MULT", 0.70))
@@ -902,18 +984,24 @@ class RiskManager:
         # min notional floor
         min_n = float(getattr(config, "MIN_NOTIONAL_USD", 20.0))
         if notional > 0 and notional < min_n:
+            # W risk_sl podniesienie do minimum zwiekszaloby strate przy SL ponad
+            # zatwierdzony risk budget. Taki trade musi zostac pominiety.
+            if is_day_v2 and str(getattr(config, "DAYTRADING_V2_SIZE_MODE", "risk_sl")) == "risk_sl":
+                signal["reasons"] = list(signal.get("reasons") or []) + ["SIZE_BELOW_EXCHANGE_MIN"]
+                return 0.0
             if max_notional >= min_n:
                 notional = min_n
             else:
                 return 0.0
-        # adaptacja size: strength / vol / seria strat / DD / dzienny limit / perp
-        # V2 capital_pct: 5-10% equity zostaje bazą; adaptacja tylko w dół do 5%.
-        skip_adapt = signal.get("_v2_margin_pct") is not None
+        # Adaptacja size: strength / vol / seria strat / DD / dzienny limit.
+        # Tylko jawny V2 capital_pct ma pas 5-10%. W trybie risk_sl nie wolno
+        # podnosić notionalu do 5% margin, bo łamie to zatwierdzony risk budget.
+        skip_adapt = is_day_v2 or signal.get("_v2_margin_pct") is not None
         try:
             from adaptive_size import apply_to_notional
             if not skip_adapt:
                 notional = apply_to_notional(notional, signal, risk=self)
-            else:
+            elif v2_fixed_notional is not None:
                 lo_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MIN", 5.0)) / 100.0) * lev
                 hi_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0)) / 100.0) * lev
                 notional = min(max(notional, lo_n), hi_n)
@@ -968,31 +1056,39 @@ class RiskManager:
         # tu notional tak, by pojedynczy trade miescil sie w tym mniejszym,
         # per-trade suficie ryzyka - realny trade (mniejszy) zamiast zera.
         if v2_fixed_notional is not None and sl_dist and sl_dist > 0:
-            max_risk_pct = float(getattr(config, "DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE", 1.0)) / 100.0
-            risk_cap_notional = (equity * max_risk_pct) / sl_dist
-            if risk_cap_notional < notional:
-                # Jak przy istniejacym min_n nizej: jesli po zmniejszeniu pod
-                # per-trade sufit ryzyka nie miesci sie juz nawet minimalny
-                # rozmiar zlecenia, to znaczy ze przy tak szerokim SL nie da
-                # sie bezpiecznie (pod tym limitem ryzyka) otworzyc tej nogi -
-                # odrzuc czysto (0.0), zamiast po cichu wracac do wiekszego
-                # rozmiaru i tym samym cofac ten sufit.
-                if risk_cap_notional < min_n:
+            max_risk_pct = float(getattr(config, "DAYTRADING_V2_MAX_RISK_PCT_PER_TRADE", 0.0) or 0.0)
+            if max_risk_pct <= 0:
+                max_risk_pct = float(getattr(config, "RISK_PCT_MAX", 0.009) or 0.009) * 100.0
+            min_margin_n = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MIN", 5.0)) / 100.0) * lev
+            if max_risk_pct > 0:
+                risk_cap_notional = (equity * (max_risk_pct / 100.0)) / sl_dist
+                if risk_cap_notional < notional:
+                    if risk_cap_notional + 1e-9 < min_margin_n:
+                        signal["reasons"] = list(signal.get("reasons") or []) + [
+                            f"SIZE_CAP_RISK_TOO_SMALL(sl_dist={sl_dist*100:.2f}%)"
+                        ]
+                        print(
+                            f"[Size] {signal.get('symbol')} skip: risk$ przy min 5% margin "
+                            f"({min_margin_n * sl_dist:.2f}) > sufit {max_risk_pct:.2f}% "
+                            f"(SL {sl_dist*100:.2f}%)"
+                        )
+                        return 0.0
                     signal["reasons"] = list(signal.get("reasons") or []) + [
-                        f"SIZE_CAP_RISK_TOO_SMALL(sl_dist={sl_dist*100:.2f}%)"
+                        f"SIZE_CAP_RISK({notional:.0f}→{risk_cap_notional:.0f}|sl_dist={sl_dist*100:.2f}%)"
                     ]
-                    return 0.0
-                signal["reasons"] = list(signal.get("reasons") or []) + [
-                    f"SIZE_CAP_RISK({notional:.0f}→{risk_cap_notional:.0f}|sl_dist={sl_dist*100:.2f}%)"
-                ]
-                notional = risk_cap_notional
+                    print(
+                        f"[Size] {signal.get('symbol')} cap notional "
+                        f"${notional:.0f}->${risk_cap_notional:.0f} (SL {sl_dist*100:.2f}%)"
+                    )
+                    notional = risk_cap_notional
 
         return round(max(notional, 0.0), 4)
 
     def register_open(self):
         self.open_positions_count += 1
 
-    def register_close(self, symbol: str = None, pnl: float = None, engine: str = None):
+    def register_close(self, symbol: str = None, pnl: float = None, engine: str = None,
+                       count_result: bool = True):
         self.open_positions_count = max(0, self.open_positions_count - 1)
         if symbol:
             mins = int(getattr(config, "SYMBOL_COOLDOWN_MINUTES", 20) or 0)
@@ -1003,20 +1099,29 @@ class RiskManager:
                 day_mins = int(getattr(config, "DAYTRADING_SIGNAL_COOLDOWN_MINUTES", 40) or 0)
                 if day_mins > 0:
                     self.engine_symbol_cooldown[key] = datetime.now() + timedelta(minutes=day_mins)
-            if pnl is not None and float(pnl) < 0:
-                streak = self.engine_symbol_loss_streak.get(key, 0) + 1
-                self.engine_symbol_loss_streak[key] = streak
-                threshold = int(getattr(config, "ENGINE_COOLDOWN_ESCALATION_LOSSES", 3) or 3)
-                base = int(getattr(config, "ENGINE_COOLDOWN_BASE_MINUTES", 20) or 0)
-                escalated = int(getattr(config, "ENGINE_COOLDOWN_ESCALATED_MINUTES", 75) or base)
-                engine_mins = escalated if streak >= threshold else base
-                if key[1] == "daytrading":
-                    engine_mins = max(engine_mins, int(getattr(config, "DAYTRADING_SIGNAL_COOLDOWN_MINUTES", 40) or 0))
-                if engine_mins > 0:
-                    self.engine_symbol_cooldown[key] = datetime.now() + timedelta(minutes=engine_mins)
-            elif pnl is not None:
+            if count_result and pnl is not None and float(pnl) < 0:
+                if key[1] == "daytrading_v2":
+                    pass
+                else:
+                    streak = self.engine_symbol_loss_streak.get(key, 0) + 1
+                    self.engine_symbol_loss_streak[key] = streak
+                    threshold = int(getattr(config, "ENGINE_COOLDOWN_ESCALATION_LOSSES", 3) or 3)
+                    base = int(getattr(config, "ENGINE_COOLDOWN_BASE_MINUTES", 20) or 0)
+                    escalated = int(getattr(config, "ENGINE_COOLDOWN_ESCALATED_MINUTES", 75) or base)
+                    engine_mins = escalated if streak >= threshold else base
+                    if key[1] == "daytrading":
+                        engine_mins = max(engine_mins, int(getattr(config, "DAYTRADING_SIGNAL_COOLDOWN_MINUTES", 40) or 0))
+                    if engine_mins > 0:
+                        self.engine_symbol_cooldown[key] = datetime.now() + timedelta(minutes=engine_mins)
+                    if key[1] == "reversal":
+                        rev_mins = int(getattr(config, "REVERSAL_LOSS_COOLDOWN_MINUTES", 60) or 60)
+                        max_losses = int(getattr(config, "REVERSAL_MAX_CONSECUTIVE_SYMBOL_LOSSES", 2) or 2)
+                        if streak >= max_losses:
+                            rev_mins = max(rev_mins, int(getattr(config, "ENGINE_COOLDOWN_ESCALATED_MINUTES", 75) or 75))
+                        self.engine_symbol_cooldown[key] = datetime.now() + timedelta(minutes=rev_mins)
+            elif count_result and pnl is not None:
                 self.engine_symbol_loss_streak[key] = 0
-        if pnl is not None:
+        if count_result and pnl is not None:
             try:
                 self.note_trade_result(float(pnl))
             except Exception:

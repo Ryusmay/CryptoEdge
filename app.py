@@ -5,6 +5,7 @@
 # ============================================================
 
 import json
+import sys
 import time
 import threading
 from datetime import datetime, timezone
@@ -22,13 +23,13 @@ import config
 import settings_store
 from data_feeder import DataFeeder
 from scan_scheduling import is_full_scan_due
-from warmup import WARMUP
+from warmup import WARMUP, warmup_applies
 from market_store import STORE
 from event_bus import build_event_bus
 from grpc_service import GrpcServer
 from signal_engine import SignalEngine
-from risk_manager import RiskManager
-from paper_trader import PaperTrader
+from cryptoedge.risk.manager import RiskManager
+from cryptoedge.execution.paper import PaperTrader
 from logger import BotLogger
 from correlation import summarize_market_correlation, print_correlation_report
 from runtime import BotRuntime
@@ -40,10 +41,20 @@ BASE = Path(__file__).resolve().parent
 settings_store.apply_settings()
 
 
-def load_previous_state(risk: RiskManager, trader: PaperTrader):
-    state_path = BASE / "logs" / "bot_state.json"
+def load_previous_state(risk: RiskManager, trader: PaperTrader) -> bool:
+    """Odtwarza stan wyłącznie dla LIVE.
+
+    PAPER jest niezależną sesją symulacyjną: start aplikacji zawsze zaczyna od
+    STARTING_CAPITAL i pustego portfela. Historyczne CSV/telemetria zostają na
+    dysku do analizy, ale nie mogą ponownie tworzyć pozycji ani przenosić PnL.
+    """
+    if bool(getattr(config, "PAPER_TRADING", True)):
+        print("[App] PAPER: nowa sesja — nie wczytuję starego kapitału ani pozycji")
+        return False
+    state_rel = str(getattr(config, "STATE_FILE", "logs/bot_state.json") or "logs/bot_state.json")
+    state_path = BASE / state_rel
     if not state_path.exists():
-        return
+        return False
     try:
         prev = json.loads(state_path.read_text(encoding="utf-8"))
         if prev.get("risk"):
@@ -53,8 +64,10 @@ def load_previous_state(risk: RiskManager, trader: PaperTrader):
         if prev.get("saved_positions"):
             trader.restore_open_positions(prev["saved_positions"])
         print(f"[App] Zaladowano stan (kapital ${risk.current_capital:.4f})")
+        return True
     except Exception as e:
         print(f"[App] Nie udalo sie zaladowac stanu: {e}")
+        return False
 
 
 def _bot_version() -> str:
@@ -77,6 +90,16 @@ def refresh_open_position_prices(feeder, trader, price_map: dict) -> dict:
     except Exception as e:
         print(f"[Protect] fresh price snapshot: {e}")
     return out
+
+
+def persist_market_preview(rt: BotRuntime, coins, cycle) -> None:
+    """Zapis uniwersum/cen bez sygnalow. Warmup i Blad cyklu nie zostawiaja pustego UI."""
+    coins = list(coins or [])
+    price_map = {c["symbol"]: c.get("price") for c in coins if c.get("symbol")}
+    rt.last_price_map = price_map
+    rt.last_price_map_ts = time.time()
+    btc_chg = next((c.get("change_24h") for c in coins if c.get("symbol") == "BTC"), None)
+    persist_cycle(rt, coins, [], [], {}, {}, btc_chg, cycle)
 
 
 def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change, cycle, signal_engine=None):
@@ -134,6 +157,7 @@ def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change
             "score_components": s.get("score_components") or {},
             "divergence": s.get("divergence") or s.get("source_divergence"),
             "tp1_price": s.get("tp1_price"),
+            "tp2_price": s.get("tp2_price"),
             "vol_flag": s.get("vol_flag"),
             "volume_24h": s.get("volume_24h"),
             "ob_imbalance": (s.get("order_book") or {}).get("ob_imbalance"),
@@ -182,7 +206,9 @@ def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change
             "tp_price": src.get("tp_price", ana.get("tp_price") if isinstance(ana, dict) else None),
             "sl_price": src.get("sl_price", ana.get("sl_price") if isinstance(ana, dict) else None),
             "tp1_price": src.get("tp1_price", ana.get("tp1_price") if isinstance(ana, dict) else None),
+            "tp2_price": src.get("tp2_price", ana.get("tp2_price") if isinstance(ana, dict) else None),
             "trend_fib": src.get("trend_fib", ana.get("trend_fib") if isinstance(ana, dict) else None),
+            "fib_retracement": src.get("fib_retracement", ana.get("fib_retracement") if isinstance(ana, dict) else None),
             "divergence": src.get("divergence", src.get("source_divergence", ana.get("divergence") if isinstance(ana, dict) else None)),
             "liquidity": src.get("liquidity", ana.get("liquidity") if isinstance(ana, dict) else None),
             "ob_bias": (src.get("order_book") or {}).get("ob_bias", src.get("ob_bias")),
@@ -214,11 +240,29 @@ def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change
             "drawdown_pct": round(float(status.get("max_drawdown_pct") or 0), 2),
         })
 
+    v2_rows = [
+        row for row in (signals or [])
+        if str(row.get("engine") or "").lower() == "daytrading_v2"
+    ]
+    v2_cold = sum(
+        1 for row in v2_rows
+        if str(row.get("reject_reason") or "").upper() == "V2_COLD_START_WARMING_UP"
+    )
+    engine_warmup = {
+        "active": bool(v2_rows) and v2_cold > 0,
+        "ready": bool(v2_rows) and v2_cold == 0,
+        "available_coins": max(0, len(v2_rows) - v2_cold),
+        "total_coins": len(v2_rows),
+        "remaining_coins": v2_cold,
+    }
+
     logger.save_state(status, open_sum, extra={
         "cycle": cycle,
         "equity_history": equity_history,
         "universe_size": len(coins),
         "sources": feeder.sources_status(),
+        "last_error": rt.last_error,
+        "feed_events": list(getattr(rt, "feed_events", []) or [])[:8],
         "btc_change_24h": btc_change,
         "btc_price": next((c["price"] for c in coins if c["symbol"] == "BTC"), None),
         "eth_price": next((c["price"] for c in coins if c["symbol"] == "ETH"), None),
@@ -242,6 +286,7 @@ def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change
         "trade_count": trader.trade_count,
         "market": mctx if isinstance(mctx, dict) else {},
         "saved_positions": trader.export_open_positions(),
+        "pending_orders": trader.pending_limit_orders(),
         "metrics": trader.session_metrics(),
         "rejects": list(getattr(risk, "reject_log", []) or []),
         "market_regime": getattr(getattr(rt, "signal_engine", None), "last_regime", {}) or {},
@@ -295,6 +340,8 @@ def persist_cycle(rt: BotRuntime, coins, signals, active, corr, mctx, btc_change
         },
         "running": rt.running,
         "exchange_account": _exchange_snapshot(rt),
+        "warmup": (getattr(rt, "last_state_snapshot", None) or {}).get("warmup"),
+        "engine_warmup": engine_warmup,
     })
 
     # Punkt 9 planu: zdarzenia cyklu/odrzucen do "laboratorium" (Redis Streams,
@@ -351,6 +398,10 @@ def bot_loop(rt: BotRuntime):
 
     while rt.running:
         try:
+            try:
+                rt.apply_control_files(BASE)
+            except Exception as e:
+                print(f"[Control] {e}")
             if not getattr(rt, "engine_enabled", False):
                 # STOP: bez nowych sygnalow, ale TP/SL dla otwartych pozycji.
                 # Cena tylko dla trzymanych symboli (1 zbiorcze zapytanie) -
@@ -415,6 +466,10 @@ def bot_loop(rt: BotRuntime):
             rt.cycle += 1
             rt.heartbeat()
             cycle = rt.cycle
+            try:
+                rt.maybe_reconcile(cycle)
+            except Exception as e:
+                print(f"[Reconcile] {e}")
             now = datetime.now().strftime("%H:%M:%S")
             print(f"\n{'='*55}\n Cykl #{cycle} | {now}\n{'='*55}")
             try:
@@ -440,16 +495,28 @@ def bot_loop(rt: BotRuntime):
                     STORE.mark_ws(alive)
             except Exception as e:
                 print(f"[Warmup] store seed: {e}")
-            if getattr(config, "WARMUP_ENABLED", True) and getattr(config, "DAYTRADING_V2_ENABLED", False):
-                if not WARMUP.active and not WARMUP.ready:
-                    WARMUP.start()
-                    print("[Warmup] start 5 min – ANALIZA bez wejsc do bramki")
-                wst = WARMUP.tick(feeder, coins)
+            if warmup_applies():
+                try:
+                    if not WARMUP.active and not WARMUP.ready:
+                        WARMUP.start()
+                        dur = int(getattr(config, "WARMUP_SECONDS", 90))
+                        print(f"[Warmup] start {dur}s – ANALIZA bez wejsc do bramki")
+                    wst = WARMUP.tick(feeder, coins) or {}
+                except Exception as e:
+                    print(f"[Warmup] tick: {e}")
+                    wst = {"active": True, "ready": False, "phase": "error", "error": str(e)}
                 snap = getattr(rt, "last_state_snapshot", None) or {}
                 snap["warmup"] = wst
                 rt.last_state_snapshot = snap
-                if WARMUP.active and not WARMUP.ready:
+                warming = bool(getattr(WARMUP, "active", False) and not getattr(WARMUP, "ready", False))
+                if wst.get("error") and not getattr(WARMUP, "ready", False):
+                    warming = True
+                if warming:
                     print("[Warmup] pominieto generate_signals / otwarcia")
+                    try:
+                        persist_market_preview(rt, coins, cycle)
+                    except Exception as pe:
+                        print(f"[Warmup] persist: {pe}")
                     wait_for_next_cycle(config.LOOP_INTERVAL_SECONDS)
                     continue
 
@@ -522,25 +589,36 @@ def bot_loop(rt: BotRuntime):
                 print(f"[App] print_analysis: {pe}")
             # Odrzucone z filtrów sygnału → reject_log (UI Odrzucone)
             for s in signals:
+                if not bool(s.get("decision_fresh", True)):
+                    continue
                 rr = s.get("reject_reason")
                 if rr:
                     try:
                         risk.log_reject(s.get("symbol"), s.get("direction"), s.get("strength"), rr, signal=s)
                     except Exception:
                         pass
-                elif s.get("direction") != "NEUTRAL" and float(s.get("strength") or 0) < config.MIN_SIGNAL_STRENGTH:
+                elif (
+                    s.get("direction") != "NEUTRAL"
+                    and str(s.get("engine") or "").lower() not in ("daytrading_v2", "daytradingv2")
+                    and s.get("strategy_mode") != "DAYTRADING_V2"
+                    and float(s.get("strength") or 0) < config.MIN_SIGNAL_STRENGTH
+                ):
                     try:
                         risk.log_reject(s.get("symbol"), s.get("direction"), s.get("strength"),
                                         f"WEAK({s.get('strength'):.2f})", signal=s)
                     except Exception:
                         pass
-            logger.log_signals(signals)
+            logger.log_signals([
+                s for s in signals if bool(s.get("decision_fresh", True))
+            ])
             # Shadow Mode: rejestruj reversal candidates + update prices
             try:
                 from shadow_mode import process_reversal_signals
                 px_map = {s["symbol"]: float(s["price"]) for s in (signals or [])
                           if s.get("symbol") and s.get("price")}
-                process_reversal_signals(signals or [], price_map=px_map)
+                process_reversal_signals([
+                    s for s in (signals or []) if bool(s.get("decision_fresh", True))
+                ], price_map=px_map)
             except Exception:
                 pass
 
@@ -572,7 +650,9 @@ def bot_loop(rt: BotRuntime):
             paper = bool(getattr(config, "PAPER_TRADING", True))
             trade_on = bool(getattr(rt, "trading_enabled", False))
             candidates = sorted(
-                [s for s in signals if s.get("direction") != "NEUTRAL"],
+                [s for s in signals
+                 if s.get("direction") != "NEUTRAL"
+                 and bool(s.get("decision_fresh", True))],
                 key=lambda x: float(x.get("strength") or 0),
                 reverse=True,
             )
@@ -589,6 +669,12 @@ def bot_loop(rt: BotRuntime):
                 block = risk.halt_reason or "HALT"
                 print(f"[HALT] {block}")
             else:
+                try:
+                    limit_fills = trader.process_limit_queue(price_map)
+                    for pos in limit_fills:
+                        opened += 1
+                except Exception as e:
+                    print(f"[Paper] limit queue: {e}")
                 for sig in candidates:
                     if risk.open_positions_count >= config.MAX_POSITIONS:
                         skips.append({
@@ -596,7 +682,13 @@ def bot_loop(rt: BotRuntime):
                             "strength": sig.get("strength"), "why": "MAX_POSITIONS",
                         })
                         break
-                    if sig.get("reject_reason") and float(sig.get("strength") or 0) < config.MIN_SIGNAL_STRENGTH:
+                    eng_sig = str(sig.get("engine") or "").lower()
+                    is_v2_sig = eng_sig in ("daytrading_v2", "daytradingv2") or sig.get("strategy_mode") == "DAYTRADING_V2"
+                    # V2: reject_reason = twardy skip (strength=0.75 to stała, nie jakość).
+                    # Trend: słaby + reject jak wcześniej.
+                    if sig.get("reject_reason") and (
+                        is_v2_sig or float(sig.get("strength") or 0) < config.MIN_SIGNAL_STRENGTH
+                    ):
                         skips.append({
                             "symbol": sig.get("symbol"), "direction": sig.get("direction"),
                             "strength": sig.get("strength"),
@@ -607,18 +699,16 @@ def bot_loop(rt: BotRuntime):
                     pos = trader.open_position(sig)
                     if pos:
                         opened += 1
-                        logger.log_event(
-                            "OPEN", pos.symbol, pos.direction, pos.entry_price,
-                            pos.size_usd, 0, 0, pos.strength, pos.reasons,
-                            risk.current_capital
-                        )
                     elif len(skips) < 10:
                         can, why = risk.can_open_position(sig)
+                        pending = trader.has_pending_limit(sig.get("symbol"))
                         skips.append({
                             "symbol": sig.get("symbol"), "direction": sig.get("direction"),
                             "strength": float(sig.get("strength") or 0),
                             "reject": sig.get("reject_reason"),
-                            "why": why if not can else f"OPEN_NONE(count={before})",
+                            "why": why if not can else (
+                                "LIMIT_PENDING" if pending else f"OPEN_NONE(count={before})"
+                            ),
                             "net_r": sig.get("expected_net_r"),
                             "quality": sig.get("quality") or sig.get("strength"),
                         })
@@ -647,6 +737,20 @@ def bot_loop(rt: BotRuntime):
                         "net_r": sample.get("expected_net_r"),
                     })
             try:
+                from collections import Counter
+                v2_hist = Counter()
+                for s in signals or []:
+                    eng = str(s.get("engine") or "")
+                    mode = str(s.get("strategy_mode") or "")
+                    if "daytrading_v2" in eng.lower() or mode == "DAYTRADING_V2":
+                        rr = s.get("reject_reason")
+                        if rr:
+                            v2_hist[str(rr)] += 1
+                        elif s.get("direction") in ("LONG", "SHORT"):
+                            v2_hist["_PASS"] += 1
+                if opened == 0 and v2_hist:
+                    top_rr = ", ".join(f"{k}:{v}" for k, v in v2_hist.most_common(6))
+                    print(f"[V2] reject histogram: {top_rr}")
                 logger.log_cycle({
                     "cycle": cycle,
                     "trade_on": trade_on,
@@ -659,6 +763,8 @@ def bot_loop(rt: BotRuntime):
                     "capital": risk.current_capital,
                     "universe": len(coins or []),
                     "skips": skips[:12],
+                    "v2_reject_histogram": dict(v2_hist.most_common(12)),
+                    "reversal_diag": getattr(signal_engine, "last_reversal_diag", None),
                     "top": [
                         {
                             "symbol": s.get("symbol"),
@@ -679,8 +785,8 @@ def bot_loop(rt: BotRuntime):
             rt.analysis_loading = False
             try:
                 logger.maybe_cleanup()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Logger] cleanup: {e}")
 
             status = risk.get_status()
             funds = trader.get_funds_breakdown()
@@ -694,12 +800,21 @@ def bot_loop(rt: BotRuntime):
                         f"avail=${float(ex.get('available') or 0):.4f} "
                         f"pozycje giełda: {ex.get('positions_count', 0)}"
                     )
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[App] exchange snapshot: {e}")
+                try:
+                    from feed_log import note
+                    note("App", "exchange snapshot", e)
+                except Exception:
+                    pass
 
         except Exception as e:
             rt.last_error = str(e)
             print(f"[App] Blad cyklu: {e}")
+            try:
+                persist_market_preview(rt, getattr(rt, "last_coins", None) or [], cycle)
+            except Exception as pe:
+                print(f"[App] persist po bledzie: {pe}")
 
         wait_for_next_cycle(config.LOOP_INTERVAL_SECONDS)
 
@@ -707,7 +822,7 @@ def bot_loop(rt: BotRuntime):
 
 
 def run_ui_window(rt: BotRuntime) -> None:
-    """Uruchamia natywne UI PySide6. Przegladarka nie jest uzywana."""
+    """Uruchamia natywne UI PySide6. Lokalne HTTP API jest osobnym wątkiem."""
     try:
         from pyside6_ui import run_pyside6_ui
         print("[App] Start CryptoEdge Native UI (PySide6)...")
@@ -728,6 +843,9 @@ def run_ui_window(rt: BotRuntime) -> None:
 
 
 def main():
+    # React/Tauri uruchamia ten sam runtime bez tworzenia drugiego okna.
+    # Analiza i handel pozostaja wylaczone do chwili nacisniecia Start w UI.
+    web_ui_mode = "--web-ui" in sys.argv
     try:
         from version import display as _ver
         _ver_s = _ver()
@@ -736,7 +854,7 @@ def main():
     print("=" * 60)
     print(f"  CryptoEdge {_ver_s}")
     print(f"  Paper · x{config.LEVERAGE} · max {config.MAX_POSITIONS} poz. · {config.LOOP_INTERVAL_SECONDS}s")
-    print("  UI → PySide6 Native Dark Modern (bez przegladarki)")
+    print("  UI → PySide6 Native Dark Modern + lokalne API 127.0.0.1")
     print("=" * 60)
 
     # settings PRZED RiskManager – inaczej STARTING_CAPITAL z UI nigdy nie trafia do silnika
@@ -759,6 +877,10 @@ def main():
         print(f"[App] secrets: {e}")
 
     feeder = DataFeeder()
+    try:
+        feeder.blofin.probe_public()
+    except Exception as e:
+        print(f"[App] Blofin probe: {e}")
     # Best-effort: probuje faktycznie sprawdzic uprawnienia klucza (nie tylko
     # ogolna wskazowke wyzej) - patrz obszerny komentarz w
     # BlofinFeed.fetch_api_key_permissions() o niepewnosci co do dokladnego
@@ -780,7 +902,7 @@ def main():
 
     # Etap 1+2: registry / executor / protection / reconcile
     from instrument_registry import InstrumentRegistry
-    from blofin_executor import BloFinExecutor
+    from cryptoedge.execution.blofin import BloFinExecutor
     from protection import ProtectionManager
     from position_reconciler import PositionReconciler
     from restart_recovery import RestartRecovery
@@ -790,7 +912,13 @@ def main():
     risk.feeder = feeder
     try:
         registry.ensure_loaded()
-        print(f"[App] InstrumentRegistry: {registry.count()} par")
+        n_reg = registry.count()
+        if n_reg:
+            print(f"[App] InstrumentRegistry: {n_reg} par")
+        else:
+            err = registry.last_error or getattr(feeder.blofin, "last_error", None) or "brak odpowiedzi"
+            print(f"[App] InstrumentRegistry: 0 par — {err}")
+            print("[App] Bez listy instrumentów nie ma uniwersum (0 sygnałów).")
     except Exception as e:
         print(f"[App] InstrumentRegistry: {e}")
     executor = BloFinExecutor(registry=registry)
@@ -799,15 +927,14 @@ def main():
 
     load_previous_state(risk, trader)
 
-    # Paper: bez otwartych pozycji → honoruj STARTING_CAPITAL z settings
+    # PAPER zawsze jest nową sesją. RiskManager i PaperTrader zostały właśnie
+    # utworzone, a load_previous_state celowo niczego dla PAPER nie odtwarza.
     if getattr(config, "PAPER_TRADING", True):
-        if not getattr(trader, "positions", None):
-            target = float(getattr(config, "STARTING_CAPITAL", 100) or 100)
-            if abs(float(risk.current_capital or 0) - target) > 0.01:
-                print(f"[App] Paper capital: ${float(risk.current_capital):.2f} → ${target:.2f} (z settings)")
-                risk.current_capital = target
-                if hasattr(risk, "peak_equity"):
-                    risk.peak_equity = max(float(getattr(risk, "peak_equity", 0) or 0), target)
+        target = float(getattr(config, "STARTING_CAPITAL", 100) or 100)
+        risk.current_capital = target
+        risk.peak_equity = target
+        risk.daily_pnl = 0.0
+        trader.positions = []
         # Pause z poprzedniej sesji / po SL nie wraca sam. Tylko przycisk Pause.
         if bool(getattr(config, "AUTO_UNPAUSE_ON_START", True)):
             if getattr(risk, "paused", False) and not getattr(risk, "is_halted", False):
@@ -836,6 +963,12 @@ def main():
     reconciler = PositionReconciler(feeder=feeder, account_sync=account_sync)
     rt.reconciler = reconciler
     risk._reconciler_ref = reconciler
+    try:
+        from cryptoedge.apps.runtime import attach_runtime_modules
+        attach_runtime_modules(rt)
+    except Exception as exc:
+        # Migracja modułowa nie może wyłączyć zarządzania istniejącą pozycją.
+        print(f"[Modules] attach degraded: {exc}")
     try:
         recovery = RestartRecovery(
             risk=risk, trader=trader, logger=logger,
@@ -882,10 +1015,35 @@ def main():
         "saved_positions": trader.export_open_positions(),
     })
 
+    if bool(getattr(config, "HEADLESS", False)) and not web_ui_mode:
+        rt.engine_enabled = True
+        rt.trading_enabled = bool(getattr(config, "HEADLESS_TRADING", False))
+        rt.mark_started()
+        print("[App] HEADLESS: analiza ON" + (" + handel" if rt.trading_enabled else " (handel OFF)"))
+
     # Bot w tle (daemon – zyje dopoki glowny watek)
     threading.Thread(target=bot_loop, args=(rt,), daemon=True, name="bot").start()
 
-    print("[App] Uruchamiam natywne okno CryptoEdge (PySide6, bez przegladarki)...")
+    try:
+        if bool(getattr(config, "ENGINE_API_ENABLED", True)):
+            from engine_api import start_engine_api
+            rt.engine_api = start_engine_api(rt)
+    except Exception as e:
+        print(f"[API] start failed: {e}")
+
+    if bool(getattr(config, "HEADLESS", False)) or web_ui_mode:
+        mode_name = "TAURI" if web_ui_mode else "HEADLESS"
+        print(f"[App] {mode_name} — silnik + API, bez okna PySide6. Ctrl+C kończy.")
+        rt.running = True
+        try:
+            while True:
+                time.sleep(30)
+        except KeyboardInterrupt:
+            rt.running = False
+            print(f"[App] {mode_name} stop")
+        return
+
+    print("[App] Uruchamiam natywne okno CryptoEdge (PySide6). HTML: http://127.0.0.1:47821/")
     run_ui_window(rt)
     print("[App] Koniec.")
 

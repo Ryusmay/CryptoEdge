@@ -57,17 +57,24 @@ def find_last_confirmed_swing(
     highs: List[float], lows: List[float], closes: List[float],
     atr_series: List[Optional[float]],
     min_move_atr: float = 1.5, min_bars: int = 3, right_confirm: int = 2,
+    prefer_direction: Optional[str] = None,
 ) -> Optional[Swing]:
     """Ostatni potwierdzony swing spelniajacy filtr ruch>=min_move_atr*ATR
     ORAZ czas>=min_bars. Zwraca None, jesli brak danych/zaden swing nie
     spelnia filtrow (NIE zwraca "najlepszego z gorszych" - brak swingu to
-    legalny wynik, ktory wolajacy ma potraktowac jako brak setupu)."""
+    legalny wynik, ktory wolajacy ma potraktowac jako brak setupu).
+
+    prefer_direction: "UP"/"DOWN" — pomin nowsze swingi przeciwnej strony
+    (korekta) i wez ostatni impuls zgodny z biasem 4h."""
     n = min(len(highs), len(lows), len(closes), len(atr_series))
     if n < (2 * right_confirm + 1) or n < min_bars + 1:
         return None
     pivots = _find_confirmed_pivots(highs[:n], lows[:n], right_confirm)
     if len(pivots) < 2:
         return None
+    want = str(prefer_direction or "").upper() or None
+    if want not in ("UP", "DOWN"):
+        want = None
 
     best: Optional[Swing] = None
     for j in range(len(pivots) - 1, 0, -1):
@@ -88,6 +95,8 @@ def find_last_confirmed_swing(
             if ratio < min_move_atr:
                 continue
             direction = "UP" if end_kind == "H" else "DOWN"
+            if want and direction != want:
+                break
             best = {
                 "direction": direction,
                 "start": {"index": start_i, "price": start_p},
@@ -117,9 +126,9 @@ def swing_fib_retracement(swing: Swing, ratios=(0.382, 0.5, 0.618, 0.786)) -> di
     return {str(r): lo + span * r for r in ratios}
 
 
-def swing_fib_extension(swing: Swing, ratios=(1.272, 1.618)) -> dict:
+def swing_fib_extension(swing: Swing, ratios=(1.272, 1.618, 2.618)) -> dict:
     """Poziomy extension - projekcja POZA koniec impulsu, w jego kierunku.
-    Uzywane do TP2 (patrz punkt 16 planu)."""
+    TP1 = 1.618, TP2 = 2.618."""
     lo = min(swing["start"]["price"], swing["end"]["price"])
     hi = max(swing["start"]["price"], swing["end"]["price"])
     span = hi - lo

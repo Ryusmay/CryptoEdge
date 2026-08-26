@@ -169,13 +169,15 @@ class RegimeEngine:
         detail: Dict[str, Any] = {}
         btc = float(btc_change_24h or 0)
 
-        adx = _adx(highs, lows, closes, 14) if len(closes) >= 30 else None
-        atrs = _atr_list(highs, lows, closes, 14) if len(closes) >= 30 else []
+        import config
+        atr_period = max(2, int(getattr(config, "REGIME_ATR_PERIOD", 14) or 14))
+        adx = _adx(highs, lows, closes, atr_period) if len(closes) >= atr_period * 2 else None
+        atrs = _atr_list(highs, lows, closes, atr_period) if len(closes) >= atr_period * 2 else []
         atr = atrs[-1] if atrs else None
         atr_ratio = None
         atr_pctile = None
         if atr is not None and atrs:
-            ma_n = min(50, len(atrs))
+            ma_n = min(max(2, int(getattr(config, "REGIME_ATR_MA", 50) or 50)), len(atrs))
             atr_ma = sum(atrs[-ma_n:]) / ma_n
             atr_ratio = atr / atr_ma if atr_ma > 0 else 1.0
             # Percentyl liczony z historycznych ATR świec, nie z wartości

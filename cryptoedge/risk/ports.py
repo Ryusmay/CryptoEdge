@@ -1,0 +1,6 @@
+from typing import Any, Protocol, Sequence
+
+
+class RiskPort(Protocol):
+    def assess(self, candidate: Any, *, positions: Sequence[Any] = ()) -> Any: ...
+    def state(self) -> str: ...

@@ -9,37 +9,41 @@ from typing import Dict, Optional, Any
 
 def normalize_interval_hours(raw) -> float:
     """Blofin/Binance: ms, s, '8h', '480m', hours number."""
+    import config
+    fallback = float(getattr(config, "FUNDING_PERIOD_HOURS", 8.0) or 8.0)
+    if fallback <= 0:
+        fallback = 8.0
     if raw is None:
-        return 8.0
+        return fallback
     if isinstance(raw, str):
         s = raw.strip().lower().replace(" ", "")
         if s.endswith("h"):
             try:
-                return max(float(s[:-1]) or 8.0, 0.25)
+                return max(float(s[:-1]) or fallback, 0.25)
             except ValueError:
-                return 8.0
+                return fallback
         if s.endswith("m"):
             try:
                 return max(float(s[:-1]) / 60.0, 1.0 / 60.0)
             except ValueError:
-                return 8.0
+                return fallback
         if s.endswith("s"):
             try:
                 return max(float(s[:-1]) / 3600.0, 1.0 / 3600.0)
             except ValueError:
-                return 8.0
+                return fallback
         try:
             v = float(s)
         except ValueError:
-            return 8.0
+            return fallback
     else:
         try:
             v = float(raw)
         except (TypeError, ValueError):
-            return 8.0
+            return fallback
     # ms timestamps mistaken as interval
     if v > 1e10:
-        return 8.0
+        return fallback
     if v > 1000:  # ms duration
         return max(v / 3600000.0, 1.0 / 60.0)
     if v > 48:  # seconds

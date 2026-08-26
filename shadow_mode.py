@@ -338,7 +338,7 @@ def get_shadow_tracker() -> ShadowTracker:
 
 
 def should_execute(signal: dict) -> bool:
-    """Reversal moze wejsc tylko do PAPER po pelnej kontroli; LIVE pozostaje zablokowany."""
+    """Reversal tylko PAPER. LIVE zawsze zablokowany — bez osobnej flagi."""
     is_rev = signal.get("engine") == "reversal" or signal.get("setup") == "reversal_confirmed"
     if not is_rev:
         return True

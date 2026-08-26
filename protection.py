@@ -81,6 +81,7 @@ class ProtectionManager:
         tp_price: float = None,
         size_contracts: float = None,
         entry_price: float = None,
+        place_exchange: bool = True,
     ) -> ProtectionAttach:
         """
         Ustaw ochronę pozycji.
@@ -126,7 +127,8 @@ class ProtectionManager:
         require_fill_size = bool(getattr(config, "PROTECTION_REQUIRE_FILL_SIZE", True))
         has_fill_size = size_contracts is not None and float(size_contracts or 0) > 0
         can_exchange = (
-            self.live_exec()
+            bool(place_exchange)
+            and self.live_exec()
             and exchange_sl_on
             and (sl_price is not None or use_exchange_tp)
             and (has_fill_size or not require_fill_size)

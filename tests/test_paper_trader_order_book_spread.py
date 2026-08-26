@@ -35,11 +35,11 @@ from risk_manager import RiskManager
 
 def make_v2_signal(**overrides):
     sig = {
-        "symbol": "SPCX",
+        "symbol": "DUSTX",
         "direction": "LONG",
         "strength": 0.75,
         "price": 100.0,
-        "sl_price": 98.7,  # 1.3% dystans wzgledem PRE-spread ceny
+        "sl_price": 99.5,  # ciasny SL: po half-spread nadal >= 5% margin
         "engine": "daytrading_v2",
         "strategy_mode": "DAYTRADING_V2",
         "risk_pct_of_capital": 0.5,
