@@ -201,6 +201,61 @@ class TestStratNaVerdict(unittest.TestCase):
         self.assertEqual((False, "STRAT_NA_WEAK"), (ok, why))
 
 
+class TestPrimaryVerdict(unittest.TestCase):
+    """Pelny werdykt: przepuscic, odrzucic, czy przepuscic mniejszym."""
+
+    def verdict(self, **kw):
+        return sf.primary_verdict(sig(**kw), cfg())
+
+    def test_strat_fail_without_support_is_rejected(self):
+        self.assertEqual((False, "STRAT_PRIMARY_FAIL", None),
+                         self.verdict(strategy={"pass": False}))
+
+    def test_strat_fail_with_mtf_passes_smaller(self):
+        self.assertEqual((True, "OK", 0.6),
+                         self.verdict(strategy={"pass": False}, mtf={"long_votes": 2}))
+
+    def test_strat_fail_with_soft_align_passes_smaller(self):
+        self.assertEqual((True, "OK", 0.6),
+                         self.verdict(strategy={"pass": False}, reasons=["PRIMARY_SOFT_PASS"]))
+
+    def test_direction_conflict_without_mtf_is_rejected(self):
+        self.assertEqual((False, "STRAT_PRIMARY_CONFLICT", None),
+                         self.verdict(strategy={"pass": True, "direction": "SHORT"}))
+
+    def test_direction_conflict_with_mtf_passes_even_smaller(self):
+        self.assertEqual((True, "OK", 0.5),
+                         self.verdict(strategy={"pass": True, "direction": "SHORT"},
+                                      mtf={"long_votes": 2}))
+
+    def test_clean_pass_has_no_multiplier(self):
+        self.assertEqual((True, "OK", None),
+                         self.verdict(strategy={"pass": True, "direction": "LONG"}))
+
+    def test_conflict_is_stricter_than_fail(self):
+        # Sprzecznosc kierunku jest gorsza niz brak potwierdzenia.
+        self.assertLess(sf.STRAT_CONFLICT_SIZE_MULT, sf.STRAT_FAIL_SIZE_MULT)
+
+    def test_missing_strategy_falls_back_to_strat_na(self):
+        ok, why, mult = sf.primary_verdict(sig(strength=0.52), cfg())
+        self.assertEqual((False, "STRAT_NA_NO_MTF(L0/S0<2)", None), (ok, why, mult))
+
+    def test_verdict_does_not_mutate_the_signal(self):
+        s = sig(strategy={"pass": False}, mtf={"long_votes": 2})
+        before = dict(s)
+        sf.primary_verdict(s, cfg())
+        self.assertEqual(before, s, "primary_verdict nie moze pisac po sygnale")
+
+    def test_size_mult_helper_skips_engines_outside_the_filter(self):
+        s = sig(strategy={"pass": False}, mtf={"long_votes": 2},
+                strategy_mode="DAYTRADING_V2")
+        self.assertIsNone(sf.primary_size_mult(s, cfg()))
+
+    def test_size_mult_helper_returns_the_reduction(self):
+        s = sig(strategy={"pass": False}, mtf={"long_votes": 2})
+        self.assertEqual(0.6, sf.primary_size_mult(s, cfg()))
+
+
 class TestNoDuplicateImplementations(unittest.TestCase):
     """Kopie regul nie moga wrocic do risk_manager."""
 
@@ -223,18 +278,38 @@ class TestNoDuplicateImplementations(unittest.TestCase):
     def test_manager_delegates(self):
         self.assertIn("from cryptoedge.risk import strategy_filter as strat_filter",
                       self.source)
-        for call in ("strat_filter.votes_of", "strat_filter.mtf_majority",
-                     "strat_filter.has_soft_align", "strat_filter.is_daytrading",
-                     "strat_filter.day_setup_ok", "strat_filter.primary_filter_applies",
-                     "strat_filter.strat_na_verdict"):
+        for call in ("strat_filter.is_daytrading", "strat_filter.day_setup_ok",
+                     "strat_filter.primary_filter_applies",
+                     "strat_filter.primary_verdict", "strat_filter.primary_size_mult"):
             self.assertIn(call, self.source)
 
-    def test_size_mult_branches_stay_in_the_manager_for_now(self):
-        """Mutacja sygnalu jeszcze nie przeniesiona - swiadomie."""
-        self.assertIn('signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.6)',
-                      self.source)
-        self.assertIn('signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.5)',
-                      self.source)
+    def test_manager_no_longer_rebuilds_the_verdict_by_hand(self):
+        """Glosy MTF, soft-align i progi STRAT_NA sa juz tylko wewnatrz
+        primary_verdict() - bramka ich nie sklada samodzielnie."""
+        for call in ("strat_filter.votes_of", "strat_filter.mtf_majority",
+                     "strat_filter.has_soft_align", "strat_filter.strat_na_verdict"):
+            self.assertNotIn(call, self.source,
+                             f"can_open_position znowu sklada werdykt recznie: {call}")
+
+    def test_literal_multipliers_are_gone_from_the_manager(self):
+        """0.6 i 0.5 sa stalymi modulu, nie liczbami w bramce."""
+        for literal in ('or 1.0), 0.6)', 'or 1.0), 0.5)'):
+            self.assertNotIn(literal, self.source,
+                             f"mnoznik wrocil do risk_manager: {literal}")
+
+    def test_multiplier_is_applied_before_sizing_not_in_the_gate(self):
+        """Kolejnosc jest cala istota poprawki z v20.23.0.
+
+        paper_trader liczy rozmiar PRZED can_open_position(), wiec mnoznik
+        nalozony w bramce nie zdazyl na nic wplynac. Musi go nakladac
+        prepare_signal_for_sizing(), ktore calculate_position_size() wola
+        u siebie na starcie.
+        """
+        head, _, tail = self.source.partition("def can_open_position")
+        self.assertIn("strat_filter.primary_size_mult", head,
+                      "mnoznik musi byc nakladany w prepare_signal_for_sizing")
+        self.assertNotIn('signal["_size_mult"] = min', tail.split("def calculate_position_size")[0],
+                         "can_open_position znowu ustawia _size_mult po sizingu")
 
 
 if __name__ == "__main__":

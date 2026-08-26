@@ -5,10 +5,10 @@ wejsc. Do v20.21.0 ta galaz nie byla objeta zadna bramka - korpus jechal na
 DAYTRADING_V2, ktory omija ja w calosci. Najpierw powstalo pokrycie
 (120 przypadkow, powody STRAT_* i DAY_*), dopiero potem te przenosiny.
 
-Czego tu NIE ma: galezi ustawiajacych `signal["_size_mult"]` na 0.6 i 0.5.
-Mutuja sygnal w miejscu i zostaja w `can_open_position()`, dopoki mutacja nie
-zostanie zrobiona jawna. Ich wartosci sa juz przypiete w baseline, wiec ten
-krok bedzie dowodliwy.
+Mnozniki rozmiaru (0.6 i 0.5) sa tu wartoscia zwracana, nie efektem ubocznym.
+`primary_verdict()` mowi "wpusc, ale mniejszy" - a KTO i KIEDY zapisze to na
+sygnale, decyduje `risk_manager.prepare_signal_for_sizing()`, bo musi to
+nastapic PRZED policzeniem notionalu. Patrz v20.23.0.
 
 Zachowany swiadomie: kierunek czytamy surowo (`signal.get("direction")`), bez
 `.upper()`. Walidacja ksztaltu normalizuje kierunek tylko na potrzeby wlasnej
@@ -33,6 +33,11 @@ CONFIRMED_DAY_SETUPS = (
 )
 
 NATIVE_SIGNAL_SOURCE = "BLOFIN_NATIVE"
+
+# Ocena 4h nieudana, ale MTF albo soft-align za nami: wchodzimy mniejsi.
+STRAT_FAIL_SIZE_MULT = 0.6
+# Ocena 4h udana, ale wskazuje przeciwny kierunek: jeszcze ostrozniej.
+STRAT_CONFLICT_SIZE_MULT = 0.5
 
 
 def _config(cfg=None):
@@ -129,3 +134,44 @@ def strat_na_verdict(strength, regime, mtf_ok, long_votes, short_votes, cfg=None
     if strength < min_str:
         return False, "STRAT_NA_WEAK"
     return True, "OK"
+
+
+def primary_verdict(signal, cfg=None) -> tuple:
+    """(ok, powod, mnoznik) — pelny werdykt filtra primary dla jednego sygnalu.
+
+    Mnoznik `None` znaczy "bez redukcji". Funkcja niczego nie zapisuje na
+    sygnale: zwraca liczbe i oddaje decyzje o jej nalozeniu wolajacemu.
+    Dzieki temu `prepare_signal_for_sizing()` moze ja nalozyc PRZED sizingiem,
+    zamiast - jak przed v20.23.0 - po nim, gdzie nie robila juz nic.
+    """
+    signal = signal or {}
+    direction = signal.get("direction")
+    strat = signal.get("strategy")
+    mtf_ok = mtf_majority(direction, signal, cfg)
+
+    if strat:  # mamy wynik ewaluacji 4h
+        if not strat.get("pass"):
+            # MTF majority lub soft-align (ADX+ST) -> wpusc z mniejszym size
+            if mtf_ok or has_soft_align(signal.get("reasons")):
+                return True, "OK", STRAT_FAIL_SIZE_MULT
+            return False, "STRAT_PRIMARY_FAIL", None
+        if strat.get("direction") and strat["direction"] != direction:
+            if mtf_ok:
+                return True, "OK", STRAT_CONFLICT_SIZE_MULT
+            return False, "STRAT_PRIMARY_CONFLICT", None
+        return True, "OK", None
+
+    # Brak 4h (STRAT_PRIMARY_NA) - nie blokuj wszystkiego w RANGE.
+    long_votes, short_votes = votes_of(signal)
+    ok, reason = strat_na_verdict(
+        signal.get("strength"), (signal.get("market_regime") or "").upper(),
+        mtf_ok, long_votes, short_votes, cfg,
+    )
+    return ok, reason, None
+
+
+def primary_size_mult(signal, cfg=None):
+    """Sam mnoznik, bez werdyktu. Dla sciezki sizingu, ktora nie odrzuca."""
+    if not primary_filter_applies(signal, cfg):
+        return None
+    return primary_verdict(signal, cfg)[2]

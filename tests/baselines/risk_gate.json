@@ -460,7 +460,7 @@
       "approved": true,
       "reason": "OK",
       "size_mult": 0.6,
-      "size_usd": 81.7539
+      "size_usd": 49.0523
     },
     {
       "case": "strat_fail_mtf_below_min",
@@ -481,21 +481,21 @@
       "approved": true,
       "reason": "OK",
       "size_mult": 0.6,
-      "size_usd": 81.7539
+      "size_usd": 49.0523
     },
     {
       "case": "strat_fail_soft_primary_soft_pass",
       "approved": true,
       "reason": "OK",
       "size_mult": 0.6,
-      "size_usd": 81.7539
+      "size_usd": 49.0523
     },
     {
       "case": "strat_fail_soft_strat_soft_align",
       "approved": true,
       "reason": "OK",
       "size_mult": 0.6,
-      "size_usd": 81.7539
+      "size_usd": 49.0523
     },
     {
       "case": "strat_fail_soft_unknown_marker",
@@ -523,7 +523,7 @@
       "approved": true,
       "reason": "OK",
       "size_mult": 0.5,
-      "size_usd": 81.7539
+      "size_usd": 40.8769
     },
     {
       "case": "strat_pass_no_direction",

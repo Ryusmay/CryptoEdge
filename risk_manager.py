@@ -168,7 +168,20 @@ class RiskManager:
         Bramka ryzyka nie może dopiero po obliczeniu notionalu zmniejszyć
         `_size_mult`, bo projected loss i rzeczywista pozycja używałyby innych
         wielkości. Metoda jest idempotentna (zawsze bierze minimum).
+
+        v20.23.0: filtr strategii primary łamał tę zasadę. Ustawiał 0.6/0.5
+        wewnątrz can_open_position(), czyli PO tym, jak paper_trader policzył
+        już rozmiar (open_position: calculate_position_size -> can_open_position
+        -> Position(signal, size)). Nikt poniżej nie czyta `_size_mult`, więc
+        "wpuść z mniejszym size" wpuszczało z pełnym. Mnożnik nakładamy tutaj.
         """
+        from cryptoedge.risk import strategy_filter as strat_filter
+
+        primary_mult = strat_filter.primary_size_mult(signal, config)
+        if primary_mult is not None:
+            signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0),
+                                       float(primary_mult))
+
         regime = str(signal.get("market_regime") or self.last_regime or "UNKNOWN").upper()
         if regime != "PANIC":
             return signal
@@ -247,26 +260,14 @@ class RiskManager:
             elif eng in ("daytrading_v2", "daytradingv2"):
                 pass  # V2: checklista w silniku, dummy strength nie jest bramką
             elif eng == "daytrading":
-                panic_mult = getattr(config, "DAYTRADING_PANIC_SIZE_MULT", 1.0)
-                try:
-                    panic_mult = float(panic_mult)
-                except (TypeError, ValueError):
-                    panic_mult = 1.0
-                if 0 <= panic_mult < 1.0:
-                    signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), panic_mult)
+                # Mnoznik PANIC naklada prepare_signal_for_sizing() (przed
+                # sizingiem). Kopia w tym miejscu byla bezczynna - dublowala
+                # regule i wykonywala sie po policzeniu rozmiaru.
                 min_panic = float(getattr(config, "DAYTRADING_PANIC_MIN_STRENGTH", 0.0) or 0.0)
                 if min_panic > 0 and float(signal.get("strength") or 0) < min_panic:
                     return False, f"REGIME_PANIC_DAY({float(signal.get('strength') or 0):.2f}<{min_panic})"
             else:
-                panic_mult = getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", None)
-                if panic_mult is None:
-                    panic_mult = getattr(config, "REGIME_PANIC_SIZE_MULT", 1.0)
-                try:
-                    panic_mult = float(panic_mult)
-                except (TypeError, ValueError):
-                    panic_mult = 1.0
-                if 0 <= panic_mult < 1.0:
-                    signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), panic_mult)
+                # jw. - mnoznik nakladany przed sizingiem, tu zostaje prog sily
                 min_panic = float(getattr(config, "REGIME_PANIC_TREND_MIN_STRENGTH", 0.0) or 0.0)
                 if min_panic > 0 and float(signal.get("strength") or 0) < min_panic:
                     return False, f"REGIME_PANIC_TREND({float(signal.get('strength') or 0):.2f}<{min_panic})"
@@ -356,41 +357,17 @@ class RiskManager:
         # Reguly: cryptoedge.risk.strategy_filter - jeden wlasciciel.
         from cryptoedge.risk import strategy_filter as strat_filter
 
-        regime = (signal.get("market_regime") or "").upper()
-        direction = signal.get("direction")
-        long_votes, short_votes = strat_filter.votes_of(signal)
-        mtf_ok = strat_filter.mtf_majority(direction, signal, config)
-
         if strat_filter.is_daytrading(signal):
             ok_day, why_day = strat_filter.day_setup_ok(signal)
             if not ok_day:
                 return False, why_day
         if strat_filter.primary_filter_applies(signal, config):
-            strat = signal.get("strategy")
-            strength = float(signal.get("strength") or 0)
-            soft_ok = strat_filter.has_soft_align(signal.get("reasons"))
-            if strat:  # mamy wynik ewaluacji 4h
-                # Te dwie galezie mutuja sygnal w miejscu i dlatego zostaja
-                # tutaj. Ich mnozniki sa przypiete w baseline bramki ryzyka.
-                if not strat.get("pass"):
-                    # MTF majority lub soft-align (ADX+ST) → wpuść z mniejszym size
-                    if mtf_ok or soft_ok:
-                        signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.6)
-                    else:
-                        return False, "STRAT_PRIMARY_FAIL"
-                elif strat.get("direction") and strat["direction"] != direction:
-                    if mtf_ok:
-                        signal["_size_mult"] = min(float(signal.get("_size_mult") or 1.0), 0.5)
-                    else:
-                        return False, "STRAT_PRIMARY_CONFLICT"
-            else:
-                # Brak 4h (STRAT_PRIMARY_NA) – nie blokuj wszystkiego w RANGE:
-                # OK gdy: MTF>=min  LUB  siła wysoka (RANGE: >=0.68, inaczej MIN+0.08)
-                ok_na, why_na = strat_filter.strat_na_verdict(
-                    strength, regime, mtf_ok, long_votes, short_votes, config,
-                )
-                if not ok_na:
-                    return False, why_na
+            # Tylko werdykt. Mnoznik rozmiaru nalozyl juz
+            # prepare_signal_for_sizing() na poczatku tej metody - musi to
+            # nastapic przed sizingiem, inaczej nie robi nic (v20.23.0).
+            ok_pri, why_pri, _mult = strat_filter.primary_verdict(signal, config)
+            if not ok_pri:
+                return False, why_pri
 
         # reject_reason z silnika – pomiń tylko miękkie flagi
         rr = signal.get("reject_reason")
