@@ -16,7 +16,11 @@ class RiskStub:
         self.current_capital = 1000.0
         self.rejections = []
 
-    def log_reject(self, symbol, direction, strength, reason):
+    def log_reject(self, symbol, direction, strength, reason, signal=None):
+        # Sygnatura musi odpowiadac RiskManager.log_reject, ktory od dawna
+        # przyjmuje signal=. Bez tego wolajacy dostaje TypeError, ktory ginie
+        # w `except Exception: pass` wokol telemetrii i odrzucenie po cichu
+        # nie zostaje nigdzie zapisane.
         self.rejections.append(reason)
 
     def update_capital(self, capital, pnl=0):

@@ -54,8 +54,17 @@ class ModularServicesTests(unittest.TestCase):
         runtime = create_runtime_pipeline(**self._components())
         replay = create_replay_pipeline(**self._components())
         self.assertIsInstance(replay.pipeline, type(runtime))
-        self.assertEqual(runtime.process("BTC", decision_ts_ms=123, trading_enabled=True).decision,
-                         replay.step("BTC", 123).decision)
+        # decision_id jest bity per ocena, wiec dwa niezalezne przebiegi maja
+        # go rozny z definicji - to nie jest roznica decyzji, tylko jej slad.
+        # Porownujemy tresc decyzji, identyfikatory sprawdza test_decision_lineage.
+        def content(decision):
+            return {k: v for k, v in decision.items()
+                    if k not in ("decision_id", "snapshot_id", "decision_ts_ms")}
+
+        self.assertEqual(
+            content(runtime.process("BTC", decision_ts_ms=123, trading_enabled=True).decision),
+            content(replay.step("BTC", 123).decision),
+        )
 
     def test_analysis_and_trading_services_only_differ_by_execution_permission(self):
         pipeline = create_runtime_pipeline(**self._components())

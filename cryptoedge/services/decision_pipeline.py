@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -30,9 +31,34 @@ class DecisionPipeline:
     def analyze(self, symbol: str, *, decision_ts_ms: int | None = None) -> PipelineResult:
         snapshot = self.market_data.snapshot(symbol, decision_ts_ms=decision_ts_ms)
         decision = self.strategy.evaluate(snapshot)
+        self._stamp_lineage(decision, snapshot)
         if self.health:
             self.health.report("strategy", "healthy")
         return PipelineResult(snapshot=snapshot, decision=decision)
+
+    @staticmethod
+    def _stamp_lineage(decision: Any, snapshot: Any) -> None:
+        """Identyfikator decyzji powstaje TU, przy snapshocie.
+
+        Wczesniej decision_id bylo bite dopiero w decision_telemetry, czyli
+        w momencie zapisu. Odrzucenie i pozniejsze przyjecie tej samej oceny
+        dostawaly rozne identyfikatory, a zaden wiersz nie mial jak wskazac
+        stanu rynku, ktory go wywolal. Bez tego nie da sie odpowiedziec na
+        pytanie "czemu nie weszlismy w ETH o 14:32" - a to najczestsze
+        pytanie do tego bota.
+
+        setdefault, nie przypisanie: jesli cos wyzej juz nadalo identyfikator,
+        zostaje jego.
+        """
+        if not isinstance(decision, dict):
+            return
+        decision.setdefault("decision_id", uuid4().hex)
+        snapshot_id = getattr(snapshot, "snapshot_id", None)
+        if snapshot_id:
+            decision.setdefault("snapshot_id", snapshot_id)
+        ts = getattr(snapshot, "decision_ts_ms", None)
+        if ts:
+            decision.setdefault("decision_ts_ms", int(ts))
 
     def process(self, symbol: str, *, decision_ts_ms: int | None = None,
                 trading_enabled: bool = False) -> PipelineResult:

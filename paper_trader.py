@@ -1128,23 +1128,18 @@ class PaperTrader:
             try:
                 self.risk.log_reject(
                     signal.get("symbol"), signal.get("direction"),
-                    signal.get("strength"), "PAPER_TRADER_FORBIDDEN_IN_LIVE"
+                    signal.get("strength"), "PAPER_TRADER_FORBIDDEN_IN_LIVE",
+                    signal=signal,
                 )
             except Exception:
                 pass
             print("[Live] Blocked: PaperTrader cannot create exchange fills.")
             return None
-            if not getattr(config, "LIVE_EXECUTION_ENABLED", False):
-                try:
-                    self.risk.log_reject(
-                        signal.get("symbol"), signal.get("direction"),
-                        signal.get("strength"),
-                        "LIVE_NOT_WIRED (włącz DEMO)"
-                    )
-                except Exception:
-                    pass
-                print("[Live] Otwarcie zablokowane – włącz DEMO albo poczekaj na executor LIVE.")
-                return None
+            # 26.08.2026: tu stalo 10 linii nieosiagalnych z definicji - drugi
+            # blok kontroli LIVE siedzial ZA bezwarunkowym `return None`
+            # powyzej i nigdy sie nie wykonal. Usuniete, bo sugerowal, ze LIVE
+            # ma dwie rozne bramki, podczas gdy dziala wylacznie pierwsza.
+            # Zachowanie bez zmian: PaperTrader w LIVE i tak jest zablokowany.
         # V2: max N wejsc na ten sam symbol/kierunek; inne silniki: 1
         same = [p for p in self.positions if p.symbol == signal.get("symbol")]
         if same:
@@ -1207,7 +1202,7 @@ class PaperTrader:
             self.entry_reservations.release(signal.get("symbol"), engine_name)
             try:
                 self.risk.log_reject(signal.get("symbol"), signal.get("direction"),
-                                     signal.get("strength"), f"SIZE_TOO_SMALL({size})")
+                                     signal.get("strength"), f"SIZE_TOO_SMALL({size})", signal=signal)
             except Exception:
                 pass
             print(f"[Open skip] {signal.get('symbol')} size=${size:.4f} too small")

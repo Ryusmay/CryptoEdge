@@ -79,6 +79,10 @@ def decision_snapshot(signal: Dict[str, Any], decision: str, reason: str = "") -
                         _RECENT_REJECTIONS.pop(old_key, None)
     _append({
         "event": "DECISION", "ts": now, "decision_id": decision_id,
+        # Wiersz musi wskazywac stan rynku, ktory go wywolal - inaczej
+        # odrzucenie jest samotnym napisem bez kontekstu.
+        "snapshot_id": signal.get("snapshot_id"),
+        "decision_ts_ms": signal.get("decision_ts_ms"),
         "decision": decision_upper, "reason": str(reason or ""),
         "symbol": signal.get("symbol"), "direction": signal.get("direction"),
         "strategy_mode": str(signal.get("strategy_mode") or getattr(config, "STRATEGY_MODE", "DAYTRADING")).upper(),
