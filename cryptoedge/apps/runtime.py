@@ -1,6 +1,10 @@
+from decimal import Decimal
+
 from cryptoedge.services.decision_pipeline import DecisionPipeline
 from cryptoedge.market_data import LegacyMarketDataAdapter
-from cryptoedge.execution import LegacyExecutionAdapter, PaperExecutionAdapter
+from cryptoedge.execution import (
+    LegacyExecutionAdapter, PaperExecutionAdapter, SubmitOrder,
+)
 from cryptoedge.portfolio import PortfolioManager
 from cryptoedge.risk import LegacyRiskAdapter
 from cryptoedge.telemetry import HealthRegistry
@@ -9,6 +13,51 @@ from cryptoedge.telemetry import HealthRegistry
 def create_runtime_pipeline(*, market_data, strategy, risk, execution=None,
                             portfolio=None, health=None, order_factory=None) -> DecisionPipeline:
     return DecisionPipeline(market_data, strategy, risk, execution, portfolio, health, order_factory)
+
+
+def open_entry(rt, trader, signal):
+    """Wejscie PAPER przez ExecutionPort, z jawnym powrotem do starej sciezki.
+
+    Dwa zabezpieczenia, oba celowe:
+
+    1. **Tylko adapter PAPER.** W trybie LIVE `rt.execution_port` to
+       `LegacyExecutionAdapter`, ktorego `submit` sklada PRAWDZIWE zlecenie
+       na gieldzie. Wejscie papierowe nie moze tam trafic nigdy, wiec
+       warunkiem jest konkretny typ portu, a nie samo "port istnieje".
+    2. **Fallback jest strukturalny, nie ponawiajacy.** Decyzja "port czy
+       wywolanie bezposrednie" zapada ZANIM cokolwiek zostanie wyslane.
+       Nie ma `except` wokol `submit`, ktory probowalby otworzyc pozycje
+       drugi raz: gdyby `submit` wywalil sie po tym, jak `open_position`
+       juz sie wykonalo, ponowienie zrobiloby DWA wejscia zamiast jednego.
+
+    Powod istnienia fallbacku: `attach_runtime_modules` jest w `app.py`
+    opakowane w `try/except` ("Migracja modulowa nie moze wylaczyc
+    zarzadzania istniejaca pozycja"). Skoro portowi wolno nie powstac,
+    handel nie moze od niego zalezec. Druga sciezka znika przy usuwaniu
+    legacy (etap 7).
+
+    Rownowaznosc obu drog jest dowiedziona w
+    `tests/test_paper_port_equivalence.py` na calym korpusie entry_gate.
+    """
+    port = getattr(rt, "execution_port", None)
+    if not isinstance(port, PaperExecutionAdapter):
+        return trader.open_position(signal)
+
+    symbol = str(signal.get("symbol") or "").upper()
+    result = port.submit(SubmitOrder(
+        # Kolejka PAPER jest kluczowana symbolem, wiec id per symbol
+        # wystarcza i nie udaje idempotency, ktorego ta ksiega nie ma.
+        client_order_id=f"PAPER-{symbol}",
+        symbol=symbol,
+        side="buy" if str(signal.get("direction") or "").upper() == "LONG" else "sell",
+        # PAPER liczy rozmiar sam, z sygnalu. To pole nie ma tu jeszcze
+        # znaczenia i nabierze go dopiero przy rozdzieleniu decision/order.
+        quantity=Decimal("1"),
+        metadata={"signal": signal},
+    ))
+    # FILLED daje pozycje; ACCEPTED to zaparkowany limit, a wtedy stara
+    # sciezka tez zwracala None.
+    return result.raw if result.state == "FILLED" else None
 
 
 def _paper_mark_price(rt):

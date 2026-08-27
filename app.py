@@ -35,6 +35,17 @@ from correlation import summarize_market_correlation, print_correlation_report
 from runtime import BotRuntime
 from account_sync import AccountSync
 
+try:
+    from cryptoedge.apps.runtime import open_entry
+except Exception as _exc:  # pragma: no cover - awaryjna sciezka importu
+    # Ta sama zasada, co przy attach_runtime_modules nizej: migracja
+    # modulowa nie moze wylaczyc handlu. Gdy pakiet sie nie zaladuje,
+    # wejscie idzie stara droga, prosto do ksiegi.
+    print(f"[Modules] open_entry degraded: {_exc}")
+
+    def open_entry(rt, trader, signal):
+        return trader.open_position(signal)
+
 BASE = Path(__file__).resolve().parent
 
 # Zastosuj zapisany tryb przed utworzeniem silników i pierwszym cyklem.
@@ -696,7 +707,10 @@ def bot_loop(rt: BotRuntime):
                         })
                         continue
                     before = risk.open_positions_count
-                    pos = trader.open_position(sig)
+                    # Wejscie idzie przez ExecutionPort, gdy port PAPER
+                    # istnieje; inaczej prosto do ksiegi, jak dotad.
+                    # Rownowaznosc obu drog: tests/test_paper_port_equivalence.py
+                    pos = open_entry(rt, trader, sig)
                     if pos:
                         opened += 1
                     elif len(skips) < 10:
