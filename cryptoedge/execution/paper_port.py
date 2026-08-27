@@ -78,7 +78,15 @@ class PaperExecutionAdapter:
         symbol = str(command.symbol or signal.get("symbol") or "").upper()
         self._symbol_by_order[command.client_order_id] = symbol
 
-        position = self.trader.open_position(dict(signal))
+        # Sygnal idzie dalej BEZ dodatkowej kopii - dokladnie tak, jak wola
+        # go dzis petla glowna (`app.py:699`). Zmierzone, nie zalozone:
+        # `open_position` i tak rebinduje na wlasna kopie
+        # (`paper_trader.py:1051`), a baseline entry_gate ma
+        # `caller_signal_untouched: True` we wszystkich 21 przypadkach.
+        # Kopia w adapterze byla wiec nieszkodliwa, ale i zbedna: dodawala
+        # druga tozsamosc obiektu w miejscu, ktore ma byc czysta podmiana
+        # miejsca wywolania.
+        position = self.trader.open_position(signal)
         if position is not None:
             return ExecutionResult(
                 accepted=True, state="FILLED",

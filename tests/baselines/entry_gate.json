@@ -1,7 +1,8 @@
 {
   "meta": {
-    "cases": 21,
+    "cases": 22,
     "opened": 10,
+    "parked": 1,
     "rejected": 11,
     "raised": 0,
     "distinct_rejects": 8
@@ -396,6 +397,75 @@
       "caller_signal_untouched": true,
       "open_count": 1,
       "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "park_v2_limit_in_zone",
+      "opened": false,
+      "position": null,
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.03,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.005,
+          "net_r": 0.1748,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [
+        "BTC"
+      ],
       "capital": 10000.0
     },
     {

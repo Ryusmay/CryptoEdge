@@ -90,6 +90,14 @@ def build_corpus() -> list:
                "setup": "intraday_15m_confirmed", "signal_source": "BLOFIN_NATIVE"}))
     add(_case("open_short", {"direction": "SHORT", "sl_price": 104.0}))
 
+    # --- limit zaparkowany zamiast wejscia market ---
+    # Korpus nie mial ani jednego takiego przypadku (zmierzone: PARKED=0),
+    # a to trzeci mozliwy wynik wejscia obok "otwarto" i "odrzucono":
+    # zlecenie zyje dalej jako working order. Bez tego przypadku roznica
+    # miedzy "nie otworzono, bo odrzucono" a "nie otworzono, bo czeka
+    # w kolejce" nie byla przez bramke widziana wcale.
+    add(_case("park_v2_limit_in_zone", {"limit_price": 99.0}))
+
     # --- wejscie odrzucone przez bramke ryzyka ---
     add(_case("reject_invalid_direction", {"direction": "FLAT"}))
     add(_case("reject_invalid_price", {"price": 0.0}))
@@ -268,11 +276,15 @@ def run_gate() -> dict:
         cases = build_corpus()
         results = [evaluate(case) for case in cases]
         opened = sum(1 for r in results if r.get("opened"))
+        # Zaparkowany limit to trzeci wynik, nie odmowa. Wczesniej wpadal
+        # do "rejected", bo formula liczyla wszystko, co nie otworzylo
+        # pozycji - i tym samym mylila "nie wpuszczono" z "czeka w kolejce".
+        parked = sum(1 for r in results if r.get("limit_parked") and not r.get("opened"))
         raised = [r["case"] for r in results if r.get("raised")]
         reasons = sorted({x for r in results for x in (r.get("rejects") or [])})
         return {
-            "meta": {"cases": len(results), "opened": opened,
-                     "rejected": len(results) - opened - len(raised),
+            "meta": {"cases": len(results), "opened": opened, "parked": parked,
+                     "rejected": len(results) - opened - parked - len(raised),
                      "raised": len(raised), "distinct_rejects": len(reasons)},
             "config": config_fingerprint(),
             "rejects": reasons,
