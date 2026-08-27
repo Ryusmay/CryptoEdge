@@ -1,0 +1,892 @@
+{
+  "meta": {
+    "cases": 33,
+    "raised": 0,
+    "order_states": 6,
+    "drift_blocking": 5
+  },
+  "config": {
+    "hash": "bee6af3c6d61120d",
+    "keys": 531,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "order_states": [
+    "CANCELED",
+    "FILLED",
+    "PARTIAL",
+    "REJECTED",
+    "SUBMITTED",
+    "TIMEOUT"
+  ],
+  "results": [
+    {
+      "case": "place_market_accepted",
+      "kind": "executor",
+      "order": {
+        "state": "SUBMITTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_market_api_error",
+      "kind": "executor",
+      "order": {
+        "state": "REJECTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": "Insufficient balance",
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_market_http_error",
+      "kind": "executor",
+      "order": {
+        "state": "REJECTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": "unavailable",
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_market_timeout",
+      "kind": "executor",
+      "order": {
+        "state": "TIMEOUT",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders-history?instId=BTC-USDT&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instId=BTC-USDT&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": "TIMEOUT: gate: brak odpowiedzi"
+    },
+    {
+      "case": "place_unknown_instrument",
+      "kind": "executor",
+      "order": {
+        "state": "REJECTED",
+        "symbol": "NOPE",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": "UNKNOWN_INSTRUMENT",
+        "exchange_order_id": null
+      },
+      "sent": [],
+      "last_error": null
+    },
+    {
+      "case": "place_zero_size",
+      "kind": "executor",
+      "order": {
+        "state": "REJECTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 0.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": "SIZE<0.1",
+        "exchange_order_id": null
+      },
+      "sent": [],
+      "last_error": null
+    },
+    {
+      "case": "place_reduce_only",
+      "kind": "executor",
+      "order": {
+        "state": "SUBMITTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "reduceOnly": "true",
+            "side": "buy",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_limit_order",
+      "kind": "executor",
+      "order": {
+        "state": "SUBMITTED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "limit",
+        "size": 1.0,
+        "price": 99.5,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "limit",
+            "positionSide": "net",
+            "price": "99.5",
+            "side": "buy",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_short",
+      "kind": "executor",
+      "order": {
+        "state": "SUBMITTED",
+        "symbol": "BTC",
+        "side": "sell",
+        "direction": "SHORT",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "sell",
+            "size": "1.0"
+          }
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_and_wait_fill",
+      "kind": "executor",
+      "order": {
+        "state": "FILLED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 1.0,
+        "avg_fill_price": 100.5,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_and_wait_partial_fill",
+      "kind": "executor",
+      "order": {
+        "state": "PARTIAL",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.4,
+        "avg_fill_price": 100.2,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "place_and_wait_canceled",
+      "kind": "executor",
+      "order": {
+        "state": "CANCELED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 0.0,
+        "avg_fill_price": null,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "refresh_falls_back_to_history",
+      "kind": "executor",
+      "order": {
+        "state": "FILLED",
+        "symbol": "BTC",
+        "side": "buy",
+        "direction": "LONG",
+        "order_type": "market",
+        "size": 1.0,
+        "price": null,
+        "filled_size": 1.0,
+        "avg_fill_price": 100.5,
+        "reject_reason": null,
+        "exchange_order_id": null
+      },
+      "sent": [
+        {
+          "method": "POST",
+          "path": "/api/v1/account/set-leverage",
+          "body": {
+            "instId": "BTC-USDT",
+            "leverage": "10",
+            "marginMode": "isolated"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/order",
+          "body": {
+            "instId": "BTC-USDT",
+            "marginMode": "isolated",
+            "orderType": "market",
+            "positionSide": "net",
+            "side": "buy",
+            "size": "1.0"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders-history?instId=BTC-USDT&orderId=EX-1&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "fetch_open_orders_empty",
+      "kind": "executor",
+      "result_count": 0,
+      "result": [],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "fetch_open_orders_some",
+      "kind": "executor",
+      "result_count": 1,
+      "result": [
+        {
+          "instId": "ETH-USDT",
+          "orderId": "EX-9"
+        }
+      ],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "fetch_open_orders_timeout",
+      "kind": "executor",
+      "result_count": 0,
+      "result": [],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        }
+      ],
+      "last_error": "TIMEOUT: gate: brak odpowiedzi"
+    },
+    {
+      "case": "cancel_orphans_none",
+      "kind": "executor",
+      "result_count": 0,
+      "result": [],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "cancel_orphans_one",
+      "kind": "executor",
+      "result_count": 1,
+      "result": [
+        {
+          "state": "OrderState.CANCELED"
+        }
+      ],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        },
+        {
+          "method": "POST",
+          "path": "/api/v1/trade/cancel-order",
+          "body": {
+            "instId": "ETH-USDT",
+            "orderId": "EX-9"
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/order-detail?instId=ETH-USDT&orderId=EX-9&clientOrderId=<zmienne>",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders-history?instId=ETH-USDT&orderId=EX-9&clientOrderId=<zmienne>",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "cancel_orphans_keeps_active",
+      "kind": "executor",
+      "result_count": 0,
+      "result": [],
+      "sent": [
+        {
+          "method": "GET",
+          "path": "/api/v1/trade/orders?instType=SWAP",
+          "body": null
+        }
+      ],
+      "last_error": null
+    },
+    {
+      "case": "in_sync_paper",
+      "kind": "reconciler",
+      "in_sync": true,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "empty_both_paper",
+      "kind": "reconciler",
+      "in_sync": true,
+      "drift_blocks_entries": false,
+      "local_count": 0,
+      "exchange_count": 0,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "only_local_paper",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 0,
+      "only_local": 1,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "only_exchange_paper",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": false,
+      "local_count": 0,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 1,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "size_mismatch_paper",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 1,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "two_sided_drift_paper",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 1,
+      "only_exchange": 1,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "venue_error_paper",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 0,
+      "only_local": 1,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": true,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "in_sync_live",
+      "kind": "reconciler",
+      "in_sync": true,
+      "drift_blocks_entries": false,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "empty_both_live",
+      "kind": "reconciler",
+      "in_sync": true,
+      "drift_blocks_entries": false,
+      "local_count": 0,
+      "exchange_count": 0,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": false
+    },
+    {
+      "case": "only_local_live",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": true,
+      "local_count": 1,
+      "exchange_count": 0,
+      "only_local": 1,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": true
+    },
+    {
+      "case": "only_exchange_live",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": true,
+      "local_count": 0,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 1,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": true
+    },
+    {
+      "case": "size_mismatch_live",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": true,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 0,
+      "only_exchange": 0,
+      "size_mismatch": 1,
+      "has_error": false,
+      "blocks_new_entries": true
+    },
+    {
+      "case": "two_sided_drift_live",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": true,
+      "local_count": 1,
+      "exchange_count": 1,
+      "only_local": 1,
+      "only_exchange": 1,
+      "size_mismatch": 0,
+      "has_error": false,
+      "blocks_new_entries": true
+    },
+    {
+      "case": "venue_error_live",
+      "kind": "reconciler",
+      "in_sync": false,
+      "drift_blocks_entries": true,
+      "local_count": 1,
+      "exchange_count": 0,
+      "only_local": 1,
+      "only_exchange": 0,
+      "size_mismatch": 0,
+      "has_error": true,
+      "blocks_new_entries": true
+    }
+  ]
+}
