@@ -1,0 +1,2987 @@
+{
+  "meta": {
+    "cases": 63,
+    "exit_events": 42,
+    "distinct_reasons": 16,
+    "raised": 0
+  },
+  "config": {
+    "hash": "bee6af3c6d61120d",
+    "keys": 531,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "reasons": [
+    "day_time_stop",
+    "early_loss_cut",
+    "htf_opposite",
+    "htf_reversal",
+    "local_emergency_sl",
+    "local_emergency_tp",
+    "margin_call",
+    "opposite_signal",
+    "partial_tp1",
+    "partial_tp2",
+    "sl",
+    "stop_loss",
+    "supertrend_flip",
+    "take_profit",
+    "time_stop",
+    "trailing_stop"
+  ],
+  "results": [
+    {
+      "case": "sl_hit_long",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 95.0,
+              "pnl": -26.0,
+              "pnl_pct": -52.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -26.0,
+            "pnl_pct": -52.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9974.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "sl_exact_touch_long",
+      "ticks": [
+        {
+          "price": 96.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 96.0,
+              "pnl": -21.0,
+              "pnl_pct": -42.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -21.0,
+            "pnl_pct": -42.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9979.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "sl_one_tick_inside_long",
+      "ticks": [
+        {
+          "price": 96.01,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -19.95,
+            "pnl_pct": -39.9,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "sl_hit_short",
+      "ticks": [
+        {
+          "price": 105.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 105.0,
+              "pnl": -26.0,
+              "pnl_pct": -52.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 104.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -26.0,
+            "pnl_pct": -52.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9974.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "sl_gap_far_below",
+      "ticks": [
+        {
+          "price": 80.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "margin_call"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 80.0,
+              "pnl": -101.0,
+              "pnl_pct": -202.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -101.0,
+            "pnl_pct": -202.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9899.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "margin_call_by_price",
+      "ticks": [
+        {
+          "price": 91.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "margin_call"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 91.0,
+              "pnl": -46.0,
+              "pnl_pct": -92.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -46.0,
+            "pnl_pct": -92.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9954.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "margin_call_disabled",
+      "ticks": [
+        {
+          "price": 91.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 91.0,
+              "pnl": -46.0,
+              "pnl_pct": -92.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -46.0,
+            "pnl_pct": -92.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9954.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "take_profit_daytrading",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 16.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 0.25,
+              "size_usd": 125.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 1,
+            "size_usd": 375.0,
+            "pnl": 65.0,
+            "pnl_pct": 130.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10016.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "take_profit_trend_blocked_by_no_hard_tp",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 32.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 65.0,
+            "pnl_pct": 130.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10032.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "take_profit_trend_with_hard_tp",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 32.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 65.0,
+            "pnl_pct": 130.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10032.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "partial_tp1_hit",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.5,
+              "pnl": 10.75,
+              "pnl_pct": 43.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 103.5595,
+            "trailing_stop_price": 103.5595,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10010.75,
+      "open_at_end": 1
+    },
+    {
+      "case": "partial_tp1_then_tp2",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.5,
+              "pnl": 10.75,
+              "pnl_pct": 43.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 103.5595,
+            "trailing_stop_price": 103.5595,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        },
+        {
+          "price": 108.5,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 107.5235,
+            "trailing_stop_price": 107.5235,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 21.25,
+            "pnl_pct": 85.0,
+            "highest_price": 108.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10010.75,
+      "open_at_end": 1
+    },
+    {
+      "case": "partial_tp1_already_done",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 103.5595,
+            "trailing_stop_price": 103.5595,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "partial_disabled",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 103.5595,
+            "trailing_stop_price": 103.5595,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "partial_beats_margin_call",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.5,
+              "pnl": 10.75,
+              "pnl_pct": 43.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 103.5595,
+            "trailing_stop_price": 103.5595,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10010.75,
+      "open_at_end": 1
+    },
+    {
+      "case": "trailing_arms_then_holds",
+      "ticks": [
+        {
+          "price": 112.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 112.0,
+              "pnl": 29.5,
+              "pnl_pct": 118.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 110.992,
+            "trailing_stop_price": 110.992,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 60.0,
+            "pnl_pct": 120.0,
+            "highest_price": 112.0,
+            "lowest_price": 100.0
+          }
+        },
+        {
+          "price": 110.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "trailing_stop"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 110.0,
+              "pnl": 54.0,
+              "pnl_pct": 108.0,
+              "fees_paid": 1.0,
+              "size_usd": 250.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 110.992,
+            "trailing_stop_price": 110.992,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 54.0,
+            "pnl_pct": 108.0,
+            "highest_price": 112.0,
+            "lowest_price": 100.0
+          }
+        },
+        {
+          "price": 109.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 110.992,
+            "trailing_stop_price": 110.992,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 54.0,
+            "pnl_pct": 108.0,
+            "highest_price": 112.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10054.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "trailing_stop_hit",
+      "ticks": [
+        {
+          "price": 104.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.0,
+              "pnl": 9.5,
+              "pnl_pct": 38.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": 103.064,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 20.0,
+            "pnl_pct": 40.0,
+            "highest_price": 104.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10009.5,
+      "open_at_end": 1
+    },
+    {
+      "case": "trailing_beats_stop_loss",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "trailing_stop"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 95.0,
+              "pnl": -26.0,
+              "pnl_pct": -52.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": 105.0,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -26.0,
+            "pnl_pct": -52.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9974.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "breakeven_move_reports_stop_loss",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 99.0,
+              "pnl": -6.0,
+              "pnl_pct": -12.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 100.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": true,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -6.0,
+            "pnl_pct": -12.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9994.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "early_loss_cut",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "early_loss_cut"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 99.0,
+              "pnl": -6.0,
+              "pnl_pct": -12.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -6.0,
+            "pnl_pct": -12.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9994.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "early_loss_cut_no_mtf_against",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -5.0,
+            "pnl_pct": -10.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "early_loss_cut_too_young",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -5.0,
+            "pnl_pct": -10.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "early_loss_cut_pnl_not_deep_enough",
+      "ticks": [
+        {
+          "price": 99.6,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -2.0,
+            "pnl_pct": -4.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "early_loss_cut_without_mtf_requirement",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "early_loss_cut"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 99.0,
+              "pnl": -6.0,
+              "pnl_pct": -12.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -6.0,
+            "pnl_pct": -12.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9994.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "opposite_signal_strong",
+      "ticks": [
+        {
+          "price": 100.3,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "opposite_signal"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 100.3,
+              "pnl": 0.5,
+              "pnl_pct": 1.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.5,
+            "pnl_pct": 1.0,
+            "highest_price": 100.3,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.5,
+      "open_at_end": 0
+    },
+    {
+      "case": "opposite_signal_below_threshold",
+      "ticks": [
+        {
+          "price": 100.3,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 1.5,
+            "pnl_pct": 3.0,
+            "highest_price": 100.3,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "opposite_signal_suppressed_by_profit",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 5.0,
+            "pnl_pct": 10.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "opposite_signal_blocked_by_trail_lock",
+      "ticks": [
+        {
+          "price": 112.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 112.0,
+              "pnl": 29.5,
+              "pnl_pct": 118.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 110.992,
+            "trailing_stop_price": 110.992,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 60.0,
+            "pnl_pct": 120.0,
+            "highest_price": 112.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10029.5,
+      "open_at_end": 1
+    },
+    {
+      "case": "supertrend_flip_dict",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "supertrend_flip"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 101.0,
+              "pnl": 4.0,
+              "pnl_pct": 8.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 4.0,
+            "pnl_pct": 8.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10004.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "supertrend_flip_string",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "supertrend_flip"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 101.0,
+              "pnl": 4.0,
+              "pnl_pct": 8.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 4.0,
+            "pnl_pct": 8.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10004.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "supertrend_flip_nested",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "supertrend_flip"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 101.0,
+              "pnl": 4.0,
+              "pnl_pct": 8.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 4.0,
+            "pnl_pct": 8.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10004.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "supertrend_flip_not_blocked_by_trail_lock",
+      "ticks": [
+        {
+          "price": 112.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 112.0,
+              "pnl": 29.5,
+              "pnl_pct": 118.0,
+              "fees_paid": 0.5,
+              "size_usd": 250.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 110.992,
+            "trailing_stop_price": 110.992,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 1,
+            "size_usd": 250.0,
+            "pnl": 60.0,
+            "pnl_pct": 120.0,
+            "highest_price": 112.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10029.5,
+      "open_at_end": 1
+    },
+    {
+      "case": "supertrend_aligned_no_exit",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 5.0,
+            "pnl_pct": 10.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "supertrend_flip_disabled",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 5.0,
+            "pnl_pct": 10.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "htf_opposite",
+      "ticks": [
+        {
+          "price": 100.3,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "htf_opposite"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 100.3,
+              "pnl": 0.5,
+              "pnl_pct": 1.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.5,
+            "pnl_pct": 1.0,
+            "highest_price": 100.3,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.5,
+      "open_at_end": 0
+    },
+    {
+      "case": "htf_same_direction",
+      "ticks": [
+        {
+          "price": 100.3,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 1.5,
+            "pnl_pct": 3.0,
+            "highest_price": 100.3,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "htf_opposite_suppressed_by_profit",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.091,
+            "trailing_stop_price": 100.091,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 5.0,
+            "pnl_pct": 10.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "take_profit_after_partials",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "take_profit"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 64.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 2,
+            "size_usd": 500.0,
+            "pnl": 64.0,
+            "pnl_pct": 128.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10064.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "take_profit_trend_no_hard_tp",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 2,
+            "size_usd": 500.0,
+            "pnl": 65.0,
+            "pnl_pct": 130.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "take_profit_trend_hard_tp_on",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "take_profit"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 64.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": false,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 2,
+            "size_usd": 500.0,
+            "pnl": 64.0,
+            "pnl_pct": 128.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10064.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "take_profit_ride_trend_blocks",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "take_profit"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 64.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 2,
+            "size_usd": 500.0,
+            "pnl": 64.0,
+            "pnl_pct": 128.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10064.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "day_time_stop",
+      "ticks": [
+        {
+          "price": 99.5,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "day_time_stop"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 99.5,
+              "pnl": -3.5,
+              "pnl_pct": -7.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -3.5,
+            "pnl_pct": -7.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9996.5,
+      "open_at_end": 0
+    },
+    {
+      "case": "day_time_stop_blocked_by_r",
+      "ticks": [
+        {
+          "price": 107.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 107.0,
+              "pnl": 8.5,
+              "pnl_pct": 68.0,
+              "fees_paid": 0.25,
+              "size_usd": 125.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 106.037,
+            "trailing_stop_price": 106.037,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 1,
+            "size_usd": 375.0,
+            "pnl": 35.0,
+            "pnl_pct": 70.0,
+            "highest_price": 107.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10008.5,
+      "open_at_end": 1
+    },
+    {
+      "case": "day_hard_time_stop",
+      "ticks": [
+        {
+          "price": 107.0,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 107.0,
+              "pnl": 8.5,
+              "pnl_pct": 68.0,
+              "fees_paid": 0.25,
+              "size_usd": 125.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 106.037,
+            "trailing_stop_price": 106.037,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 1,
+            "size_usd": 375.0,
+            "pnl": 35.0,
+            "pnl_pct": 70.0,
+            "highest_price": 107.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10008.5,
+      "open_at_end": 1
+    },
+    {
+      "case": "day_time_stop_not_for_trend",
+      "ticks": [
+        {
+          "price": 99.5,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -2.5,
+            "pnl_pct": -5.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "v2_sl_armed_by_config",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "sl"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 96.0,
+              "pnl": -20.9,
+              "pnl_pct": -41.8,
+              "fees_paid": 0.9,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -20.9,
+            "pnl_pct": -41.8,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9979.1,
+      "open_at_end": 0
+    },
+    {
+      "case": "v2_sl_disarmed_before_tp1",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -25.0,
+            "pnl_pct": -50.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "v2_tp1",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.0,
+              "pnl": 4.775,
+              "pnl_pct": 38.2,
+              "fees_paid": 0.225,
+              "size_usd": 125.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.0,
+            "trailing_stop_price": 103.064,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 1,
+            "size_usd": 375.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10004.775,
+      "open_at_end": 1
+    },
+    {
+      "case": "v2_tp1_then_tp2",
+      "ticks": [
+        {
+          "price": 104.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp1"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 104.0,
+              "pnl": 4.775,
+              "pnl_pct": 38.2,
+              "fees_paid": 0.225,
+              "size_usd": 125.0
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 100.0,
+            "trailing_stop_price": 103.064,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": false,
+            "partial_stage": 1,
+            "size_usd": 375.0,
+            "pnl": 22.5,
+            "pnl_pct": 45.0,
+            "highest_price": 104.5,
+            "lowest_price": 100.0
+          }
+        },
+        {
+          "price": 108.5,
+          "reasons": [
+            {
+              "kind": "partial",
+              "reason": "partial_tp2"
+            }
+          ],
+          "labels": [
+            {
+              "event": "PARTIAL",
+              "exit": null
+            }
+          ],
+          "closed": [],
+          "partials": [
+            {
+              "symbol": "BTC",
+              "exit_price": 108.0,
+              "pnl": 10.26375,
+              "pnl_pct": 78.2,
+              "fees_paid": 0.23625,
+              "size_usd": 131.25
+            }
+          ],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 107.5235,
+            "trailing_stop_price": 107.028,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": true,
+            "partial_tp1_done": true,
+            "partial_tp2_done": true,
+            "partial_stage": 2,
+            "size_usd": 243.75,
+            "pnl": 31.875,
+            "pnl_pct": 85.0,
+            "highest_price": 108.5,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10015.03875,
+      "open_at_end": 1
+    },
+    {
+      "case": "v2_time_stop",
+      "ticks": [
+        {
+          "price": 100.2,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "time_stop"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 100.2,
+              "pnl": 0.1,
+              "pnl_pct": 0.2,
+              "fees_paid": 0.9,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.1,
+            "pnl_pct": 0.2,
+            "highest_price": 100.2,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.1,
+      "open_at_end": 0
+    },
+    {
+      "case": "v2_htf_reversal",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "htf_reversal"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 101.0,
+              "pnl": 4.1,
+              "pnl_pct": 8.2,
+              "fees_paid": 0.9,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 4.1,
+            "pnl_pct": 8.2,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10004.1,
+      "open_at_end": 0
+    },
+    {
+      "case": "v2_ignores_opposite_signal",
+      "ticks": [
+        {
+          "price": 101.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 5.0,
+            "pnl_pct": 10.0,
+            "highest_price": 101.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "protection_emergency_sl",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "local_emergency_sl"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 95.0,
+              "pnl": -26.0,
+              "pnl_pct": -52.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -26.0,
+            "pnl_pct": -52.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [
+        {
+          "op": "disarm",
+          "symbol": "BTC",
+          "direction": "LONG"
+        }
+      ],
+      "capital": 9974.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "protection_beats_take_profit",
+      "ticks": [
+        {
+          "price": 113.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "local_emergency_tp"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 113.0,
+              "pnl": 64.0,
+              "pnl_pct": 128.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 111.983,
+            "trailing_stop_price": 111.983,
+            "trailing_active": true,
+            "breakeven_active": true,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 64.0,
+            "pnl_pct": 128.0,
+            "highest_price": 113.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [
+        {
+          "op": "update_sl",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "new_sl": 100.18
+        },
+        {
+          "op": "update_sl",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "new_sl": 111.983
+        },
+        {
+          "op": "disarm",
+          "symbol": "BTC",
+          "direction": "LONG"
+        }
+      ],
+      "capital": 10064.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "protection_silent",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -5.0,
+            "pnl_pct": -10.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "price_missing",
+      "ticks": [
+        {
+          "price": null,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.0,
+            "pnl_pct": 0.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "price_zero",
+      "ticks": [
+        {
+          "price": 0.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.0,
+            "pnl_pct": 0.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "price_negative",
+      "ticks": [
+        {
+          "price": -5.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.0,
+            "pnl_pct": 0.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "price_nan",
+      "ticks": [
+        {
+          "price": "nan",
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": 0.0,
+            "pnl_pct": 0.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "signal_neutral_direction",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -5.0,
+            "pnl_pct": -10.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "signal_for_other_symbol_only",
+      "ticks": [
+        {
+          "price": 99.0,
+          "reasons": [],
+          "labels": [],
+          "closed": [],
+          "partials": [],
+          "open_count": 1,
+          "position": {
+            "status": "OPEN",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -5.0,
+            "pnl_pct": -10.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 10000.0,
+      "open_at_end": 1
+    },
+    {
+      "case": "sl_beats_opposite_signal",
+      "ticks": [
+        {
+          "price": 95.0,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "stop_loss"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 95.0,
+              "pnl": -26.0,
+              "pnl_pct": -52.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -26.0,
+            "pnl_pct": -52.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9974.0,
+      "open_at_end": 0
+    },
+    {
+      "case": "time_stop_beats_supertrend_flip",
+      "ticks": [
+        {
+          "price": 99.5,
+          "reasons": [
+            {
+              "kind": "close",
+              "reason": "day_time_stop"
+            }
+          ],
+          "labels": [
+            {
+              "event": "CLOSE",
+              "exit": null
+            }
+          ],
+          "closed": [
+            {
+              "symbol": "BTC",
+              "exit_price": 99.5,
+              "pnl": -3.5,
+              "pnl_pct": -7.0,
+              "fees_paid": 1.0,
+              "size_usd": 500.0
+            }
+          ],
+          "partials": [],
+          "open_count": 0,
+          "position": {
+            "status": "CLOSED",
+            "sl_price": 96.0,
+            "trailing_stop_price": null,
+            "trailing_active": false,
+            "breakeven_active": false,
+            "partial_taken": false,
+            "partial_tp1_done": false,
+            "partial_tp2_done": false,
+            "partial_stage": 0,
+            "size_usd": 500.0,
+            "pnl": -3.5,
+            "pnl_pct": -7.0,
+            "highest_price": 100.0,
+            "lowest_price": 100.0
+          }
+        }
+      ],
+      "sl_updates": [],
+      "capital": 9996.5,
+      "open_at_end": 0
+    }
+  ]
+}
