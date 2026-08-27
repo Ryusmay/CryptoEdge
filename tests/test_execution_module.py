@@ -306,39 +306,36 @@ class PaperExecutionAdapterTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             PaperExecutionAdapter(_FakeTrader()).cancel(CancelOrder("NOPE", ""))
 
-    def test_reduce_without_a_mark_price_refuses_instead_of_guessing(self):
+    def test_reduce_without_a_price_refuses_instead_of_inventing_one(self):
+        # Regula "po jakiej cenie zamykamy" ma jednego wlasciciela
+        # (close_policy). Adapter nie moze byc drugim.
         trader = _FakeTrader(opens="BTC")
-        trader.positions.append(_PaperPosition("BTC"))
-        with self.assertRaises(PaperMarkPriceUnavailable):
-            PaperExecutionAdapter(trader).reduce(
-                ReducePosition("BTC", "LONG", Decimal("1"))
-            )
-
-    def test_stale_or_unusable_mark_price_is_treated_as_no_price(self):
-        trader = _FakeTrader()
         trader.positions.append(_PaperPosition("BTC"))
         for bad in (None, 0, -1, "abc"):
             with self.assertRaises(PaperMarkPriceUnavailable):
-                PaperExecutionAdapter(trader, mark_price=lambda _s, v=bad: v).reduce(
-                    ReducePosition("BTC", "LONG", Decimal("1"))
+                PaperExecutionAdapter(trader).reduce(
+                    ReducePosition("BTC", "LONG", Decimal("1"), price=bad)
                 )
 
-    def test_reduce_closes_the_position_and_flags_the_ignored_quantity(self):
+    def test_reduce_closes_at_the_price_and_reason_the_caller_resolved(self):
         trader = _FakeTrader()
         trader.positions.append(_PaperPosition("BTC"))
-        result = PaperExecutionAdapter(trader, mark_price=lambda _s: 250.0).reduce(
-            ReducePosition("BTC", "LONG", Decimal("0.5"), "R1")
-        )
+        result = PaperExecutionAdapter(trader).reduce(ReducePosition(
+            "BTC", "LONG", Decimal("0.5"), "R1",
+            price=Decimal("250"), reason="manual:STALE_PRICE_900s",
+        ))
         self.assertTrue(result.accepted)
         self.assertEqual(result.state, "FILLED")
         # Pominiecie quantity musi byc widoczne, a nie ciche.
         self.assertEqual(result.reason, "PAPER_FULL_CLOSE_QUANTITY_IGNORED")
         self.assertEqual(trader.closed[0][0], "BTC")
         self.assertEqual(trader.closed[0][1], {"BTC": 250.0})
+        # Slad po nieswiezej cenie musi dojsc do ksiegi nietkniety.
+        self.assertEqual(trader.closed[0][2], "manual:STALE_PRICE_900s")
 
     def test_reduce_of_a_missing_position_is_rejected_not_raised(self):
-        result = PaperExecutionAdapter(_FakeTrader(), mark_price=lambda _s: 10.0).reduce(
-            ReducePosition("ETH", "LONG", Decimal("1"))
+        result = PaperExecutionAdapter(_FakeTrader()).reduce(
+            ReducePosition("ETH", "LONG", Decimal("1"), price=Decimal("10"))
         )
         self.assertFalse(result.accepted)
         self.assertEqual(result.reason, "PAPER_NO_SUCH_POSITION")

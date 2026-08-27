@@ -104,8 +104,28 @@ class TestNoDuplicateImplementations(unittest.TestCase):
     def _src(self, name):
         return (ROOT / name).read_text(encoding="utf-8")
 
+    # Warstwa execution doszla pozniej i tez potrafi zamykac pozycje,
+    # wiec obejmuje ja ta sama regula. PaperExecutionAdapter mial przez
+    # chwile wlasny prog swiezosci - test istnieje, zeby nie wrocil.
+    CLOSING_CALLERS = (
+        "runtime.py", "paper_trader.py",
+        "cryptoedge/execution/paper_port.py",
+        "cryptoedge/apps/runtime.py",
+    )
+
+    def test_execution_layer_has_no_freshness_rule_of_its_own(self):
+        for name in ("cryptoedge/execution/paper_port.py",
+                     "cryptoedge/apps/runtime.py"):
+            source = self._src(name)
+            for forbidden in ("STOP_ENGINE_MAX_PRICE_AGE_S",
+                              "PRICE_MAP_STALE_AFTER_S"):
+                self.assertNotIn(
+                    forbidden, source,
+                    f"{name} ma wlasny prog swiezosci zamiast close_policy",
+                )
+
     def test_callers_do_not_read_the_threshold_themselves(self):
-        for name in ("runtime.py", "paper_trader.py"):
+        for name in self.CLOSING_CALLERS:
             self.assertNotIn(
                 'getattr(config, "STOP_ENGINE_MAX_PRICE_AGE_S"', self._src(name),
                 f"{name} czyta prog samodzielnie zamiast przez close_policy",

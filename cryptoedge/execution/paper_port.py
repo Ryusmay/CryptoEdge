@@ -19,9 +19,12 @@ od udokumentowanej luki:
    czyli `command.metadata["signal"]`. Brak sygnalu konczy sie bledem,
    nigdy zgadywaniem ksztaltu wejscia.
 
-3. `ReducePosition` nie niesie ceny, bo prawdziwa gielda odkrywa ja sama.
-   PAPER musi dostac mark price z zewnatrz - stad `mark_price`. Brak ceny
-   to odmowa, nie domysl.
+3. Prawdziwa gielda odkrywa cene zamkniecia sama, PAPER nie. Cene podaje
+   wiec wolajacy w `ReducePosition.price`, ustalona przez
+   `cryptoedge.portfolio.close_policy` - jedynego wlasciciela regul
+   zamkniecia. Adapter jej NIE wymysla i nie ma wlasnego progu swiezosci:
+   drugi wlasciciel tej decyzji juz raz rozjechal sciezki zamkniecia
+   (patrz docstring `close_policy`), wiec tutaj go nie ma.
 
 ZNANA LUKA (swiadoma, nie do naprawy w tym kroku): `reduce` zamyka cala
 pozycje, bo ksiega PAPER liczy pozycje w notional USD, a `quantity`
@@ -45,7 +48,7 @@ class PaperOrderNeedsSignal(ValueError):
 
 
 class PaperMarkPriceUnavailable(RuntimeError):
-    """Redukcja PAPER bez ceny mark - odmowa zamiast zgadywania."""
+    """ReducePosition bez ceny - odmowa zamiast wymyslania wlasnej reguly."""
 
 
 def _symbol_of(value: Any) -> str:
@@ -55,11 +58,8 @@ def _symbol_of(value: Any) -> str:
 class PaperExecutionAdapter:
     """Ten sam ExecutionPort co BloFin i replay, ale venue jest lokalne."""
 
-    def __init__(self, trader: Any, *,
-                 mark_price: Optional[Callable[[str], Any]] = None,
-                 enabled: bool = True) -> None:
+    def __init__(self, trader: Any, *, enabled: bool = True) -> None:
         self.trader = trader
-        self.mark_price = mark_price
         self.enabled = bool(enabled)
         self.live = False
         self._symbol_by_order: dict[str, str] = {}
@@ -129,12 +129,20 @@ class PaperExecutionAdapter:
     def reduce(self, command: ReducePosition) -> ExecutionResult:
         symbol = str(command.symbol or "").upper()
         client_order_id = command.client_order_id or f"PAPER-REDUCE-{symbol}"
-        price = self._resolve_mark(symbol)
+        price = self._price_of(command)
         if price is None:
+            # Adapter NIE wymysla ceny zastepczej. Regula "po jakiej cenie
+            # zamykamy" ma jednego wlasciciela - cryptoedge.portfolio.
+            # close_policy - i to wolajacy ma ja zastosowac. Drugi wlasciciel
+            # tej decyzji juz raz rozjechal sciezki zamkniecia (patrz
+            # docstring close_policy), wiec tutaj go nie bedzie.
             raise PaperMarkPriceUnavailable(
-                f"brak mark price dla {symbol}: PAPER nie odkrywa ceny sam"
+                f"ReducePosition dla {symbol} bez ceny: ustala ja wolajacy "
+                f"przez close_policy, PAPER nie odkrywa jej sam"
             )
-        pnl = self.trader.close_by_symbol(symbol, {symbol: float(price)}, "port_reduce")
+        pnl = self.trader.close_by_symbol(
+            symbol, {symbol: float(price)}, command.reason or "port_reduce",
+        )
         if pnl is None:
             return ExecutionResult(
                 accepted=False, state="REJECTED",
@@ -175,17 +183,13 @@ class PaperExecutionAdapter:
 
     # ---- wewnetrzne ------------------------------------------------------
 
-    def _resolve_mark(self, symbol: str) -> Optional[float]:
-        if not symbol or self.mark_price is None:
+    @staticmethod
+    def _price_of(command: ReducePosition) -> Optional[float]:
+        """Cena z komendy. Zero interpretacji poza odrzuceniem bezsensu."""
+        if command.price is None:
             return None
         try:
-            value = self.mark_price(symbol)
-        except Exception:
-            return None
-        if value is None:
-            return None
-        try:
-            price = float(value)
+            price = float(command.price)
         except (TypeError, ValueError):
             return None
         return price if price > 0 else None

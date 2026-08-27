@@ -35,6 +35,12 @@ class ReducePosition:
     direction: str
     quantity: Decimal
     client_order_id: str | None = None
+    # Prawdziwa gielda odkrywa cene sama, ale venue lokalne (PAPER, replay)
+    # musi ja dostac. Ustala ja wolajacy przez cryptoedge.portfolio.
+    # close_policy - jedyny wlasciciel regul zamkniecia - i przekazuje tu
+    # razem z powodem, ktory niesie slad po nieswiezej cenie.
+    price: Decimal | None = None
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -60,27 +60,6 @@ def open_entry(rt, trader, signal):
     return result.raw if result.state == "FILLED" else None
 
 
-def _paper_mark_price(rt):
-    """Mark price dla PAPER: ostatnia znana cena, ale nigdy przeterminowana.
-
-    Zamkniecie po starej cenie to ten sam blad, przed ktorym runtime broni
-    sie juz przy close_all i kill switchu - port nie moze byc furtka obok.
-    """
-    stale_after = float(getattr(rt, "PRICE_MAP_STALE_AFTER_S", 120.0))
-
-    def mark(symbol):
-        try:
-            if float(rt.price_map_age_s()) > stale_after:
-                return None
-        except Exception:
-            return None
-        book = getattr(rt, "last_price_map", None) or {}
-        sym = str(symbol or "").upper()
-        return book.get(sym) or book.get(sym.replace("-USDT", ""))
-
-    return mark
-
-
 def attach_runtime_modules(rt):
     """Komponuje moduły wokół istniejącego runtime bez zmiany jego stanu."""
     health = HealthRegistry()
@@ -108,9 +87,9 @@ def attach_runtime_modules(rt):
         # PAPER tez ma venue - lokalna ksiege - i tez zasluguje na port.
         # Bez tego "execution_port is None" znaczylo raz PAPER, a raz
         # "LIVE bez executora", czyli dwie rozne rzeczy pod jednym stanem.
-        rt.execution_port = PaperExecutionAdapter(
-            rt.trader, mark_price=_paper_mark_price(rt),
-        )
+        # Bez wlasnego zrodla ceny: cene zamkniecia ustala wolajacy przez
+        # close_policy i podaje ja w ReducePosition.
+        rt.execution_port = PaperExecutionAdapter(rt.trader)
     else:
         # LIVE bez executora: brak venue to brak portu, nie port papierowy.
         rt.execution_port = None

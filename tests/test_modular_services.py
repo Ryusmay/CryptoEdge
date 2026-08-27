@@ -228,18 +228,19 @@ class ModularServicesTests(unittest.TestCase):
             open_entry(rt, book, {"symbol": "BTC", "direction": "LONG"})
         self.assertEqual(1, len(calls), "ksiega zostala zawolana dwa razy")
 
-    def test_paper_mark_price_refuses_a_stale_price_map(self):
-        from cryptoedge.apps.runtime import _paper_mark_price
-        fresh = SimpleNamespace(last_price_map={"BTC": 101.0},
-                                price_map_age_s=lambda: 5.0)
-        self.assertEqual(101.0, _paper_mark_price(fresh)("BTC"))
-        # Zamkniecie po cenie sprzed kilku minut to ten sam blad, przed
-        # ktorym runtime broni sie juz przy close_all.
-        stale = SimpleNamespace(last_price_map={"BTC": 101.0},
-                                price_map_age_s=lambda: 9_999.0)
-        self.assertIsNone(_paper_mark_price(stale)("BTC"))
-        broken = SimpleNamespace(last_price_map={"BTC": 101.0})
-        self.assertIsNone(_paper_mark_price(broken)("BTC"))
+    def test_paper_port_has_no_price_source_of_its_own(self):
+        """Regula ceny zamkniecia ma jednego wlasciciela: close_policy.
+
+        Adapter mial przez chwile wlasny prog swiezosci - inny niz
+        STOP_ENGINE_MAX_PRICE_AGE_S i z odwrotna semantyka (odmawial
+        zamkniecia zamiast zamknac ze sladem w powodzie). To dokladnie ten
+        rozjazd, ktory close_policy powstala, zeby usunac.
+        """
+        from cryptoedge.execution import PaperExecutionAdapter
+        adapter = PaperExecutionAdapter(SimpleNamespace(positions=[]))
+        self.assertFalse(hasattr(adapter, "mark_price"))
+        import cryptoedge.apps.runtime as runtime_module
+        self.assertFalse(hasattr(runtime_module, "_paper_mark_price"))
 
 
 if __name__ == "__main__":
