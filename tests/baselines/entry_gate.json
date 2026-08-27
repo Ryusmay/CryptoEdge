@@ -1,0 +1,1102 @@
+{
+  "meta": {
+    "cases": 21,
+    "opened": 10,
+    "rejected": 11,
+    "raised": 0,
+    "distinct_rejects": 8
+  },
+  "config": {
+    "hash": "bee6af3c6d61120d",
+    "keys": 531,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "rejects": [
+    "DAY_PRIOR_NET_R_LOW(0.03<0.10|n=0|PRIOR_ONLY)",
+    "INVALID_DIRECTION",
+    "Kapital zbyt niski",
+    "OB_IMPACT_NO_OB_LEVELS",
+    "Pauza (STOP/PAUSE) – kliknij START",
+    "STRAT_NA_NO_MTF(L0/S0<2)",
+    "TEST_HALT",
+    "Za slaby sygnal trend (0.30<0.48)"
+  ],
+  "results": [
+    {
+      "case": "open_v2_clean",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.03,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.005,
+          "net_r": 0.1748,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "open_trend_clean",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 817.5388,
+        "actual_notional": 817.5388,
+        "margin": 81.75388,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 32.701552,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 817.5388,
+        "_requested_notional": 817.5388,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.007558,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 1.0,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "OK",
+          "engine": "trend",
+          "fee_r": 0.03,
+          "funding_r": 0.0,
+          "gross_r": 1.0,
+          "impact_r": 0.005,
+          "net_r": 0.94,
+          "probabilities": "{}",
+          "risk_pct": 0.007558,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.433,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.865,
+          "volatility": 0.5
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.007558,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.433,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.865,
+          "volatility": 0.5
+        }
+      },
+      "size_returned": 817.5388,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "open_daytrading_clean",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1531.0651,
+        "actual_notional": 1531.0651,
+        "margin": 153.10651,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 61.242604,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1531.0651,
+        "_requested_notional": 1531.0651,
+        "_risk_engine": "daytrading",
+        "_risk_pct": 0.014154,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.03,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.005,
+          "net_r": 0.1748,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.014154,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        },
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.433,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.865,
+          "volatility": 0.5
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading",
+        "_risk_pct": 0.014154,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.433,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.865,
+          "volatility": 0.5
+        }
+      },
+      "size_returned": 1531.0651,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "open_short",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "SHORT",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 104.0,
+        "initial_sl_price": 104.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 96.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 108.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 109.95,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.03,
+          "funding_r": -0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.005,
+          "net_r": 0.1748,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_invalid_direction",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "INVALID_DIRECTION"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_invalid_price",
+      "opened": false,
+      "position": null,
+      "rejects": [],
+      "signal_mutations": {},
+      "mutations_after_sizing": {},
+      "size_returned": null,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_weak_trend",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "Za slaby sygnal trend (0.30<0.48)"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 337.5,
+        "_requested_notional": 337.5,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.006,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.225,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.45,
+          "volatility": 0.5
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.006,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.225,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.45,
+          "volatility": 0.5
+        }
+      },
+      "size_returned": 337.5,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_halted",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "TEST_HALT"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_paused",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "Pauza (STOP/PAUSE) – kliknij START"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_no_slots",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "_spread_dyn": {
+          "atr_pct": 1.2,
+          "basis_pct": 0.0,
+          "exec_cost_pct": 0.12,
+          "limit_pct": 0.295,
+          "ok": "True",
+          "reason": "OK",
+          "reasons": "[]",
+          "spread_pct": "None",
+          "spread_z": "None"
+        },
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.03,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.005,
+          "net_r": 0.1748,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04,
+          "slip_r": 0.015,
+          "spread_r": 0.01
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "reject_capital_too_low",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "Kapital zbyt niski"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 0.0,
+        "_requested_notional": 0.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 0.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 0.5
+    },
+    {
+      "case": "size_below_exchange_minimum",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "STRAT_NA_NO_MTF(L0/S0<2)"
+      ],
+      "signal_mutations": {
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 0.0,
+        "_requested_notional": 0.0,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.006,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.225,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.45,
+          "volatility": 0.5
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "trend",
+        "_risk_pct": 0.006,
+        "size_adapt": {
+          "daily": 1.0,
+          "drawdown": 1.0,
+          "final": 0.225,
+          "perp": 1.0,
+          "streak": 1.0,
+          "strength": 0.45,
+          "volatility": 0.5
+        }
+      },
+      "size_returned": 0.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 100.0
+    },
+    {
+      "case": "size_zero_capital",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "Kapital zbyt niski"
+      ],
+      "signal_mutations": {
+        "_planned_notional": 0.0,
+        "_requested_notional": 0.0
+      },
+      "mutations_after_sizing": {},
+      "size_returned": 0.0,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 0.0
+    },
+    {
+      "case": "spread_baseline_no_book",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "spread_widens_entry_long",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.1,
+        "size_usd": 1220.7317,
+        "actual_notional": 1220.7317,
+        "margin": 122.07317,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.1,
+        "tp_price": 103.6035,
+        "strength": 0.75,
+        "actual_risk_usd": 49.9999997,
+        "margin_call_price": 92.092
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.14005,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1220.7317,
+        "_requested_notional": 1220.7317,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1220.7317,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "spread_widens_entry_short",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "SHORT",
+        "entry_price": 99.9,
+        "size_usd": 1218.2927,
+        "actual_notional": 1218.2927,
+        "margin": 121.82927,
+        "leverage": 10.0,
+        "sl_price": 104.0,
+        "initial_sl_price": 104.0,
+        "initial_risk_abs": 4.1,
+        "tp_price": 96.4035,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0000007,
+        "margin_call_price": 107.892
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 109.84005,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1218.2927,
+        "_requested_notional": 1218.2927,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1218.2927,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "spread_disabled_by_config",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "spread_malformed_is_ignored",
+      "opened": true,
+      "position": {
+        "symbol": "BTC",
+        "direction": "LONG",
+        "entry_price": 100.0,
+        "size_usd": 1250.0,
+        "actual_notional": 1250.0,
+        "margin": 125.0,
+        "leverage": 10.0,
+        "sl_price": 96.0,
+        "initial_sl_price": 96.0,
+        "initial_risk_abs": 4.0,
+        "tp_price": 103.5,
+        "strength": 0.75,
+        "actual_risk_usd": 50.0,
+        "margin_call_price": 92.0
+      },
+      "rejects": [],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.05,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1250.0,
+        "_requested_notional": 1250.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1250.0,
+      "caller_signal_untouched": true,
+      "open_count": 1,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "wide_spread_hits_dynamic_limit",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "DAY_PRIOR_NET_R_LOW(0.03<0.10|n=0|PRIOR_ONLY)"
+      ],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.2301,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1192.8571,
+        "_requested_notional": 1192.8571,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.0286,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.0048,
+          "net_r": 0.0316,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04192,
+          "slip_r": 0.0143,
+          "spread_r": 0.0954
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1192.8571,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "wide_spread_hits_net_r",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "DAY_PRIOR_NET_R_LOW(0.03<0.10|n=0|PRIOR_ONLY)"
+      ],
+      "signal_mutations": {
+        "_dyn_corr": {
+          "corr": "None",
+          "max_corr": 0.75,
+          "with": "None"
+        },
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.2301,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_planned_notional": 1192.8571,
+        "_requested_notional": 1192.8571,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005,
+        "expected_gross_r": 0.2348,
+        "expected_r_breakdown": {
+          "calibration_n": "None",
+          "calibration_status": "PRIOR_ONLY",
+          "engine": "daytrading",
+          "fee_r": 0.0286,
+          "funding_r": 0.0,
+          "gross_r": 0.2348,
+          "impact_r": 0.0048,
+          "net_r": 0.0316,
+          "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
+          "risk_pct": 0.005,
+          "sl_dist": 0.04192,
+          "slip_r": 0.0143,
+          "spread_r": 0.0954
+        },
+        "expected_r_probabilities": {
+          "base_p_tp1": 0.55,
+          "base_p_tp2_given_tp1": 0.45,
+          "n": 0.0,
+          "p_tp1": 0.55,
+          "p_tp2_given_tp1": 0.45,
+          "setup_quality_multiplier": 1.0
+        }
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1192.8571,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    },
+    {
+      "case": "wide_spread_hits_ob_levels",
+      "opened": false,
+      "position": null,
+      "rejects": [
+        "OB_IMPACT_NO_OB_LEVELS"
+      ],
+      "signal_mutations": {
+        "_liq_dist": 0.0995,
+        "_liq_price": 90.2301,
+        "_liq_source": "model:config",
+        "_maintenance_margin_rate": 0.005,
+        "_max_position_margin_pct": 12.0,
+        "_ob_impact": {
+          "filled_usd": 0.0,
+          "impact_pct": "None",
+          "levels_used": 0.0,
+          "ok": "False",
+          "reason": "NO_OB_LEVELS",
+          "unfilled_usd": 1192.8571,
+          "vwap": "None"
+        },
+        "_ob_safe": {
+          "capped_from": "NO_LEVELS",
+          "depth_usd": 0.0,
+          "safe_notional": 0.0,
+          "sim": "None"
+        },
+        "_planned_notional": 1192.8571,
+        "_requested_notional": 1192.8571,
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "mutations_after_sizing": {
+        "_max_position_margin_pct": 12.0,
+        "_ob_safe": {
+          "capped_from": "NO_LEVELS",
+          "depth_usd": 0.0,
+          "safe_notional": 0.0,
+          "sim": "None"
+        },
+        "_risk_engine": "daytrading_v2",
+        "_risk_pct": 0.005
+      },
+      "size_returned": 1192.8571,
+      "caller_signal_untouched": true,
+      "open_count": 0,
+      "limit_parked": [],
+      "capital": 10000.0
+    }
+  ]
+}

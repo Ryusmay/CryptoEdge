@@ -1,4 +1,4 @@
-20.29.0
-tag=v20.29.0
-built=2026-08-27T07:40:01Z
-zip=cryptoedge_bot_v20.29.0.zip
+20.30.0
+tag=v20.30.0
+built=2026-08-27T07:54:55Z
+zip=cryptoedge_bot_v20.30.0.zip
