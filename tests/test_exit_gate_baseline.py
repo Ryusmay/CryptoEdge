@@ -47,6 +47,20 @@ class TestExitGateMatchesBaseline(unittest.TestCase):
         second = json.loads(json.dumps(exit_gate.run_gate()))
         self.assertEqual([], exit_gate.compare(first, second))
 
+    def test_gate_does_not_leave_its_stubs_in_sys_modules(self):
+        """Bramka dziala w tym samym interpreterze co reszta testow.
+
+        Atrapa zostawiona w sys.modules truje kazdy test uruchomiony pozniej:
+        `from day_expectancy_calibration import DayExpectancyCalibrator`
+        konczyl sie wtedy ImportError "unknown location" i wywracal 3 testy,
+        ktore osobno przechodzily.
+        """
+        before = {name: sys.modules.get(name) for name in exit_gate._STUBBED_MODULES}
+        exit_gate.run_gate()
+        after = {name: sys.modules.get(name) for name in exit_gate._STUBBED_MODULES}
+        self.assertEqual(before, after)
+        from day_expectancy_calibration import DayExpectancyCalibrator  # noqa: F401
+
 
 class TestExitGateStaysMeaningful(unittest.TestCase):
 

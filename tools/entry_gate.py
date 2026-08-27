@@ -36,7 +36,8 @@ if str(ROOT / "tools") not in sys.path:
 
 from parity import config_fingerprint  # noqa: E402
 from exit_gate import (  # noqa: E402  - ta sama maszyneria determinizmu
-    FakeClock, RecordingLogger, _install_stubs, _round, _fresh_risk, _MISSING,
+    FakeClock, RecordingLogger, _install_stubs, _restore_stubs, _round,
+    _fresh_risk, _MISSING,
 )
 
 DEFAULT_BASELINE = ROOT / "tests" / "baselines" / "entry_gate.json"
@@ -259,20 +260,26 @@ def evaluate(case: dict) -> dict:
 
 
 def run_gate() -> dict:
-    _install_stubs()
-    cases = build_corpus()
-    results = [evaluate(case) for case in cases]
-    opened = sum(1 for r in results if r.get("opened"))
-    raised = [r["case"] for r in results if r.get("raised")]
-    reasons = sorted({x for r in results for x in (r.get("rejects") or [])})
-    return {
-        "meta": {"cases": len(results), "opened": opened,
-                 "rejected": len(results) - opened - len(raised),
-                 "raised": len(raised), "distinct_rejects": len(reasons)},
-        "config": config_fingerprint(),
-        "rejects": reasons,
-        "results": results,
-    }
+    # Atrapy musza zniknac po przebiegu: bramka dziala w tym samym
+    # interpreterze co reszta testow, a zostawiona atrapa wywracala
+    # pozniejsze testy bledem "unknown location".
+    saved = _install_stubs()
+    try:
+        cases = build_corpus()
+        results = [evaluate(case) for case in cases]
+        opened = sum(1 for r in results if r.get("opened"))
+        raised = [r["case"] for r in results if r.get("raised")]
+        reasons = sorted({x for r in results for x in (r.get("rejects") or [])})
+        return {
+            "meta": {"cases": len(results), "opened": opened,
+                     "rejected": len(results) - opened - len(raised),
+                     "raised": len(raised), "distinct_rejects": len(reasons)},
+            "config": config_fingerprint(),
+            "rejects": reasons,
+            "results": results,
+        }
+    finally:
+        _restore_stubs(saved)
 
 
 def compare(baseline: dict, current: dict) -> list:

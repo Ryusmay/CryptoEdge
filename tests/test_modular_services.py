@@ -97,6 +97,31 @@ class ModularServicesTests(unittest.TestCase):
         refreshed = refresh_runtime_health(rt)
         self.assertIn("portfolio", refreshed["modules"])
 
+    def test_paper_runtime_also_gets_an_execution_port(self):
+        from cryptoedge.execution import PaperExecutionAdapter
+        rt = SimpleNamespace(
+            feeder=SimpleNamespace(), risk=SimpleNamespace(is_halted=False, paused=False),
+            trader=SimpleNamespace(positions=[]), executor=object(),
+        )
+        attach_runtime_modules(rt)
+        # PAPER ma wlasne venue, wiec "brak portu" przestaje znaczyc dwie rzeczy.
+        self.assertEqual("PAPER", rt.execution_mode)
+        self.assertIsInstance(rt.execution_port, PaperExecutionAdapter)
+        self.assertFalse(rt.execution_port.live)
+
+    def test_paper_mark_price_refuses_a_stale_price_map(self):
+        from cryptoedge.apps.runtime import _paper_mark_price
+        fresh = SimpleNamespace(last_price_map={"BTC": 101.0},
+                                price_map_age_s=lambda: 5.0)
+        self.assertEqual(101.0, _paper_mark_price(fresh)("BTC"))
+        # Zamkniecie po cenie sprzed kilku minut to ten sam blad, przed
+        # ktorym runtime broni sie juz przy close_all.
+        stale = SimpleNamespace(last_price_map={"BTC": 101.0},
+                                price_map_age_s=lambda: 9_999.0)
+        self.assertIsNone(_paper_mark_price(stale)("BTC"))
+        broken = SimpleNamespace(last_price_map={"BTC": 101.0})
+        self.assertIsNone(_paper_mark_price(broken)("BTC"))
+
 
 if __name__ == "__main__":
     unittest.main()

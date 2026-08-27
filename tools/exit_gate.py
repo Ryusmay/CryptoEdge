@@ -103,13 +103,34 @@ def _stub_module(name: str, **attrs) -> None:
     sys.modules[name] = mod
 
 
-def _install_stubs() -> None:
+_STUBBED_MODULES = ("alerts", "decision_telemetry", "strength_calibration",
+                    "day_expectancy_calibration")
+
+
+def _restore_stubs(saved: dict) -> None:
+    """Zdejmuje atrapy z sys.modules.
+
+    Bramka dziala w tym samym interpreterze co reszta pakietu testow, wiec
+    atrapa zostawiona w sys.modules truje kazdy test uruchomiony pozniej -
+    `from day_expectancy_calibration import DayExpectancyCalibrator` konczy
+    sie wtedy ImportError "unknown location". To nie jest teoria: tak wlasnie
+    sypaly sie 3 testy po dolozeniu bramki wyjsc."""
+    for name, module in saved.items():
+        if module is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = module
+
+
+def _install_stubs() -> dict:
     """Odcina wszystko, co pisze na dysk, wysyla powiadomienia albo trzyma
-    stan miedzy przypadkami.
+    stan miedzy przypadkami. Zwraca poprzednia zawartosc sys.modules,
+    zeby wolajacy mogl ja przywrocic.
 
     Kalibratory sa tu najwazniejsze: to singletony zapisywane na dysk, wiec
     bez atrapy wynik przypadku N zalezalby od przypadkow 1..N-1 i od tego, co
     zostalo na dysku po poprzednim uruchomieniu."""
+    saved = {name: sys.modules.get(name) for name in _STUBBED_MODULES}
     _stub_module("alerts", alert_close=lambda *a, **k: None,
                  alert_margin_call=lambda *a, **k: None,
                  alert_partial=lambda *a, **k: None,
@@ -130,6 +151,7 @@ def _install_stubs() -> None:
     _stub_module("strength_calibration", get_calibrator=lambda: _NullCalibrator())
     _stub_module("day_expectancy_calibration",
                  get_day_calibrator=lambda: _NullCalibrator())
+    return saved
 
 
 def _round(value):
@@ -555,19 +577,22 @@ def _reasons_of(result: dict) -> list:
 
 
 def run_gate() -> dict:
-    _install_stubs()
-    cases = build_corpus() + build_signal_corpus() + build_edge_corpus()
-    results = [evaluate(case) for case in cases]
-    reasons = sorted({r for res in results for r in _reasons_of(res)})
-    raised = [r["case"] for r in results if r.get("raised")]
-    closes = sum(len(_reasons_of(r)) for r in results)
-    return {
-        "meta": {"cases": len(results), "exit_events": closes,
-                 "distinct_reasons": len(reasons), "raised": len(raised)},
-        "config": config_fingerprint(),
-        "reasons": reasons,
-        "results": results,
-    }
+    saved = _install_stubs()
+    try:
+        cases = build_corpus() + build_signal_corpus() + build_edge_corpus()
+        results = [evaluate(case) for case in cases]
+        reasons = sorted({r for res in results for r in _reasons_of(res)})
+        raised = [r["case"] for r in results if r.get("raised")]
+        closes = sum(len(_reasons_of(r)) for r in results)
+        return {
+            "meta": {"cases": len(results), "exit_events": closes,
+                     "distinct_reasons": len(reasons), "raised": len(raised)},
+            "config": config_fingerprint(),
+            "reasons": reasons,
+            "results": results,
+        }
+    finally:
+        _restore_stubs(saved)
 
 
 def compare(baseline: dict, current: dict) -> list:

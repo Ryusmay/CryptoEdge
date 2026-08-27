@@ -4,8 +4,9 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from cryptoedge.execution import (
-    CancelOrder, ExecutionDisabled, Fill, FillLedger, InvalidTransition,
-    LegacyExecutionAdapter, OrderLifecycle, OrderStatus, ReducePosition, SubmitOrder,
+    CancelOrder, ExecutionDisabled, ExecutionPort, Fill, FillLedger, InvalidTransition,
+    LegacyExecutionAdapter, OrderLifecycle, OrderStatus, PaperExecutionAdapter,
+    PaperMarkPriceUnavailable, PaperOrderNeedsSignal, ReducePosition, SubmitOrder,
     domain_fill_to_ledger,
 )
 
@@ -148,6 +149,227 @@ class LegacyAdapterTests(unittest.TestCase):
         bridged = domain_fill_to_ledger(value)
         self.assertEqual(bridged.trade_id, "T-VENUE")
         self.assertEqual(bridged.exchange_order_id, "E1")
+
+
+class _ReplayLikeExecutor:
+    """Minimalna atrapa o ksztalcie ReplayExecutionEngine (submit/request_cancel)."""
+
+    def __init__(self):
+        self.orders = {}
+        self.calls = []
+
+    def submit(self, *, order_id, symbol, side, quantity, decision_ts_ms,
+               limit_price=None, timeout_ms=None):
+        self.calls.append(("submit", order_id, symbol, side, quantity,
+                           decision_ts_ms, limit_price, timeout_ms))
+        order = _Order(order_id, "ACCEPTED")
+        order.order_id = order_id
+        self.orders[order_id] = order
+        return order
+
+    def request_cancel(self, order_id, ts_ms):
+        self.calls.append(("cancel", order_id, ts_ms))
+        self.orders[order_id].state = "CANCELING"
+
+
+class LegacyAdapterReplayBranchTests(unittest.TestCase):
+    """Gałąź replay nie miała dotąd żadnego testu — atrapa ma kształt silnika."""
+
+    def test_replay_submit_passes_the_signature_replay_engine_declares(self):
+        executor = _ReplayLikeExecutor()
+        adapter = LegacyExecutionAdapter(executor, enabled=True, live=False)
+        result = adapter.submit(SubmitOrder(
+            "C1", "BTC", "buy", Decimal("2"), limit_price=Decimal("100"),
+            metadata={"decision_ts_ms": 1_000, "timeout_ms": 900_000},
+        ))
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.state, "ACCEPTED")
+        kind, order_id, symbol, side, qty, ts, limit, timeout = executor.calls[0]
+        self.assertEqual((kind, order_id, symbol, side), ("submit", "C1", "BTC", "buy"))
+        self.assertEqual((qty, ts, limit, timeout), (2.0, 1_000, 100.0, 900_000))
+
+    def test_replay_executor_does_not_need_the_live_flag(self):
+        # place_order (venue) wymaga live=True; submit (replay) nie dotyka gieldy.
+        adapter = LegacyExecutionAdapter(_ReplayLikeExecutor(), enabled=True, live=False)
+        self.assertTrue(adapter.submit(SubmitOrder("C1", "BTC", "buy", Decimal("1"))).accepted)
+
+    def test_replay_cancel_reads_state_back_from_the_engine_book(self):
+        executor = _ReplayLikeExecutor()
+        adapter = LegacyExecutionAdapter(executor, enabled=True, live=False)
+        adapter.submit(SubmitOrder("C1", "BTC", "buy", Decimal("1")))
+        result = adapter.cancel(CancelOrder("C1", "BTC", requested_at_ms=2_000))
+        self.assertEqual(result.state, "CANCELING")
+        self.assertEqual(executor.calls[-1], ("cancel", "C1", 2_000))
+
+
+class _PaperPosition:
+    def __init__(self, symbol):
+        self.symbol = symbol
+
+
+class _FakeTrader:
+    """Atrapa ksiegi PAPER: tylko to, czego adapter naprawde dotyka."""
+
+    def __init__(self, *, opens=None, parks=False):
+        self.positions = []
+        self._pending = {}
+        self._opens = opens
+        self._parks = parks
+        self.opened_signals = []
+        self.closed = []
+
+    def open_position(self, signal):
+        self.opened_signals.append(signal)
+        if self._parks:
+            self._pending[str(signal.get("symbol")).upper()] = {"limit": 100.0}
+            return None
+        if self._opens is None:
+            return None
+        position = _PaperPosition(self._opens)
+        self.positions.append(position)
+        return position
+
+    def has_pending_limit(self, symbol):
+        return str(symbol or "").upper() in self._pending
+
+    def cancel_pending_limit(self, symbol):
+        return self._pending.pop(str(symbol or "").upper(), None)
+
+    def pending_limit_orders(self, now=None):
+        return [{"symbol": sym} for sym in sorted(self._pending)]
+
+    def close_by_symbol(self, symbol, price_map=None, reason="manual"):
+        symbol = str(symbol or "").upper()
+        position = next((p for p in self.positions if p.symbol == symbol), None)
+        if position is None:
+            return None
+        self.positions.remove(position)
+        self.closed.append((symbol, price_map, reason))
+        return 12.5
+
+
+class PaperExecutionAdapterTests(unittest.TestCase):
+    def test_adapter_satisfies_the_same_port_as_the_venue_adapter(self):
+        self.assertIsInstance(PaperExecutionAdapter(_FakeTrader()), ExecutionPort)
+
+    def test_submit_without_the_decision_that_produced_it_fails_closed(self):
+        # PAPER wchodzi sygnalem; adapter nie zgaduje ksztaltu wejscia.
+        with self.assertRaises(PaperOrderNeedsSignal):
+            PaperExecutionAdapter(_FakeTrader()).submit(
+                SubmitOrder("C1", "BTC", "buy", Decimal("1"))
+            )
+
+    def test_opened_position_is_reported_as_filled(self):
+        trader = _FakeTrader(opens="BTC")
+        result = PaperExecutionAdapter(trader).submit(SubmitOrder(
+            "C1", "BTC", "buy", Decimal("1"),
+            metadata={"signal": {"symbol": "BTC", "direction": "LONG"}},
+        ))
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.state, "FILLED")
+        self.assertEqual(len(trader.opened_signals), 1)
+
+    def test_parked_limit_is_accepted_not_rejected(self):
+        # Brak pozycji nie znaczy odrzucenia - zlecenie zyje jako working order.
+        result = PaperExecutionAdapter(_FakeTrader(parks=True)).submit(SubmitOrder(
+            "C1", "BTC", "buy", Decimal("1"),
+            metadata={"signal": {"symbol": "BTC"}},
+        ))
+        self.assertTrue(result.accepted)
+        self.assertEqual((result.state, result.reason), ("ACCEPTED", "PAPER_LIMIT_PARKED"))
+
+    def test_refused_entry_is_rejected(self):
+        result = PaperExecutionAdapter(_FakeTrader()).submit(SubmitOrder(
+            "C1", "BTC", "buy", Decimal("1"), metadata={"signal": {"symbol": "BTC"}},
+        ))
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.state, "REJECTED")
+
+    def test_submit_is_disabled_when_the_gate_is_closed(self):
+        with self.assertRaises(ExecutionDisabled):
+            PaperExecutionAdapter(_FakeTrader(), enabled=False).submit(SubmitOrder(
+                "C1", "BTC", "buy", Decimal("1"), metadata={"signal": {"symbol": "BTC"}},
+            ))
+
+    def test_cancel_removes_the_parked_limit_once_and_then_reports_no_op(self):
+        trader = _FakeTrader(parks=True)
+        adapter = PaperExecutionAdapter(trader)
+        adapter.submit(SubmitOrder("C1", "BTC", "buy", Decimal("1"),
+                                   metadata={"signal": {"symbol": "BTC"}}))
+        first = adapter.cancel(CancelOrder("C1", "BTC"))
+        self.assertEqual((first.accepted, first.state), (True, "CANCELED"))
+        second = adapter.cancel(CancelOrder("C1", "BTC"))
+        self.assertFalse(second.accepted)
+        self.assertEqual(second.reason, "PAPER_NO_PENDING_LIMIT")
+
+    def test_cancel_of_an_unknown_order_without_a_symbol_is_an_error(self):
+        with self.assertRaises(KeyError):
+            PaperExecutionAdapter(_FakeTrader()).cancel(CancelOrder("NOPE", ""))
+
+    def test_reduce_without_a_mark_price_refuses_instead_of_guessing(self):
+        trader = _FakeTrader(opens="BTC")
+        trader.positions.append(_PaperPosition("BTC"))
+        with self.assertRaises(PaperMarkPriceUnavailable):
+            PaperExecutionAdapter(trader).reduce(
+                ReducePosition("BTC", "LONG", Decimal("1"))
+            )
+
+    def test_stale_or_unusable_mark_price_is_treated_as_no_price(self):
+        trader = _FakeTrader()
+        trader.positions.append(_PaperPosition("BTC"))
+        for bad in (None, 0, -1, "abc"):
+            with self.assertRaises(PaperMarkPriceUnavailable):
+                PaperExecutionAdapter(trader, mark_price=lambda _s, v=bad: v).reduce(
+                    ReducePosition("BTC", "LONG", Decimal("1"))
+                )
+
+    def test_reduce_closes_the_position_and_flags_the_ignored_quantity(self):
+        trader = _FakeTrader()
+        trader.positions.append(_PaperPosition("BTC"))
+        result = PaperExecutionAdapter(trader, mark_price=lambda _s: 250.0).reduce(
+            ReducePosition("BTC", "LONG", Decimal("0.5"), "R1")
+        )
+        self.assertTrue(result.accepted)
+        self.assertEqual(result.state, "FILLED")
+        # Pominiecie quantity musi byc widoczne, a nie ciche.
+        self.assertEqual(result.reason, "PAPER_FULL_CLOSE_QUANTITY_IGNORED")
+        self.assertEqual(trader.closed[0][0], "BTC")
+        self.assertEqual(trader.closed[0][1], {"BTC": 250.0})
+
+    def test_reduce_of_a_missing_position_is_rejected_not_raised(self):
+        result = PaperExecutionAdapter(_FakeTrader(), mark_price=lambda _s: 10.0).reduce(
+            ReducePosition("ETH", "LONG", Decimal("1"))
+        )
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.reason, "PAPER_NO_SUCH_POSITION")
+
+    def test_reconcile_reports_the_local_book_and_its_working_orders(self):
+        trader = _FakeTrader(parks=True)
+        trader.positions.append(_PaperPosition("BTC"))
+        trader._pending["ETH"] = {"limit": 1.0}
+        report = PaperExecutionAdapter(trader).reconcile()
+        self.assertTrue(report.in_sync)
+        self.assertEqual(len(report.positions), 1)
+        self.assertEqual([row["symbol"] for row in report.orders], ["ETH"])
+
+    def test_reconcile_names_both_directions_of_drift(self):
+        trader = _FakeTrader()
+        trader.positions.append(_PaperPosition("BTC"))
+        report = PaperExecutionAdapter(trader).reconcile([_PaperPosition("SOL")])
+        self.assertFalse(report.in_sync)
+        reasons = {(row["symbol"], row["reason"]) for row in report.discrepancies}
+        self.assertEqual(reasons, {("SOL", "ONLY_CALLER"), ("BTC", "ONLY_PAPER_BOOK")})
+
+    def test_unreadable_order_book_fails_closed(self):
+        trader = _FakeTrader()
+
+        def boom(now=None):
+            raise RuntimeError("book unavailable")
+
+        trader.pending_limit_orders = boom
+        report = PaperExecutionAdapter(trader).reconcile()
+        self.assertFalse(report.in_sync)
+        self.assertEqual(report.discrepancies[0]["reason"], "PAPER_ORDER_BOOK_UNREADABLE")
 
 
 if __name__ == "__main__":

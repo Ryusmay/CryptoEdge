@@ -1,6 +1,6 @@
 from cryptoedge.services.decision_pipeline import DecisionPipeline
 from cryptoedge.market_data import LegacyMarketDataAdapter
-from cryptoedge.execution import LegacyExecutionAdapter
+from cryptoedge.execution import LegacyExecutionAdapter, PaperExecutionAdapter
 from cryptoedge.portfolio import PortfolioManager
 from cryptoedge.risk import LegacyRiskAdapter
 from cryptoedge.telemetry import HealthRegistry
@@ -9,6 +9,27 @@ from cryptoedge.telemetry import HealthRegistry
 def create_runtime_pipeline(*, market_data, strategy, risk, execution=None,
                             portfolio=None, health=None, order_factory=None) -> DecisionPipeline:
     return DecisionPipeline(market_data, strategy, risk, execution, portfolio, health, order_factory)
+
+
+def _paper_mark_price(rt):
+    """Mark price dla PAPER: ostatnia znana cena, ale nigdy przeterminowana.
+
+    Zamkniecie po starej cenie to ten sam blad, przed ktorym runtime broni
+    sie juz przy close_all i kill switchu - port nie moze byc furtka obok.
+    """
+    stale_after = float(getattr(rt, "PRICE_MAP_STALE_AFTER_S", 120.0))
+
+    def mark(symbol):
+        try:
+            if float(rt.price_map_age_s()) > stale_after:
+                return None
+        except Exception:
+            return None
+        book = getattr(rt, "last_price_map", None) or {}
+        sym = str(symbol or "").upper()
+        return book.get(sym) or book.get(sym.replace("-USDT", ""))
+
+    return mark
 
 
 def attach_runtime_modules(rt):
@@ -29,10 +50,21 @@ def attach_runtime_modules(rt):
     rt.market_data_port = LegacyMarketDataAdapter(rt.feeder)
     rt.risk_port = LegacyRiskAdapter(rt.risk)
     rt.portfolio_manager = PortfolioManager(rt.trader)
-    rt.execution_port = (LegacyExecutionAdapter(
-        rt.executor, getattr(rt, "reconciler", None), enabled=live_enabled,
-        live=live_enabled,
-    ) if live_enabled and getattr(rt, "executor", None) is not None else None)
+    if live_enabled and getattr(rt, "executor", None) is not None:
+        rt.execution_port = LegacyExecutionAdapter(
+            rt.executor, getattr(rt, "reconciler", None), enabled=live_enabled,
+            live=live_enabled,
+        )
+    elif paper:
+        # PAPER tez ma venue - lokalna ksiege - i tez zasluguje na port.
+        # Bez tego "execution_port is None" znaczylo raz PAPER, a raz
+        # "LIVE bez executora", czyli dwie rozne rzeczy pod jednym stanem.
+        rt.execution_port = PaperExecutionAdapter(
+            rt.trader, mark_price=_paper_mark_price(rt),
+        )
+    else:
+        # LIVE bez executora: brak venue to brak portu, nie port papierowy.
+        rt.execution_port = None
     rt.execution_mode = "PAPER" if paper else "LIVE"
     return rt
 

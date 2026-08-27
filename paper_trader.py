@@ -937,6 +937,19 @@ class PaperTrader:
     def has_pending_limit(self, symbol: str) -> bool:
         return str(symbol or "").upper() in self._limit_queue
 
+    def cancel_pending_limit(self, symbol: str) -> Optional[Dict]:
+        """Publiczne anulowanie zaparkowanego limitu.
+
+        Kolejka jest kluczowana symbolem, wiec to jedyny mozliwy klucz.
+        Zwraca usunieta pozycje kolejki albo None, gdy nie bylo czego
+        anulowac - dzieki temu wolajacy odroznia anulowanie od no-opu
+        zamiast zgadywac po stanie kolejki.
+        """
+        sym = str(symbol or "").upper()
+        if not sym:
+            return None
+        return self._limit_queue.pop(sym, None)
+
     def pending_limit_orders(self, now: float = None) -> List[Dict]:
         """Serializable snapshot for state/UI; pending orders are not positions."""
         import time as _time
