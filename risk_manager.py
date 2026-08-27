@@ -842,31 +842,15 @@ class RiskManager:
             # Trend: 0.50–0.75% equity | Reversal: 0.25–0.50% (bardziej konserwatywnie)
             is_rev = (signal.get("engine") == "reversal") or (signal.get("setup") == "reversal_confirmed")
             is_day = signal.get("engine") == "daytrading" or signal.get("strategy_mode") == "DAYTRADING"
-            if is_day:
-                risk_lo = float(getattr(config, "DAYTRADING_RISK_PCT_MIN", 0.0035))
-                risk_hi = float(getattr(config, "DAYTRADING_RISK_PCT_MAX", 0.0060))
-                risk_def = float(getattr(config, "DAYTRADING_RISK_PCT_DEFAULT", 0.0045))
-            elif is_rev:
-                risk_lo = float(getattr(config, "REVERSAL_RISK_PCT_MIN", 0.0025))  # 0.25%
-                risk_hi = float(getattr(config, "REVERSAL_RISK_PCT_MAX", 0.0050))  # 0.50%
-                risk_def = float(getattr(config, "REVERSAL_RISK_PCT_DEFAULT", 0.0035))  # 0.35%
-            else:
-                risk_lo = float(getattr(config, "RISK_PCT_MIN", 0.0050))   # 0.50% trend
-                risk_hi = float(getattr(config, "RISK_PCT_MAX", 0.0075))   # 0.75%
-                risk_def = float(getattr(config, "RISK_PCT_DEFAULT", 0.0060))  # 0.60%
+            # Pasmo ryzyka per silnik i skalowanie sila: cryptoedge.risk.sizing
+            from cryptoedge.risk import sizing as risk_sizing
+            band = risk_sizing.risk_band(is_day, is_rev, config)
+            risk_def = band[2]
             if bool(getattr(config, "SIZE_BY_STRENGTH", True)):
                 st = float(signal.get("reversal_score") or signal.get("strength") or 0) if is_rev else float(signal.get("strength") or 0)
                 if not math.isfinite(st):
                     return 0.0
-                lo = float(getattr(config, "SIZE_STRENGTH_FLOOR", getattr(config, "MIN_SIGNAL_STRENGTH", 0.48)))
-                if is_rev:
-                    lo = float(getattr(config, "REVERSAL_MIN_STRENGTH", 0.48))
-                hi = float(getattr(config, "SIZE_STRENGTH_CAP", 1.0))
-                if hi > lo:
-                    t_str = max(0.0, min(1.0, (st - lo) / (hi - lo)))
-                else:
-                    t_str = 1.0
-                risk_pct = risk_lo + t_str * (risk_hi - risk_lo)
+                risk_pct = risk_sizing.scale_by_strength(st, is_rev, band, config)
             else:
                 risk_pct = risk_def
             signal["_risk_pct"] = round(risk_pct, 6)
@@ -885,44 +869,18 @@ class RiskManager:
                 print(f"[Size] {signal.get('symbol')} REV margin={margin_frac*100:.1f}% "
                       f"(${equity*margin_frac:.2f}) notional=${v2_fixed_notional:.2f}")
 
-        # regime: RANGE half risk; PANIC = strong move (mult 1.0 = pełny size)
-        if regime == "RANGE":
-            risk_pct *= float(getattr(config, "REGIME_RANGE_SIZE_MULT", 0.50))
-        elif regime == "PANIC" and not is_rev and not is_day and not is_day_v2:
-            panic_mult = getattr(config, "REGIME_PANIC_TREND_SIZE_MULT", None)
-            if panic_mult is None:
-                panic_mult = getattr(config, "REGIME_PANIC_SIZE_MULT", 1.0)
-            try:
-                panic_mult = float(panic_mult)
-            except (TypeError, ValueError):
-                panic_mult = 1.0
-            risk_pct *= panic_mult
-        # 7. proxy 4H → mniejszy risk
-        if signal.get("ohlcv_source") == "proxy_4h" or signal.get("proxy_4h"):
-            risk_pct *= float(getattr(config, "PROXY_4H_RISK_MULT", 0.70))
-        if signal.get("cross_market_risk_mult"):
-            risk_pct *= float(signal["cross_market_risk_mult"])
-        # 8. degraded 1D
-        if signal.get("degraded_1d"):
-            risk_pct *= float(getattr(config, "DEGRADED_1D_RISK_MULT", 0.75))
-        # A prior curve with zero/few observations is not empirical expectancy.
-        # Keep PAPER discovery active, but cap capital allocated to it.
-        er_status = str(signal.get("expected_r_status") or "").upper()
-        if er_status in ("PRIOR_ONLY", "LOW_SAMPLE") and not is_day:
-            risk_pct *= float(getattr(config, "UNCALIBRATED_EXPECTED_R_SIZE_MULT", 0.65))
-            signal["_uncalibrated_expected_r"] = True
-        # EXTREME VOL: atr percentile / atr_ratio → risk × 0.5
-        try:
-            atr_pctile = signal.get("atr_percentile")
-            if atr_pctile is None:
-                reg = signal.get("market_regime_detail") or getattr(self, "last_regime_detail", None) or {}
-                if isinstance(reg, dict):
-                    atr_pctile = reg.get("atr_percentile")
-            thr = float(getattr(config, "EXTREME_VOL_ATR_PCTILE", 85.0))
-            if atr_pctile is not None and float(atr_pctile) >= thr:
-                risk_pct *= float(getattr(config, "EXTREME_VOL_RISK_MULT", 0.50))
-        except Exception:
-            pass
+        # Redukcje za rezim i jakosc danych: RANGE, PANIC, proxy 4H,
+        # cross-market, zdegradowane 1D, nieskalibrowane R, ekstremalna
+        # zmiennosc. Modul liczy mnoznik i zwraca znaczniki do wbicia -
+        # zapis jest tutaj, w jednym miejscu, zamiast rozsypany po galeziach.
+        from cryptoedge.risk import sizing as risk_sizing
+        _mult, _stamps = risk_sizing.risk_multipliers(
+            signal, regime, is_rev=is_rev, is_day=is_day, is_v2=is_day_v2,
+            last_regime_detail=getattr(self, "last_regime_detail", None),
+            cfg=config,
+        )
+        risk_pct *= _mult
+        signal.update(_stamps)
 
         if v2_fixed_notional is not None:
             notional = float(v2_fixed_notional)

@@ -4,6 +4,8 @@ from .limits import (
     slot_available,
 )
 from .validation import normalized_direction, validate_signal_shape
+from .scoring import effective_score, normalize_strength, strength_ok
+from .sizing import risk_band, risk_multipliers, scale_by_strength
 from .strategy_filter import (
     day_setup_ok, has_soft_align, mtf_majority, primary_filter_applies,
     strat_na_verdict, votes_of,
@@ -18,4 +20,6 @@ __all__ = [
     "mtf_majority", "normalized_direction", "primary_filter_applies",
     "projected_loss_ok", "slot_available", "strat_na_verdict",
     "validate_signal_shape", "votes_of",
+    "effective_score", "normalize_strength", "strength_ok",
+    "risk_band", "risk_multipliers", "scale_by_strength",
 ]
