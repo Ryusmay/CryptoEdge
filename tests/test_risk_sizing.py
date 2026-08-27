@@ -198,3 +198,117 @@ class TestNoDuplicateImplementations(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNotionalCap(unittest.TestCase):
+
+    def caps(self, **kw):
+        base = dict(regime="TREND_UP", open_positions_count=0, positions=None,
+                    capital_pct_mode=False, cfg=cfg(
+                        MAX_POSITIONS=10, REGIME_RANGE_MAX_POSITIONS=5,
+                        CAPITAL_RESERVE_PCT=0.20, MAX_NOTIONAL_EQUITY_FRAC=2.0,
+                        MAX_POSITION_MARGIN_EQUITY_FRAC=0.12,
+                        DAYTRADING_V2_MARGIN_PCT_MAX=10.0))
+        base.update(kw)
+        return sizing.notional_cap(1000.0, 10.0, **base)
+
+    def test_slot_allocation_is_the_binding_cap_at_defaults(self):
+        cap, _ = self.caps()
+        self.assertAlmostEqual(800.0, cap)
+
+    def loose(self, **kw):
+        """Sufity marginu i globalny rozluznione, zeby widziec sam efekt slotow.
+        Przy domyslnych to one wiaza pierwsze i przykrywaja alokacje."""
+        base = dict(MAX_POSITIONS=10, REGIME_RANGE_MAX_POSITIONS=5,
+                    CAPITAL_RESERVE_PCT=0.20, MAX_NOTIONAL_EQUITY_FRAC=99.0,
+                    MAX_POSITION_MARGIN_EQUITY_FRAC=1.0,
+                    DAYTRADING_V2_MARGIN_PCT_MAX=10.0)
+        return self.caps(cfg=cfg(**base), **kw)
+
+    def test_fewer_free_slots_means_bigger_slot(self):
+        wide, _ = self.loose(open_positions_count=0)
+        tight, _ = self.loose(open_positions_count=9)
+        self.assertAlmostEqual(800.0, wide)
+        self.assertAlmostEqual(8000.0, tight)
+
+    def test_used_margin_shrinks_free_equity(self):
+        cap, _ = self.loose(positions=[{"margin": 400.0}])
+        self.assertAlmostEqual(400.0, cap)
+
+    def test_range_narrows_slots(self):
+        wide, _ = self.loose()
+        narrow, _ = self.loose(regime="RANGE")
+        self.assertAlmostEqual(800.0, wide)
+        self.assertAlmostEqual(1600.0, narrow)
+
+    def test_margin_cap_hides_slot_effect_at_defaults(self):
+        """Warte zapamietania: przy MAX_POSITION_MARGIN_EQUITY_FRAC=0.12 i x10
+        sufit marginu (1.2x equity) wiaze wczesniej niz alokacja na slot, wiec
+        zwolnienie slotow nie zwieksza rozmiaru tak, jak by sie wydawalo."""
+        self.assertAlmostEqual(1200.0, self.caps(open_positions_count=9)[0])
+        self.assertAlmostEqual(1200.0, self.caps(regime="RANGE")[0])
+
+    def test_capital_pct_mode_skips_slot_division(self):
+        cap, _ = self.caps(capital_pct_mode=True)
+        self.assertAlmostEqual(1000.0, cap)
+
+    def test_margin_frac_cap_binds_when_tight(self):
+        cap, _ = self.caps(cfg=cfg(MAX_POSITIONS=1, CAPITAL_RESERVE_PCT=0.0,
+                                   MAX_NOTIONAL_EQUITY_FRAC=99.0,
+                                   MAX_POSITION_MARGIN_EQUITY_FRAC=0.05,
+                                   DAYTRADING_V2_MARGIN_PCT_MAX=10.0))
+        self.assertAlmostEqual(500.0, cap)
+
+    def test_stamp_is_returned_not_written(self):
+        _, stamps = self.caps()
+        self.assertEqual({"_max_position_margin_pct": 12.0}, stamps)
+
+    def test_overfull_book_still_leaves_one_slot(self):
+        """max(1, ...) - ksiega ponad limit nie daje zera, tylko jeden slot."""
+        cap, _ = self.caps(open_positions_count=99)
+        self.assertGreater(cap, 0.0)
+
+
+class TestUsedMargin(unittest.TestCase):
+
+    def test_objects_and_dicts(self):
+        obj = SimpleNamespace(margin=100.0)
+        self.assertAlmostEqual(150.0, sizing.used_margin([obj, {"margin": 50.0}]))
+
+    def test_empty_and_none(self):
+        self.assertEqual(0.0, sizing.used_margin([]))
+        self.assertEqual(0.0, sizing.used_margin(None))
+
+    def test_broken_entry_is_skipped_not_fatal(self):
+        """Zachowane zastane: zle dane daja MNIEJSZY zajety margin, czyli
+        WIEKSZA pozycje. Awaria w strone ryzyka - udokumentowana."""
+        self.assertAlmostEqual(50.0, sizing.used_margin(
+            [{"margin": "duzo"}, {"margin": 50.0}]))
+
+
+class TestSlotsDivergence(unittest.TestCase):
+    """PANIC: bramka wejscia zaciska sufit, sizing nie. Kopie tej samej
+    reguly, ktore moga sie rozjechac - przypiete swiadomie."""
+
+    def test_range_matches_entry_gate(self):
+        from cryptoedge.risk import limits
+        c = cfg(MAX_POSITIONS=10, REGIME_RANGE_MAX_POSITIONS=5,
+                REGIME_PANIC_MAX_POSITIONS=10)
+        self.assertEqual(5, limits.max_positions_for_regime("RANGE", c))
+        self.assertEqual(5, sizing.slots_for_sizing("RANGE", 0, c))
+
+    def test_panic_diverges_when_config_differs(self):
+        from cryptoedge.risk import limits
+        c = cfg(MAX_POSITIONS=10, REGIME_RANGE_MAX_POSITIONS=5,
+                REGIME_PANIC_MAX_POSITIONS=3)
+        self.assertEqual(3, limits.max_positions_for_regime("PANIC", c),
+                         "bramka wejscia zaciska sloty w PANIC")
+        self.assertEqual(10, sizing.slots_for_sizing("PANIC", 0, c),
+                         "sizing tego nie robi - rozbieznosc jest zastana")
+
+    def test_panic_agrees_at_shipped_defaults(self):
+        from cryptoedge.risk import limits
+        c = cfg(MAX_POSITIONS=10, REGIME_RANGE_MAX_POSITIONS=10,
+                REGIME_PANIC_MAX_POSITIONS=10)
+        self.assertEqual(limits.max_positions_for_regime("PANIC", c),
+                         sizing.slots_for_sizing("PANIC", 0, c))

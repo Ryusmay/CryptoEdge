@@ -142,3 +142,72 @@ def risk_multipliers(signal, regime: str, *, is_rev: bool, is_day: bool,
         pass
 
     return mult, stamps
+
+
+def used_margin(positions) -> float:
+    """Margin zajety przez otwarte pozycje.
+
+    Uwaga na kierunek bledu: oryginal liczyl to pod `except Exception: pass`,
+    wiec zepsuta lista pozycji dawala 0 - czyli **wiecej** wolnego kapitalu
+    i wieksza pozycje. Awaria w strone ryzyka, nie w strone ostroznosci.
+    Zachowane, bo zmiana jest osobna decyzja.
+    """
+    total = 0.0
+    for p in positions or []:
+        try:
+            if hasattr(p, "margin"):
+                total += float(getattr(p, "margin", 0) or 0)
+            elif isinstance(p, dict):
+                total += float(p.get("margin") or 0)
+        except (TypeError, ValueError):
+            continue
+    return total
+
+
+def slots_for_sizing(regime: str, open_positions_count: int, cfg=None) -> int:
+    """Ile slotow dzieli wolny kapital przy liczeniu rozmiaru.
+
+    ROZBIEZNOSC, ktora trzymamy na widoku: `limits.max_positions_for_regime()`
+    - uzywane przez bramke wejscia - zaciska sufit takze w PANIC
+    (`REGIME_PANIC_MAX_POSITIONS`). Sizing tego nie robil i nie robi. Przy
+    domyslnym configu obie liczby wynosza 10, wiec dzis nie ma roznicy, ale
+    to sa dwie kopie tej samej reguly, ktore moga sie rozjechac po zmianie
+    ustawien. Ujednolicenie zmienia zachowanie, wiec jest osobna decyzja -
+    nie skutkiem ubocznym wydzielania.
+    """
+    cfg = _config(cfg)
+    max_pos = max(1, int(getattr(cfg, "MAX_POSITIONS", 10)))
+    if str(regime or "").upper() == "RANGE":
+        max_pos = min(max_pos, int(getattr(cfg, "REGIME_RANGE_MAX_POSITIONS", 5) or 5))
+    return max(1, max_pos - int(open_positions_count or 0))
+
+
+def notional_cap(equity: float, leverage: float, *, regime: str,
+                 open_positions_count: int, positions=None,
+                 capital_pct_mode: bool = False, cfg=None) -> tuple:
+    """(sufit notionalu, znaczniki). Trzy limity, bierze najciasniejszy.
+
+    1. Alokacja na slot: wolny kapital (po rezerwie i zajetym marginie)
+       podzielony przez wolne sloty. W trybie `capital_pct` slotow sie NIE
+       dzieli - dzielenie scinalo rozmiar do groszy.
+    2. Globalny sufit udzialu equity w jednym trade.
+    3. Sufit marginu pojedynczej pozycji. To limit alokacji, nie zgoda na
+       strate tego procentu do SL.
+    """
+    cfg = _config(cfg)
+    equity = _f(equity)
+    lev = _f(leverage, 1.0)
+
+    if capital_pct_mode:
+        margin_slot = equity * (_f(getattr(cfg, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0), 10.0) / 100.0)
+    else:
+        reserve = _f(getattr(cfg, "CAPITAL_RESERVE_PCT", 0.20), 0.20)
+        free_equity = max(0.0, equity * (1.0 - reserve) - used_margin(positions))
+        slots = slots_for_sizing(regime, open_positions_count, cfg)
+        margin_slot = free_equity / slots if slots else 0.0
+
+    cap = margin_slot * lev
+    cap = min(cap, equity * _f(getattr(cfg, "MAX_NOTIONAL_EQUITY_FRAC", 2.0), 2.0))
+    margin_frac = max(0.0, min(1.0, _f(getattr(cfg, "MAX_POSITION_MARGIN_EQUITY_FRAC", 0.10), 0.10)))
+    cap = min(cap, equity * margin_frac * lev)
+    return cap, {"_max_position_margin_pct": round(margin_frac * 100.0, 4)}

@@ -893,38 +893,16 @@ class RiskManager:
                 return 0.0
             notional = risk_usd / sl_dist
 
-        # --- hard caps ---
-        reserve = float(getattr(config, "CAPITAL_RESERVE_PCT", 0.20))
-        usable = equity * (1.0 - reserve)
-        used_margin = 0.0
-        try:
-            for p in (getattr(self, "_positions_ref", None) or []):
-                if hasattr(p, "margin"):
-                    used_margin += float(getattr(p, "margin", 0) or 0)
-                elif isinstance(p, dict):
-                    used_margin += float(p.get("margin") or 0)
-        except Exception:
-            pass
-        free_equity = max(0.0, usable - used_margin)
-        max_pos = max(1, int(config.MAX_POSITIONS))
-        if regime == "RANGE":
-            max_pos = min(max_pos, int(getattr(config, "REGIME_RANGE_MAX_POSITIONS", 5) or 5))
-        free_slots = max(1, max_pos - self.open_positions_count)
-        # V2/reversal capital_pct: NIE dziel depo na 10 slotow (to scinalo size do groszy)
-        if v2_fixed_notional is not None:
-            max_margin_slot = equity * (float(getattr(config, "DAYTRADING_V2_MARGIN_PCT_MAX", 10.0)) / 100.0)
-            max_notional = max_margin_slot * lev
-        else:
-            max_margin_slot = free_equity / free_slots if free_slots else 0.0
-            max_notional = max_margin_slot * lev
-        # global max % equity on one trade (hard cap notional <= MAX_NOTIONAL_EQUITY_FRAC * equity)
-        max_equity_frac = float(getattr(config, "MAX_NOTIONAL_EQUITY_FRAC", 2.0))
-        max_notional = min(max_notional, equity * max_equity_frac)
-        # Margin pojedynczej pozycji nigdy nie przekracza ustalonego % equity.
-        # To limit alokacji, nie zgoda na stratę tego procentu do SL.
-        max_margin_frac = max(0.0, min(1.0, float(getattr(config, "MAX_POSITION_MARGIN_EQUITY_FRAC", 0.10))))
-        max_notional = min(max_notional, equity * max_margin_frac * lev)
-        signal["_max_position_margin_pct"] = round(max_margin_frac * 100.0, 4)
+        # Sufity twarde: alokacja na slot, globalny udzial equity, margin
+        # pojedynczej pozycji. Reguly: cryptoedge.risk.sizing.
+        max_notional, _cap_stamps = risk_sizing.notional_cap(
+            equity, lev, regime=regime,
+            open_positions_count=self.open_positions_count,
+            positions=getattr(self, "_positions_ref", None),
+            capital_pct_mode=v2_fixed_notional is not None,
+            cfg=config,
+        )
+        signal.update(_cap_stamps)
 
         notional = min(notional, max_notional)
         if not math.isfinite(notional) or notional <= 0:
