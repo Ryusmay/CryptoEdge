@@ -1,8 +1,8 @@
 {
   "meta": {
-    "cases": 138,
-    "approved": 87,
-    "rejected": 51,
+    "cases": 143,
+    "approved": 90,
+    "rejected": 53,
     "raised": 0,
     "distinct_reasons": 29
   },
@@ -519,6 +519,41 @@
       "size_usd": 56.6217
     },
     {
+      "case": "min_notional_floor_then_adaptive_cut",
+      "approved": false,
+      "reason": "STRAT_NA_NO_MTF(L0/S0<2)",
+      "size_mult": null,
+      "size_usd": 0.0
+    },
+    {
+      "case": "min_notional_floor_no_adaptive_cut",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 0.0
+    },
+    {
+      "case": "min_notional_floor_mid_adaptive_cut",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 0.0
+    },
+    {
+      "case": "min_notional_reversal_skips_adaptive",
+      "approved": false,
+      "reason": "STRAT_NA_NO_MTF(L0/S0<2)",
+      "size_mult": null,
+      "size_usd": 0.0
+    },
+    {
+      "case": "min_notional_max_below_minimum",
+      "approved": true,
+      "reason": "OK",
+      "size_mult": null,
+      "size_usd": 0.0
+    },
+    {
       "case": "panic_strength_vs_score_0.50_0.85",
       "approved": true,
       "reason": "OK",
@@ -691,7 +726,7 @@
       "approved": true,
       "reason": "OK",
       "size_mult": null,
-      "size_usd": 18.3756
+      "size_usd": 0.0
     },
     {
       "case": "strat_na_weak_via_reversal",

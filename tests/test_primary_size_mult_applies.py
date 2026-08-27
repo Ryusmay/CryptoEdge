@@ -103,6 +103,40 @@ class TestPrimaryMultiplierReachesTheSize(unittest.TestCase):
         b = self.rev()
         self.assertAlmostEqual(a, b, places=2)
 
+    def test_min_notional_is_enforced_after_every_reduction(self):
+        """v20.26.0 - podloga minimum sprawdzana na koncu, nie w srodku.
+
+        Szeroki SL daje maly notional -> podloga podnosi go do 20 -> adaptacja
+        (niska sila + wysoka zmiennosc) tnie go ponizej. Przed poprawka
+        funkcja zwracala taka wartosc; teraz pomija trade.
+        """
+        got = self.size_for(strategy_mode="SWING", engine="trend", sl_price=50.0,
+                            strength=0.48, trend_score=0.48, atr_pct=9.0)
+        self.assertEqual(0.0, got)
+
+    def test_min_notional_reason_is_recorded(self):
+        s = signal(strategy_mode="SWING", engine="trend", sl_price=50.0,
+                   strength=0.48, trend_score=0.48, atr_pct=9.0)
+        self.risk.calculate_position_size(s)
+        self.assertIn("SIZE_BELOW_EXCHANGE_MIN", s.get("reasons") or [])
+
+    def test_enforce_min_notional_helper(self):
+        f = self.risk._enforce_min_notional
+        import config
+        minimum = float(getattr(config, "MIN_NOTIONAL_USD", 20.0))
+        self.assertEqual(0.0, f(minimum - 0.01, {}))
+        self.assertEqual(minimum, f(minimum, {}), "rowno minimum przechodzi")
+        self.assertEqual(minimum * 5, f(minimum * 5, {}))
+        empty = {}
+        self.assertEqual(0.0, f(0.0, empty), "zero zostaje zerem")
+        self.assertIsNone(empty.get("reasons"),
+                          "zero to nie jest odrzucenie przez minimum")
+
+    def test_enforce_min_notional_does_not_inflate(self):
+        """Podnoszenie do minimum cofneloby redukcje ryzyka - ma pomijac."""
+        f = self.risk._enforce_min_notional
+        self.assertEqual(0.0, f(4.0, {}))
+
     def test_apply_size_mult_helper(self):
         """Jeden wlasciciel nakladania mnoznika - takze dla zlych danych."""
         f = self.risk._apply_size_mult

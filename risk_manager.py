@@ -744,6 +744,27 @@ class RiskManager:
         return max(sl_pnl / 100.0 / lev, 0.005)  # floor 0.5% ceny
 
     @staticmethod
+    def _enforce_min_notional(notional: float, signal: Dict) -> float:
+        """Ostatnie slowo w sprawie minimum gieldowego.
+
+        Podloga MIN_NOTIONAL_USD byla dotad nakladana w srodku sizingu, a
+        potem notional przechodzil jeszcze przez adaptacje (sila, zmiennosc,
+        seria strat) i cap plynnosci - i nikt jej juz nie sprawdzal. Zmierzone
+        przed poprawka: funkcja zwracala 4.0 przy minimum 20.0.
+
+        Podnoszenie z powrotem do minimum byloby zle: adaptacja wlasnie
+        swiadomie zmniejszyla ryzyko, a dolozenie rozmiaru cofneloby te
+        decyzje. Trade, ktorego nie da sie zlozyc w zatwierdzonym rozmiarze,
+        ma zostac pominiety - ta sama polityka, ktora kod juz stosuje dla V2
+        w trybie risk_sl.
+        """
+        min_n = float(getattr(config, "MIN_NOTIONAL_USD", 20.0))
+        if 0 < notional < min_n:
+            signal["reasons"] = list(signal.get("reasons") or []) + ["SIZE_BELOW_EXCHANGE_MIN"]
+            return 0.0
+        return notional
+
+    @staticmethod
     def _apply_size_mult(notional: float, signal: Dict) -> float:
         """Naklada `_size_mult` na notional. Jeden wlasciciel tej operacji.
 
@@ -1053,6 +1074,10 @@ class RiskManager:
                     )
                     notional = risk_cap_notional
 
+        # Minimum gieldowe sprawdzane na SAMYM koncu - po adaptacji, capie
+        # plynnosci i sufitcie ryzyka. Wczesniejsza podloga (w srodku funkcji)
+        # nie wystarcza, bo ponizej niej notional jest jeszcze mnozony.
+        notional = self._enforce_min_notional(notional, signal)
         return round(max(notional, 0.0), 4)
 
     def register_open(self):

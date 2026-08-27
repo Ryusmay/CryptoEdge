@@ -145,6 +145,31 @@ def build_corpus() -> list[dict]:
         {"engine": "trend", "strength": 0.50, "trend_score": 0.85})
     add("score_missing_falls_back_to_strength",
         dict(NON_V2, engine="trend", strength=0.62, trend_score=None))
+    # --- podloga MIN_NOTIONAL_USD kontra adaptive sizing ---
+    # Kod podnosi notional do MIN_NOTIONAL_USD, a POTEM mnozy go przez
+    # adaptacje (sila, zmiennosc, seria strat). Podloga nie jest juz nigdy
+    # sprawdzana ponownie. Te przypadki celowo ustawiaja szeroki SL (maly
+    # notional -> podloga) razem z czynnikami tnacymi adaptacji.
+    WIDE = {"strategy_mode": "SWING", "sl_price": 50.0}  # sl_dist 50% -> ~15
+    add("min_notional_floor_then_adaptive_cut",
+        {**WIDE, "engine": "trend", "strength": 0.48, "trend_score": 0.48,
+         "atr_pct": 9.0})
+    add("min_notional_floor_no_adaptive_cut",
+        {**WIDE, "engine": "trend", "strength": 0.95, "trend_score": 0.95,
+         "atr_pct": 0.5})
+    add("min_notional_floor_mid_adaptive_cut",
+        {**WIDE, "engine": "trend", "strength": 0.60, "trend_score": 0.60,
+         "atr_pct": 5.0})
+    # Reversal omija adaptive (capital_pct), wiec u niego podloga sie trzyma -
+    # ta asymetria ma byc widoczna w baseline.
+    add("min_notional_reversal_skips_adaptive",
+        {**WIDE, "engine": "reversal", "strength": 0.35,
+         "reversal_score": 0.35, "atr_pct": 9.0})
+    # Kapital tak maly, ze nawet max_notional nie siega minimum -> 0.0
+    cases.append({"case": "min_notional_max_below_minimum",
+                  "signal": _signal(**{**WIDE, "engine": "trend",
+                                       "strength": 0.60, "trend_score": 0.60}),
+                  "state": _state(capital=20.0)})
     # PANIC czyta `strength` PRZED normalizacja - te przypadki pilnuja,
     # ktora wartosc widzi prog PANIC.
     for st, sc in ((0.50, 0.85), (0.85, 0.50)):
