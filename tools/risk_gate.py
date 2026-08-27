@@ -120,6 +120,44 @@ def build_corpus() -> list[dict]:
     # --- projekcja dziennej straty ---
     for notional in (0.0, 10.0, 500.0, 5000.0, 100000.0):
         add(f"planned_notional_{notional:.0f}", {"_planned_notional": notional})
+    # --- rozjazd strength vs score per silnik ---
+    # can_open_position() normalizuje `strength` do trend_score/reversal_score.
+    # Dopoki obie wartosci sa rowne (jak w reszcie korpusu), rozjazd jest
+    # niewidoczny. Te przypadki celowo je rozjezdzaja - to jedyny sposob,
+    # zeby bramka widziala, KTORA wartosc trafia do sizingu.
+    # UWAGA: sam `engine` NIE wystarczy. Sizing rozpoznaje V2 przez
+    # `engine == "daytrading_v2" OR strategy_mode == "DAYTRADING_V2"`, a sygnal
+    # bazowy ma strategy_mode=DAYTRADING_V2. Bez zejscia z niego kazdy taki
+    # przypadek liczy sie jako V2 (staly risk_pct, sila bez wplywu) i daje
+    # zawsze te sama liczbe - pozorne pokrycie.
+    NON_V2 = {"strategy_mode": "SWING"}
+    for st, sc in ((0.50, 0.85), (0.85, 0.50), (0.47, 0.60), (0.60, 0.47)):
+        add(f"strength_vs_trend_score_{st:.2f}_{sc:.2f}",
+            dict(NON_V2, engine="trend", strength=st, trend_score=sc))
+    for st, sc in ((0.40, 0.80), (0.80, 0.40), (0.30, 0.50)):
+        add(f"strength_vs_reversal_score_{st:.2f}_{sc:.2f}",
+            dict(NON_V2, engine="reversal", strength=st, reversal_score=sc))
+    add("strength_vs_score_v2_is_exempt",
+        {"engine": "daytrading_v2", "strength": 0.50, "trend_score": 0.85})
+    # Rozjazd rozpoznania V2: bramka sily patrzy na engine/score_type, a sizing
+    # takze na strategy_mode. Ten przypadek trzyma te niespojnosc na widoku.
+    add("strength_v2_by_mode_but_trend_by_engine",
+        {"engine": "trend", "strength": 0.50, "trend_score": 0.85})
+    add("score_missing_falls_back_to_strength",
+        dict(NON_V2, engine="trend", strength=0.62, trend_score=None))
+    # PANIC czyta `strength` PRZED normalizacja - te przypadki pilnuja,
+    # ktora wartosc widzi prog PANIC.
+    for st, sc in ((0.50, 0.85), (0.85, 0.50)):
+        cases.append({"case": f"panic_strength_vs_score_{st:.2f}_{sc:.2f}",
+                      "signal": _signal(engine="trend", strategy_mode="SWING",
+                                        strength=st, trend_score=sc,
+                                        market_regime="PANIC"),
+                      "state": _state(regime="PANIC")})
+        cases.append({"case": f"panic_rev_strength_vs_score_{st:.2f}_{sc:.2f}",
+                      "signal": _signal(engine="reversal", strategy_mode="SWING",
+                                        strength=st, reversal_score=sc,
+                                        market_regime="PANIC"),
+                      "state": _state(regime="PANIC")})
     return cases
 
 

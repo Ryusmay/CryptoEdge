@@ -175,7 +175,16 @@ class RiskManager:
         -> Position(signal, size)). Nikt poniżej nie czyta `_size_mult`, więc
         "wpuść z mniejszym size" wpuszczało z pełnym. Mnożnik nakładamy tutaj.
         """
+        from cryptoedge.risk import scoring as risk_scoring
         from cryptoedge.risk import strategy_filter as strat_filter
+
+        # Normalizacja sily do pola wlasciwego dla silnika. Musi nastapic
+        # TUTAJ, przed sizingiem: do v20.25.0 robila to can_open_position()
+        # juz po policzeniu rozmiaru, wiec Position dostawal sile z jednego
+        # sygnalu, a rozmiar policzony dla innej liczby.
+        normalized = risk_scoring.normalize_strength(signal, config)
+        if normalized is not None:
+            signal["strength"] = normalized
 
         primary_mult = strat_filter.primary_size_mult(signal, config)
         if primary_mult is not None:
@@ -278,25 +287,13 @@ class RiskManager:
         if not ok_cap:
             return False, why_cap
         # PRIORYTET 5: osobny score per silnik
-        eng_s = (signal.get("engine") or signal.get("score_type") or "trend").lower()
-        if eng_s not in ("daytrading_v2", "daytradingv2"):
-            if eng_s == "reversal":
-                score = float(
-                    signal["reversal_score"]
-                    if signal.get("reversal_score") is not None
-                    else (signal.get("strength") or 0)
-                )
-                min_s = float(getattr(config, "REVERSAL_MIN_STRENGTH", config.MIN_SIGNAL_STRENGTH))
-            else:
-                score = float(
-                    signal["trend_score"]
-                    if signal.get("trend_score") is not None
-                    else (signal.get("strength") or 0)
-                )
-                min_s = float(config.MIN_SIGNAL_STRENGTH)
-            signal["strength"] = score
-            if score < min_s:
-                return False, f"Za slaby sygnal {eng_s} ({score:.2f}<{min_s})"
+        # Sila wedlug pola wlasciwego dla silnika. Sama normalizacja zdarzyla
+        # sie juz w prepare_signal_for_sizing() - tutaj zostaje sam werdykt.
+        from cryptoedge.risk import scoring as risk_scoring
+        eng_s = risk_scoring.engine_key(signal)
+        ok_str, why_str = risk_scoring.strength_ok(signal, config)
+        if not ok_str:
+            return False, why_str
         if bool(getattr(config, "USE_EXPECTED_R_FILTER", False)):
             try:
                 from strength_calibration import get_calibrator
