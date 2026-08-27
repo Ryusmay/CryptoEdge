@@ -401,16 +401,49 @@ class BotRuntime:
             return None
 
     def close_symbol(self, symbol: str) -> str:
-        """Ręczne zamknięcie jednej pozycji DEMO (market z last_price_map)."""
+        """Ręczne zamknięcie jednej pozycji PAPER.
+
+        Cenę ustala close_policy — ta sama, co kill switch, close_all
+        i on_engine_stop. Do 27.08.2026 była to JEDYNA ścieżka zamknięcia,
+        która brała cenę z mapy bez pytania o jej wiek: ręczne zamknięcie
+        przy zamrożonym feedzie zapisywało się w historii jak zwykła
+        transakcja, bez śladu, że cena była sprzed godzin.
+        """
         if not self.trader:
             return "Brak runtime"
         symbol = (symbol or "").strip()
         if not symbol or symbol in ("—", "brak pozycji"):
             return "Brak symbolu"
-        pnl = self.trader.close_by_symbol(symbol, self.last_price_map or {}, reason="manual")
+        from cryptoedge.portfolio import resolve_close_price
+
+        wanted = symbol.upper()
+        pos = next(
+            (p for p in list(getattr(self.trader, "positions", None) or [])
+             if str(getattr(p, "symbol", "") or "").upper() == wanted),
+            None,
+        )
+        if pos is None:
+            return f"Brak pozycji {symbol}"
+
+        # close_by_symbol szukalo ceny pod DWOMA kluczami: pos.symbol,
+        # a potem pod symbolem podanym przez wolajacego. close_policy pyta
+        # tylko o pos.symbol, wiec drugi klucz doklejamy tutaj - inaczej
+        # przeniesienie reguly po cichu zabraloby dzialajacy fallback.
+        price_map = dict(self.last_price_map or {})
+        key = getattr(pos, "symbol", None)
+        if key is not None and price_map.get(key) is None and wanted in price_map:
+            price_map[key] = price_map[wanted]
+
+        decision = resolve_close_price(pos, price_map, self.price_map_age_s(), "manual")
+        pnl = self.trader.close_by_symbol(
+            symbol, {key: decision.price}, reason=decision.reason,
+        )
         if pnl is None:
             return f"Brak pozycji {symbol}"
-        return f"CLOSED {symbol} PnL ${pnl:+.4f}"
+        # Nieswieza albo zastepcza cena ma byc widoczna od razu w UI,
+        # a nie dopiero w historii transakcji.
+        suffix = f" ({decision.reason})" if (decision.stale or decision.is_fallback) else ""
+        return f"CLOSED {symbol} PnL ${pnl:+.4f}{suffix}"
 
     def snapshot(self) -> Dict[str, Any]:
         if not self.risk:
