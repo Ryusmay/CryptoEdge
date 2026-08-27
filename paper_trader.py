@@ -769,82 +769,40 @@ class Position:
         Twardy TP wylaczony gdy NO_HARD_TP / ride_trend.
         SL zawsze chroni. Margin call = strata zjada depozyt.
         """
-        try:
-            current_price = float(current_price)
-        except (TypeError, ValueError):
-            return None
-        if not math.isfinite(current_price) or current_price <= 0:
-            return None
-        no_hard_tp = getattr(config, "NO_HARD_TP", True) or getattr(self, "ride_trend", True)
-        if self.engine == "daytrading":
-            no_hard_tp = False
-        if getattr(self, "hard_tp_after_stop", False):
-            no_hard_tp = False  # po STOP: honoruj ustawiony TP
+        # Adapter do czystego reduktora - blizniaka v2_trade_lifecycle dla
+        # sciezki nie-V2. Decyzje podejmuje cryptoedge.portfolio.exit_rules;
+        # tutaj zostaje wylacznie zbudowanie widoku i zapis etapu partiala,
+        # ktory wczesniej byl efektem ubocznym wewnatrz tego zapytania.
+        from cryptoedge.portfolio.exit_rules import (
+            PriceExitView, decide_price_exit,
+        )
 
-        # --- PARTIAL TP (R:R): TP1=1R, TP2=2R; inaczej legacy % PnL ---
-        if getattr(config, "PARTIAL_TP_ENABLED", True):
-            plan = getattr(self, "tp_plan", None)
-            # Stage 1: 1R
-            if not getattr(self, "partial_tp1_done", False):
-                hit1 = False
-                tp1 = getattr(self, "tp1_price", None) or self.partial_tp_price
-                if tp1 is not None:
-                    if self.direction == "LONG" and current_price >= float(tp1):
-                        hit1 = True
-                    elif self.direction == "SHORT" and current_price <= float(tp1):
-                        hit1 = True
-                if not hit1 and not plan:
-                    trig_pnl = float(getattr(config, "PARTIAL_TP_TRIGGER_PCT", 50.0))
-                    hit1 = float(getattr(self, "pnl_pct", 0) or 0) >= trig_pnl
-                if hit1:
-                    self._partial_stage = 1
-                    return "partial_tp"
-            # Stage 2: 2R (tylko gdy jest plan R:R)
-            elif plan and not getattr(self, "partial_tp2_done", False):
-                tp2 = getattr(self, "tp2_price", None)
-                if tp2 is not None:
-                    hit2 = (
-                        (self.direction == "LONG" and current_price >= float(tp2))
-                        or (self.direction == "SHORT" and current_price <= float(tp2))
-                    )
-                    if hit2:
-                        self._partial_stage = 2
-                        return "partial_tp"
-
-        # --- MARGIN CALL ---
-        if getattr(config, "MARGIN_CALL_ENABLED", True):
-            thr = getattr(config, "MARGIN_CALL_THRESHOLD", 0.80)
-            if self.margin > 0 and (-self.pnl) >= self.margin * thr:
-                return "margin_call"
-            if self.direction == "LONG" and current_price <= self.margin_call_price:
-                return "margin_call"
-            if self.direction == "SHORT" and current_price >= self.margin_call_price:
-                return "margin_call"
-
-        if self.direction == "LONG":
-            if self.trailing_active and self.trailing_stop_price is not None:
-                if current_price <= self.trailing_stop_price:
-                    return "trailing_stop"
-            sl_live = True
-            if _is_v2(self.engine) and not bool(getattr(config, "DAYTRADING_V2_ENTRY_SL", False)):
-                sl_live = bool(getattr(self, "partial_taken", False) or self.trailing_active or self.breakeven_active)
-            if sl_live and self.sl_price is not None and current_price <= self.sl_price:
-                return "stop_loss"
-            # TP tylko gdy NIE jedziemy z trendem (awaryjny tryb)
-            if not no_hard_tp and self.tp_price and current_price >= self.tp_price:
-                return "take_profit"
-        else:
-            if self.trailing_active and self.trailing_stop_price is not None:
-                if current_price >= self.trailing_stop_price:
-                    return "trailing_stop"
-            sl_live = True
-            if _is_v2(self.engine) and not bool(getattr(config, "DAYTRADING_V2_ENTRY_SL", False)):
-                sl_live = bool(getattr(self, "partial_taken", False) or self.trailing_active or self.breakeven_active)
-            if sl_live and self.sl_price is not None and current_price >= self.sl_price:
-                return "stop_loss"
-            if not no_hard_tp and self.tp_price and current_price <= self.tp_price:
-                return "take_profit"
-        return None
+        view = PriceExitView(
+            direction=self.direction,
+            engine=self.engine,
+            pnl=float(getattr(self, "pnl", 0) or 0),
+            pnl_pct=float(getattr(self, "pnl_pct", 0) or 0),
+            margin=float(getattr(self, "margin", 0) or 0),
+            margin_call_price=getattr(self, "margin_call_price", None),
+            sl_price=self.sl_price,
+            tp_price=self.tp_price,
+            tp1_price=getattr(self, "tp1_price", None),
+            tp2_price=getattr(self, "tp2_price", None),
+            partial_tp_price=getattr(self, "partial_tp_price", None),
+            tp_plan=getattr(self, "tp_plan", None),
+            trailing_active=bool(self.trailing_active),
+            trailing_stop_price=self.trailing_stop_price,
+            partial_tp1_done=bool(getattr(self, "partial_tp1_done", False)),
+            partial_tp2_done=bool(getattr(self, "partial_tp2_done", False)),
+            partial_taken=bool(getattr(self, "partial_taken", False)),
+            breakeven_active=bool(getattr(self, "breakeven_active", False)),
+            ride_trend=bool(getattr(self, "ride_trend", True)),
+            hard_tp_after_stop=bool(getattr(self, "hard_tp_after_stop", False)),
+        )
+        decision = decide_price_exit(view, current_price, config)
+        if decision.partial_stage:
+            self._partial_stage = decision.partial_stage
+        return decision.action
 
     def decide_v2_exit(self, current_price: float, signal: Optional[Dict] = None):
         """Adapter PAPER/LIVE do tego samego reducera co replay V2."""
