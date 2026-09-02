@@ -7,6 +7,10 @@ CryptoEdge is a personal quantitative trading workstation: multi-timeframe daytr
 
 Ready for **ChatGPT Codex**, **GitHub Copilot**, and **Claude Code** via [`AGENTS.md`](AGENTS.md).
 
+![CryptoEdge paper desk (v20.45, DEMO)](docs/images/desk-v20.45.png)
+
+Native DESK: open positions, candidates, BloFin watchlist, session PnL and risk. Screenshot is **PAPER/DEMO** with an empty book — filled positions wait on modular migration ([ROADMAP](ROADMAP.md) M0).
+
 > Not financial advice. Defaults to **PAPER**. API keys never belong in git (`.env` is gitignored).
 
 ## Why this repo exists
