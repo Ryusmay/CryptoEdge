@@ -70,6 +70,7 @@ daytrading_engine_v2.py live strategy
 cryptoedge/             domain, ports, adapters (modular split)
 AGENTS.md               instructions for Codex / Claude Code / Copilot
 docs/architecture/      ADR + migration plan
+ROADMAP.md              milestones M0–M5
 tests/                  gates, parity, rate-limit
 walk_forward_v2.py      purged folds
 ```
@@ -81,6 +82,7 @@ walk_forward_v2.py      purged folds
 | Version | **20.37.0** |
 | Default | PAPER, `LIVE_EXECUTION_ENABLED=False` |
 | License | MIT |
+| Plan | [ROADMAP.md](ROADMAP.md) — modules → V2/replay freeze → VPS → Tauri hookup → strategy brain |
 
 This is an active research codebase, not a hosted product. Issues and PRs that improve tests, docs, or adapters are welcome. Strategy “edge” claims belong in walk-forward reports, not marketing.
 
