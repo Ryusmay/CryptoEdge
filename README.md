@@ -5,6 +5,8 @@ Python engine + native PySide6 UI. Live order placement stays **off** unless you
 
 CryptoEdge is a personal quantitative trading workstation: multi-timeframe daytrading (V2), hard risk gates, purged walk-forward, and a modular monolith so strategy, risk, and execution stay testable in isolation.
 
+Ready for **ChatGPT Codex**, **GitHub Copilot**, and **Claude Code** via [`AGENTS.md`](AGENTS.md).
+
 > Not financial advice. Defaults to **PAPER**. API keys never belong in git (`.env` is gitignored).
 
 ## Why this repo exists
@@ -27,6 +29,7 @@ Architecture notes live in [`docs/architecture/`](docs/architecture/) (ADR-001 m
 | Research | Purged walk-forward, historical replay, MAE/MFE, parity tests |
 | Desk UI | DESK / SCAN / LAB / REPLAY / HISTORY / SET |
 | Venue | BloFin USDT-M for paper/live path; Binance public WS as confirm |
+| Agents | `AGENTS.md` + Copilot instructions for Codex / Claude / Copilot |
 
 ## Quick start
 
@@ -51,12 +54,21 @@ python run_tests.py
 python run_historical_replay.py --days 90 --symbols BTC ETH SOL --oos 0.30
 ```
 
+### ChatGPT Codex
+
+Open this repository in Codex (or `chatgpt.com` with GitHub connected). The agent reads [`AGENTS.md`](AGENTS.md) for boundaries: no secrets, paper-first, no strategy/exchange mixing.
+
+```text
+Task example: add a MarketDataPort adapter for Bybit klines; do not change V2 TP/SL.
+```
+
 ## Repository layout
 
 ```
 app.py / runtime.py     composition root
 daytrading_engine_v2.py live strategy
 cryptoedge/             domain, ports, adapters (modular split)
+AGENTS.md               instructions for Codex / Claude Code / Copilot
 docs/architecture/      ADR + migration plan
 tests/                  gates, parity, rate-limit
 walk_forward_v2.py      purged folds
