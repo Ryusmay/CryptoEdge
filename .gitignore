@@ -1,20 +1,35 @@
+# secrets
 .env
+.env.*
+!.env.example
 logs/
+logs/secrets.bin
+logs/.secrets_salt
+
+# caches / build
 __pycache__/
 *.pyc
-data/disk_cache/
-*.zip
+*.pyo
+*.pyd
 .pytest_cache/
 .ruff_cache/
-reports/
-
-# Srodowiska i artefakty budowania (dodane przy commicie przebudowy v20.12.0).
-# Wszystko ponizej da sie odtworzyc: pip install -r requirements.txt,
-# npm ci, npm run tauri build. Do repo nie trafia.
 .venv/
+venv/
+data/
+data/disk_cache/
+reports/
+backups/
+HISTORY/
+*.zip
+*.log
+*.exe
+*.lnk
+
+# frontend build
 frontend/node_modules/
 frontend/dist/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
-backups/
-*.exe
+
+.DS_Store
+Thumbs.db
