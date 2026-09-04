@@ -125,11 +125,38 @@ def _sl_distance_pct(signal: dict, risk_manager=None) -> float:
 
 
 def _spread_cost_frac(signal: dict) -> float:
+    """Spread jako ulamek ceny. Trzy zrodla, w kolejnosci wiarygodnosci.
+
+    1. Zywa ksiazka zlecen z sygnalu - najlepsze, bo dotyczy tej chwili.
+    2. Zmierzony spread symbolu (`venue_microstructure`) - snapshot z gieldy
+       proxy, uzywany gdy ksiazki nie ma. Replay nie ma jej NIGDY
+       (`AsOfBlofinFeed.fetch_order_book` zwraca {}), wiec to jest sciezka
+       calego backtestu.
+    3. Stala DEFAULT_SPREAD_FRAC - dopiero gdy symbolu nie zmierzono.
+
+    Zmierzone: realne spready ida od 0.0133 bps (BTC) do 4.48 bps (TRUMP),
+    czyli 337-krotnie. Stala 4 bps lezy przy gornym koncu tego rozkladu -
+    zawyza dla 18 symboli z 19 i zaniza dla jednego. Jedna liczba nie moze
+    opisywac wielkosci zmieniajacej sie o dwa i pol rzedu.
+
+    Zrodlo zapisujemy do sygnalu, zeby zero albo mala liczba nie udawaly
+    pomiaru tam, gdzie ich nie bylo.
+    """
     import config
     ob = signal.get("order_book") or {}
     sp = ob.get("ob_spread_pct")
     if sp is not None:
+        signal["_spread_source"] = "order_book"
         return max(0.0, _f(sp) / 100.0)
+    try:
+        import venue_microstructure
+        measured = venue_microstructure.spread_frac(signal.get("symbol"))
+    except Exception:
+        measured = None
+    if measured is not None:
+        signal["_spread_source"] = "measured"
+        return max(0.0, float(measured))
+    signal["_spread_source"] = "default_const"
     return _f(getattr(config, "DEFAULT_SPREAD_FRAC", 0.0004))
 
 
@@ -191,15 +218,43 @@ def expected_net_r(signal: dict, risk_manager=None) -> Dict[str, Any]:
         sl_dist = 0.022
 
     fee = _f(getattr(config, "TAKER_FEE", getattr(config, "COMMISSION_RATE", 0.0006)))
-    fee_rt = fee * 2.0
+    # Wejscie limitem placi MAKERA, nie takera. Do v20.60.0 bylo tu bezwarunkowe
+    # fee * 2.0, czyli taker po obu stronach - a to nie zgadzalo sie z reszta
+    # systemu:
+    #   daytrading_backtester.py:849  (mf + tf) if kind == "limit" else 2*tf
+    #   replay_execution.py:133,145   etykietuje fill jako "maker"/"taker"
+    # Przy DAYTRADING_V2_LIMIT_IN_ZONE=True silnik wstawia limit_price
+    # (daytrading_engine_v2.py:686), a resolve_v2_fill ma tylko dwa wyjscia:
+    # "limit" albo "expired" - setup, ktory nie doszedl do strefy, jest
+    # ANULOWANY, nigdy nie zamieniany w zlecenie rynkowe. Czyli kazda
+    # transakcja, ktora faktycznie powstaje, jest wejsciem limitem.
+    # Bramka przeplacala 0.0012 zamiast 0.0008, czyli o 50%, na jedynym
+    # koszcie, ktory po naprawie spreadu i poslizgu jeszcze cokolwiek wazy.
+    # Straznik: tests/test_fee_parity_gate_vs_replay.py
+    maker = _f(getattr(config, "MAKER_FEE", 0.0002))
+    fee_rt = (maker + fee) if signal.get("limit_price") is not None else (fee * 2.0)
     spread = _spread_cost_frac(signal)
     slip = _slippage_frac(signal)
     impact = _market_impact_frac(signal)
     fund = _funding_cost_frac(signal)
 
     fee_r = fee_rt / sl_dist
-    spread_r = spread / sl_dist
     has_rt_slip = signal.get("slip_rt") is not None
+    # Czy slip_rt zawiera juz spread. Zmierzona sciezka V2 zwraca round-trip
+    # rowny JEDNEMU pelnemu spreadowi (zlecenie miesci sie na szczycie ksiegi,
+    # wiec calym kosztem jest przejscie spreadu). Doliczanie spread_r obok
+    # byloby policzeniem go dwa razy. Stara sciezka zwraca stala slip_one_way,
+    # ktora spreadu NIE zawiera - tam spread_r zostaje.
+    spread_in_slip = False
+    if has_rt_slip:
+        try:
+            import v2_profiles
+            spread_in_slip = bool(v2_profiles.slip_includes_spread(signal.get("symbol")))
+        except Exception:
+            spread_in_slip = False
+    if spread_in_slip:
+        signal["_spread_source"] = "in_slip_rt"
+    spread_r = (0.0 if spread_in_slip else spread) / sl_dist
     slip_r = (slip if has_rt_slip else slip * 2.0) / sl_dist
     # slip_rt V2 zawiera estymowany impact z wolumenu swiecy; nie licz go drugi raz.
     impact_r = (0.0 if has_rt_slip else impact) / sl_dist
@@ -225,16 +280,24 @@ def expected_net_r(signal: dict, risk_manager=None) -> Dict[str, Any]:
         else:
             risk_pct = _f(getattr(config, "RISK_PCT_DEFAULT", 0.006))
 
+    # Zaokraglenie do 6, nie 4. Przy 4 miejscach zmierzony spread BTC
+    # (0.0000666 R) stawal sie 0.0001 - piecdziesiat procent w gore - a
+    # cokolwiek ponizej 0.00005 R zaokraglalo sie DO ZERA i realny koszt
+    # znikal. Skoro spready sa zmierzone do trzech cyfr znaczacych, nie wolno
+    # ich gubic w wyniku.
     out = {
-        "gross_r": round(gross, 4),
-        "fee_r": round(fee_r, 4),
-        "spread_r": round(spread_r, 4),
-        "slip_r": round(slip_r, 4),
-        "impact_r": round(impact_r, 4),
-        "funding_r": round(fund_r, 4),
-        "net_r": round(net, 4),
+        "gross_r": round(gross, 6),
+        "fee_r": round(fee_r, 6),
+        "spread_r": round(spread_r, 6),
+        "slip_r": round(slip_r, 6),
+        "impact_r": round(impact_r, 6),
+        "funding_r": round(fund_r, 6),
+        "net_r": round(net, 6),
         "sl_dist": round(sl_dist, 5),
         "risk_pct": risk_pct,
+        # Czy spread byl ZMIERZONY, czy wziety ze stalej. Bez tego mala liczba
+        # w spread_r wyglada tak samo niezaleznie od tego, skad pochodzi.
+        "spread_source": signal.get("_spread_source") or "unknown",
         "engine": "daytrading" if _is_daytrading(signal) else ("reversal" if _is_reversal(signal) else "trend"),
         "calibration_status": signal.get("expected_r_status") or "UNKNOWN",
         "probabilities": signal.get("expected_r_probabilities") or {},

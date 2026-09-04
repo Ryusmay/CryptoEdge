@@ -435,8 +435,13 @@ class BotRuntime:
             price_map[key] = price_map[wanted]
 
         decision = resolve_close_price(pos, price_map, self.price_map_age_s(), "manual")
-        pnl = self.trader.close_by_symbol(
-            symbol, {key: decision.price}, reason=decision.reason,
+        # Zamkniecie idzie przez ExecutionPort, gdy port PAPER istnieje;
+        # inaczej prosto do ksiegi, jak dotad. Cena i powod sa juz ustalone
+        # przez close_policy powyzej - port ich nie wymysla.
+        from cryptoedge.apps.runtime import reduce_via_port
+        pnl = reduce_via_port(
+            self, self.trader, symbol, getattr(pos, "direction", ""),
+            decision.price, decision.reason, {key: decision.price},
         )
         if pnl is None:
             return f"Brak pozycji {symbol}"

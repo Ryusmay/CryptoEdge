@@ -37,7 +37,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Sequence
 
-from .legacy import ExecutionDisabled
+from .legacy import ExecutionDisabled, _decimal
 from .ports import (
     CancelOrder, ExecutionResult, ReconciliationResult, ReducePosition, SubmitOrder,
 )
@@ -91,6 +91,12 @@ class PaperExecutionAdapter:
             return ExecutionResult(
                 accepted=True, state="FILLED",
                 client_order_id=command.client_order_id, raw=position,
+                # PAPER wypelnia od razu, ale NIE zawsze tyle, ile zamowiono:
+                # rozmiar ustala RiskManager i kwantyzacja do lot size. Bez
+                # tego pola wolajacy widzial tylko "FILLED" i musialby
+                # zalozyc, ze dostal `command.quantity`.
+                filled_quantity=_decimal(getattr(position, "size_contracts", None)),
+                average_price=_decimal(getattr(position, "entry_price", None)),
             )
         # Brak pozycji nie znaczy odrzucenia: PaperTrader mogl zaparkowac
         # limit i wtedy zlecenie zyje dalej jako working order.

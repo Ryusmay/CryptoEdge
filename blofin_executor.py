@@ -512,10 +512,25 @@ class BloFinExecutor:
             fee = raw_fee - float(order.fee or 0) if abs(raw_fee) >= abs(float(order.fee or 0)) else raw_fee
             fill_ts = int(row.get("fillTime") or row.get("updateTime") or row.get("uTime") or time.time() * 1000)
             order.record_fill(delta, avg, fee=fee, liquidity_role=role, ts_ms=fill_ts)
-        else:
-            order.filled_size = filled
-            if avg:
-                order.avg_fill_price = avg
+            # `averagePrice` z giełdy to średnia CAŁEGO zlecenia i jest
+            # autorytatywna. Nasza rekonstrukcja z przyrostów nie jest: wiersz
+            # zlecenia nie niesie ceny pojedynczego fillu, więc przy fillach po
+            # ruchomej cenie VWAP liczony przyrostowo wychodzi zaniżony.
+            # Zdarzenia zostają do audytu, średnia idzie z giełdy.
+            order.avg_fill_price = avg
+            if order.size and filled > float(order.size):
+                order.last_error = "OVERFILL"
+        elif delta > 0:
+            # Ilość bez ceny. NIE wolno jej przyjąć: kolejny odczyt policzyłby
+            # VWAP tak, jakby ta część poszła po cenie zero. Zostawiamy stan
+            # bez zmian — przyrost wróci przy następnym odpytaniu, już z ceną.
+            order.last_error = "FILL_WITHOUT_PRICE"
+        elif filled < float(order.filled_size or 0):
+            # Giełda cofnęła ilość. To glitch albo nie ten wiersz; przyjęcie
+            # rozjechałoby `filled_size` z sumą `fill_events`.
+            order.last_error = "FILLED_SIZE_WENT_BACKWARDS"
+        elif avg:
+            order.avg_fill_price = avg
         order.transition(st, f"ex_state={row.get('state')} filled={filled}")
         return order
 

@@ -27,6 +27,22 @@ def _is_paper_ui_stop_kill(reason: str) -> bool:
     return raw in _PAPER_UI_STOP_REASONS
 
 
+# Awarie, po ktorych NIE WIEMY, co stoi na gieldzie. Brak pozycji w raporcie
+# nie znaczy wtedy "plasko". Jeden wlasciciel tej reguly - lista jest tu,
+# a nie rozsypana po `run()`.
+_UNCONFIRMED_EXCHANGE_ERRORS = ("ex_pos", "reconcile")
+
+
+def _unconfirmed_exchange_failures(errors) -> List[str]:
+    """Ktore z zapisanych bledow oznaczaja niepotwierdzony stan gieldy."""
+    hits = []
+    for entry in errors or []:
+        prefix = str(entry).split(":", 1)[0].strip()
+        if prefix in _UNCONFIRMED_EXCHANGE_ERRORS and prefix not in hits:
+            hits.append(prefix)
+    return hits
+
+
 class RestartRecovery:
     def __init__(
         self,
@@ -59,6 +75,7 @@ class RestartRecovery:
             "reconcile": None,
             "kill_switch": False,
             "paper_ui_stop_cleared": False,
+            "reduce_only": False,
             "errors": [],
         }
 
@@ -284,6 +301,21 @@ class RestartRecovery:
                         self.executor.refresh_order(order)
             except Exception as e:
                 report["errors"].append(f"order_refresh: {e}")
+
+        # 7) LIVE failure => REDUCE_ONLY, nigdy "pusty stan".
+        # Jesli nie udalo sie potwierdzic, co stoi na gieldzie, to brak pozycji
+        # w raporcie NIE znaczy "plasko" - znaczy "nie wiem". Wtedy wolno
+        # zamykac, anulowac i chronic, ale nie wolno otwierac nowego ryzyka.
+        blocking = _unconfirmed_exchange_failures(report["errors"])
+        if blocking and trading_mode.is_live(config) and self.risk is not None:
+            if bool(getattr(config, "RECOVERY_REDUCE_ONLY_ON_LIVE_FAILURE", True)):
+                self.risk.risk_state = "REDUCE_ONLY"
+                self.risk.reduce_only_reason = f"RECOVERY_UNCONFIRMED:{blocking[0]}"
+                report["reduce_only"] = True
+                print(
+                    "[Recovery] REDUCE_ONLY: nie potwierdzono stanu gieldy "
+                    f"({', '.join(blocking)}) - wejscia zablokowane, redukcja dozwolona"
+                )
 
         self.last_report = report
         print(

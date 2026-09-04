@@ -8,8 +8,8 @@
     "distinct_rejects": 8
   },
   "config": {
-    "hash": "bee6af3c6d61120d",
-    "keys": 531,
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,
@@ -24,7 +24,8 @@
       "DAYTRADING_SIZE_R_TARGET": 0.4,
       "DAYTRADING_TIME_STOP_MIN_R": 0.5,
       "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
-      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
       "DAYTRADING_INVALIDATION_BARS": 2,
       "DAYTRADING_NET_R_MIN_SAMPLE": 20,
       "REVERSAL_MIN_STRENGTH": 0.32,
@@ -89,21 +90,23 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
-        "expected_gross_r": 0.2348,
+        "_spread_source": "measured",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
           "fee_r": 0.03,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
+          "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.1748,
+          "net_r": 0.184717,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -171,6 +174,7 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
+        "_spread_source": "measured",
         "expected_gross_r": 1.0,
         "expected_r_breakdown": {
           "calibration_n": "None",
@@ -180,12 +184,13 @@
           "funding_r": 0.0,
           "gross_r": 1.0,
           "impact_r": 0.005,
-          "net_r": 0.94,
+          "net_r": 0.949967,
           "probabilities": "{}",
           "risk_pct": 0.007558,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "size_adapt": {
           "daily": 1.0,
@@ -263,21 +268,23 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
-        "expected_gross_r": 0.2348,
+        "_spread_source": "measured",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
           "fee_r": 0.03,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
+          "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.1748,
+          "net_r": 0.184717,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.014154,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -363,21 +370,23 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
-        "expected_gross_r": 0.2348,
+        "_spread_source": "measured",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
           "fee_r": 0.03,
           "funding_r": -0.0,
-          "gross_r": 0.2348,
+          "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.1748,
+          "net_r": 0.184717,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -430,21 +439,23 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
-        "expected_gross_r": 0.2348,
+        "_spread_source": "measured",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
-          "fee_r": 0.03,
+          "fee_r": 0.02,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
+          "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.1748,
+          "net_r": 0.194717,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -645,21 +656,23 @@
           "spread_pct": "None",
           "spread_z": "None"
         },
-        "expected_gross_r": 0.2348,
+        "_spread_source": "measured",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
           "fee_r": 0.03,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
+          "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.1748,
+          "net_r": 0.184717,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 0.01
+          "spread_r": 3.3e-05,
+          "spread_source": "measured"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -1024,21 +1037,23 @@
         "_requested_notional": 1192.8571,
         "_risk_engine": "daytrading_v2",
         "_risk_pct": 0.005,
-        "expected_gross_r": 0.2348,
+        "_spread_source": "order_book",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
-          "fee_r": 0.0286,
+          "fee_r": 0.028629,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
-          "impact_r": 0.0048,
-          "net_r": 0.0316,
+          "gross_r": 0.23475,
+          "impact_r": 0.004771,
+          "net_r": 0.031607,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04192,
-          "slip_r": 0.0143,
-          "spread_r": 0.0954
+          "slip_r": 0.014314,
+          "spread_r": 0.095429,
+          "spread_source": "order_book"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,
@@ -1082,21 +1097,23 @@
         "_requested_notional": 1192.8571,
         "_risk_engine": "daytrading_v2",
         "_risk_pct": 0.005,
-        "expected_gross_r": 0.2348,
+        "_spread_source": "order_book",
+        "expected_gross_r": 0.23475,
         "expected_r_breakdown": {
           "calibration_n": "None",
           "calibration_status": "PRIOR_ONLY",
           "engine": "daytrading",
-          "fee_r": 0.0286,
+          "fee_r": 0.028629,
           "funding_r": 0.0,
-          "gross_r": 0.2348,
-          "impact_r": 0.0048,
-          "net_r": 0.0316,
+          "gross_r": 0.23475,
+          "impact_r": 0.004771,
+          "net_r": 0.031607,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04192,
-          "slip_r": 0.0143,
-          "spread_r": 0.0954
+          "slip_r": 0.014314,
+          "spread_r": 0.095429,
+          "spread_source": "order_book"
         },
         "expected_r_probabilities": {
           "base_p_tp1": 0.55,

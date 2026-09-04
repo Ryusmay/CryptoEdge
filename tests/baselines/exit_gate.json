@@ -6,8 +6,8 @@
     "raised": 0
   },
   "config": {
-    "hash": "bee6af3c6d61120d",
-    "keys": 531,
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,
@@ -22,7 +22,9 @@
       "DAYTRADING_SIZE_R_TARGET": 0.4,
       "DAYTRADING_TIME_STOP_MIN_R": 0.5,
       "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
-      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
+      "DAYTRADING_BREAK_EVEN_BUFFER_PCT": 0.18,
       "DAYTRADING_INVALIDATION_BARS": 2,
       "DAYTRADING_NET_R_MIN_SAMPLE": 20,
       "REVERSAL_MIN_STRENGTH": 0.32,
@@ -2190,9 +2192,9 @@
             {
               "symbol": "BTC",
               "exit_price": 96.0,
-              "pnl": -20.9,
-              "pnl_pct": -41.8,
-              "fees_paid": 0.9,
+              "pnl": -20.6006655,
+              "pnl_pct": -41.201331,
+              "fees_paid": 0.6006655,
               "size_usd": 500.0
             }
           ],
@@ -2209,15 +2211,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": -20.9,
-            "pnl_pct": -41.8,
+            "pnl": -20.6006655,
+            "pnl_pct": -41.201331,
             "highest_price": 100.0,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 9979.1,
+      "capital": 9979.3993345,
       "open_at_end": 0
     },
     {
@@ -2274,16 +2276,16 @@
             {
               "symbol": "BTC",
               "exit_price": 104.0,
-              "pnl": 4.775,
-              "pnl_pct": 38.2,
-              "fees_paid": 0.225,
+              "pnl": 4.84983362,
+              "pnl_pct": 38.79866896,
+              "fees_paid": 0.15016638,
               "size_usd": 125.0
             }
           ],
           "open_count": 1,
           "position": {
             "status": "OPEN",
-            "sl_price": 100.0,
+            "sl_price": 100.18,
             "trailing_stop_price": 103.064,
             "trailing_active": true,
             "breakeven_active": true,
@@ -2300,7 +2302,7 @@
         }
       ],
       "sl_updates": [],
-      "capital": 10004.775,
+      "capital": 10004.84983362,
       "open_at_end": 1
     },
     {
@@ -2325,16 +2327,16 @@
             {
               "symbol": "BTC",
               "exit_price": 104.0,
-              "pnl": 4.775,
-              "pnl_pct": 38.2,
-              "fees_paid": 0.225,
+              "pnl": 4.84983362,
+              "pnl_pct": 38.79866896,
+              "fees_paid": 0.15016638,
               "size_usd": 125.0
             }
           ],
           "open_count": 1,
           "position": {
             "status": "OPEN",
-            "sl_price": 100.0,
+            "sl_price": 100.18,
             "trailing_stop_price": 103.064,
             "trailing_active": true,
             "breakeven_active": true,
@@ -2368,9 +2370,9 @@
             {
               "symbol": "BTC",
               "exit_price": 108.0,
-              "pnl": 10.26375,
-              "pnl_pct": 78.2,
-              "fees_paid": 0.23625,
+              "pnl": 10.34232531,
+              "pnl_pct": 78.79866903,
+              "fees_paid": 0.15767469,
               "size_usd": 131.25
             }
           ],
@@ -2394,7 +2396,7 @@
         }
       ],
       "sl_updates": [],
-      "capital": 10015.03875,
+      "capital": 10015.19215893,
       "open_at_end": 1
     },
     {
@@ -2418,9 +2420,9 @@
             {
               "symbol": "BTC",
               "exit_price": 100.2,
-              "pnl": 0.1,
-              "pnl_pct": 0.2,
-              "fees_paid": 0.9,
+              "pnl": 0.3993345,
+              "pnl_pct": 0.798669,
+              "fees_paid": 0.6006655,
               "size_usd": 500.0
             }
           ],
@@ -2437,15 +2439,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": 0.1,
-            "pnl_pct": 0.2,
+            "pnl": 0.3993345,
+            "pnl_pct": 0.798669,
             "highest_price": 100.2,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 10000.1,
+      "capital": 10000.3993345,
       "open_at_end": 0
     },
     {
@@ -2469,9 +2471,9 @@
             {
               "symbol": "BTC",
               "exit_price": 101.0,
-              "pnl": 4.1,
-              "pnl_pct": 8.2,
-              "fees_paid": 0.9,
+              "pnl": 4.3993345,
+              "pnl_pct": 8.798669,
+              "fees_paid": 0.6006655,
               "size_usd": 500.0
             }
           ],
@@ -2488,15 +2490,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": 4.1,
-            "pnl_pct": 8.2,
+            "pnl": 4.3993345,
+            "pnl_pct": 8.798669,
             "highest_price": 101.0,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 10004.1,
+      "capital": 10004.3993345,
       "open_at_end": 0
     },
     {

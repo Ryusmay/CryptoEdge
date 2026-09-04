@@ -1,0 +1,90 @@
+.stream-status {
+  --stream-accent: #8b98a9;
+  --stream-glow: rgb(139 152 169 / 18%);
+  display: grid;
+  gap: 0.65rem;
+  min-width: 16rem;
+  padding: 0.8rem 0.9rem;
+  color: #dce6f2;
+  background: linear-gradient(145deg, rgb(21 29 41 / 96%), rgb(13 20 30 / 96%));
+  border: 1px solid color-mix(in srgb, var(--stream-accent) 35%, #29384a);
+  border-radius: 0.75rem;
+  box-shadow: inset 0 1px rgb(255 255 255 / 4%), 0 0 1.2rem var(--stream-glow);
+}
+
+.stream-status--live { --stream-accent: #38d996; --stream-glow: rgb(56 217 150 / 13%); }
+.stream-status--stale { --stream-accent: #f0b84b; --stream-glow: rgb(240 184 75 / 13%); }
+.stream-status--resyncing,
+.stream-status--connecting { --stream-accent: #5ca9ff; --stream-glow: rgb(92 169 255 / 13%); }
+.stream-status--disconnected { --stream-accent: #ff6577; --stream-glow: rgb(255 101 119 / 13%); }
+
+.stream-status__headline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--stream-accent);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.stream-status__indicator {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: 0 0 auto;
+  background: var(--stream-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0.65rem var(--stream-accent);
+}
+
+.stream-status--live .stream-status__indicator,
+.stream-status--connecting .stream-status__indicator,
+.stream-status--resyncing .stream-status__indicator {
+  animation: stream-status-pulse 1.8s ease-in-out infinite;
+}
+
+.stream-status__warning {
+  margin-left: auto;
+  padding: 0.18rem 0.38rem;
+  color: #ffc56a;
+  background: rgb(240 184 75 / 10%);
+  border: 1px solid rgb(240 184 75 / 30%);
+  border-radius: 0.3rem;
+  font-size: 0.62rem;
+}
+
+.stream-status__details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+
+.stream-status__details div { min-width: 0; }
+.stream-status__details dt { color: #77879b; font-size: 0.65rem; }
+.stream-status__details dd {
+  overflow: hidden;
+  margin: 0.2rem 0 0;
+  color: #dce6f2;
+  font: 600 0.74rem ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-status__announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes stream-status-pulse {
+  50% { opacity: 0.5; transform: scale(0.82); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stream-status__indicator { animation: none !important; }
+}

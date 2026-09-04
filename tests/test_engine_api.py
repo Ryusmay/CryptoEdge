@@ -180,6 +180,12 @@ class TestEngineApi(unittest.TestCase):
         self.assertEqual(payload["candidates"][0]["sym"], "ETH")
         self.assertEqual(payload["engine"]["mode"], "DEMO")
 
+    def test_market_projection_converts_columnar_ohlcv(self):
+        frame = {"timestamps": [10, 20], "opens": [1, 2], "highs": [2, 3], "lows": [0.5, 1.5], "closes": [1.5, 2.5], "volumes": [100, 200]}
+        with patch.object(engine_api, "_candles", return_value={"candles": frame}):
+            market = engine_api._market_projection(FakeRuntime(), limit=1)
+        self.assertEqual(market["BTC"]["candles"], [{"time": 20, "open": 2.0, "high": 3.0, "low": 1.5, "close": 2.5, "volume": 200.0}])
+
     def test_mutating_action_requires_confirm(self):
         rt = FakeRuntime()
         api = engine_api.start_engine_api(rt, host="127.0.0.1", port=47931)
@@ -223,6 +229,17 @@ class TestEngineApi(unittest.TestCase):
         self.assertIn("ZYSK SL", html)
         self.assertIn("/api/status", html)
         self.assertIn("Zamknij wszystkie", html)
+
+    def test_http_api_does_not_own_market_websocket(self):
+        api = engine_api.start_engine_api(FakeRuntime(), host="127.0.0.1", port=47961)
+        self.addCleanup(api.stop)
+        conn = HTTPConnection("127.0.0.1", api.port, timeout=2)
+        conn.request("GET", "/api/stream")
+        res = conn.getresponse()
+        body = json.loads(res.read())
+        conn.close()
+        self.assertEqual(res.status, 404)
+        self.assertEqual(body["error"], "not_found")
 
     def test_loopback_forced_without_token(self,):
         api = engine_api.EngineApi(FakeRuntime(), host="0.0.0.0", port=47951)

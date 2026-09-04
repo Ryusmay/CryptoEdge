@@ -1,0 +1,1010 @@
+{
+  "meta": {
+    "cases": 18,
+    "halted": 3,
+    "sl_rearmed": 11,
+    "reduce_only": 3,
+    "distinct_errors": 2,
+    "raised": 0
+  },
+  "config": {
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "errors": [
+    "ex_pos",
+    "reconcile"
+  ],
+  "results": [
+    {
+      "case": "clean_paper_no_positions",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "clean_live_no_positions",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "local_position_only",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "position_on_both_sides",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "BTC"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "exchange_position_without_local",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": false,
+          "only_local": 0,
+          "only_exchange": 1
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": true,
+        "paused": true,
+        "halt_reason": "RECOVERY_ORPHAN_EXCHANGE",
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "ETH",
+          "direction": "SHORT",
+          "sl": 204.4,
+          "size": 2.0,
+          "entry": 200.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "ETH"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "orphan_orders_are_cancelled",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": [
+          {
+            "orderId": "X1"
+          },
+          {
+            "orderId": "X2"
+          }
+        ]
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "BTC"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "orphan_cancel_failure_is_recorded_not_swallowed",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": true,
+        "errors": [
+          "reconcile"
+        ],
+        "exchange_positions": 1
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "REDUCE_ONLY",
+        "reduce_only_reason": "RECOVERY_UNCONFIRMED:reconcile"
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": null,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "BTC"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "partial_fill_exchange_smaller_than_local",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": false,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "BTC"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "partial_order_state_is_refreshed",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        },
+        {
+          "op": "refresh",
+          "id": "C1",
+          "state": "PARTIAL"
+        },
+        {
+          "op": "refresh",
+          "id": "C3",
+          "state": "TIMEOUT"
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "missing_sl_falls_back_to_percent",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "SOL",
+          "direction": "LONG",
+          "sl": 97.8,
+          "size": 5.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "SOL"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "local_position_without_sl_is_not_armed",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "XRP"
+      ]
+    },
+    {
+      "case": "persisted_trailing_sl_is_never_weakened",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 1,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 1,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 99.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": [
+            "BTC"
+          ]
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "exchange_position_query_failure",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": true,
+        "errors": [
+          "ex_pos",
+          "reconcile"
+        ]
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "REDUCE_ONLY",
+        "reduce_only_reason": "RECOVERY_UNCONFIRMED:ex_pos"
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "reconcile_failure_is_recorded",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": null,
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": true,
+        "errors": [
+          "reconcile"
+        ],
+        "exchange_positions": 0
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "REDUCE_ONLY",
+        "reduce_only_reason": "RECOVERY_UNCONFIRMED:reconcile"
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "paper_reconcile_failure_does_not_block_entries",
+      "report": {
+        "positions_restored": 1,
+        "protection_loaded": 0,
+        "protection_rearmed": 1,
+        "reconcile": null,
+        "kill_switch": false,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [
+          "reconcile"
+        ],
+        "exchange_positions": 0
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "attach",
+          "symbol": "BTC",
+          "direction": "LONG",
+          "sl": 96.0,
+          "size": 1.0,
+          "entry": 100.0,
+          "place_exchange": true
+        }
+      ],
+      "executor_calls": [],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 1
+        }
+      ],
+      "sl_callback_attached": [
+        "BTC"
+      ]
+    },
+    {
+      "case": "kill_switch_from_file_halts",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": true,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": true,
+        "paused": true,
+        "halt_reason": "KILL_SWITCH: manual_ops",
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "paper_leftover_close_all_is_cleared",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": false,
+        "paper_ui_stop_cleared": true,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": false,
+        "paused": false,
+        "halt_reason": null,
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [
+        {
+          "op": "clear_kill_switch"
+        }
+      ],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    },
+    {
+      "case": "live_kill_switch_stays_halted",
+      "report": {
+        "positions_restored": 0,
+        "protection_loaded": 0,
+        "protection_rearmed": 0,
+        "reconcile": {
+          "in_sync": true,
+          "only_local": 0,
+          "only_exchange": 0
+        },
+        "kill_switch": true,
+        "paper_ui_stop_cleared": false,
+        "reduce_only": false,
+        "errors": [],
+        "exchange_positions": 0,
+        "orphan_orders_canceled": []
+      },
+      "risk": {
+        "halted": true,
+        "paused": true,
+        "halt_reason": "KILL_SWITCH: disaster",
+        "risk_state": "NORMAL",
+        "reduce_only_reason": null
+      },
+      "protection_calls": [],
+      "executor_calls": [
+        {
+          "op": "cancel_orphans",
+          "active": []
+        }
+      ],
+      "reconciler_calls": [
+        {
+          "op": "fetch_positions"
+        },
+        {
+          "op": "reconcile",
+          "local": 0
+        },
+        {
+          "op": "fetch_positions"
+        }
+      ],
+      "sl_callback_attached": []
+    }
+  ]
+}

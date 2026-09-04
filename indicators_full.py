@@ -556,15 +556,36 @@ def compute_indicators(ohlcv: Dict, tf: str = "1h") -> Optional[Dict]:
     if not ema_f or not ema_s:
         return None
 
-    rsi = _rsi(closes, p["rsi"])
-    rsi_prev = _rsi(closes[:-1], p["rsi"]) if len(closes) > p["rsi"] + 2 else None
+    # Ten sam argument co przy ATR: RSI Wildera to filtr rekurencyjny, wiec
+    # _rsi_series(closes)[-2] JEST tym, co zwracalo _rsi(closes[:-1]).
+    # Bylo: drugie przejscie po calej serii plus kopia tablicy, zeby dostac
+    # wartosc, ktora juz mamy policzona. Bit w bit, zero arytmetyki wiecej.
+    _rsi_full = _rsi_series(closes, p["rsi"])
+    rsi = _rsi_full[-1] if _rsi_full and _rsi_full[-1] is not None else None
+    rsi_prev = (_rsi_full[-2]
+                if len(closes) > p["rsi"] + 2 and len(_rsi_full) >= 2
+                and _rsi_full[-2] is not None else None)
     macd = _macd(closes, *p["macd"])
-    atr = _atr(highs, lows, closes, p["atr"])
-    atr_hist = []
-    for i in range(max(0, len(closes) - 50), len(closes)):
-        a = _atr(highs[: i + 1], lows[: i + 1], closes[: i + 1], p["atr"])
-        if a:
-            atr_hist.append(a)
+    # ATR liczony RAZ dla calej serii, nie 51 razy dla rosnacych prefiksow.
+    #
+    # Bylo: petla po 50 indeksach, kazda kopiowala highs[:i+1]/lows/closes
+    # (O(n) kopia) i liczyla caly szereg ATR od zera (O(n)) - czyli O(50n)
+    # na KAZDE z 6768 przeliczen wskaznikow na symbol. Profil (2026-09-04,
+    # cProfile na HYPE 90d): _atr_series 351 936 wywolan, 198.7s wlasnego
+    # i 310.1s skumulowanego z ~715s calego przebiegu; 345 168 z tych
+    # wywolan pochodzilo wlasnie stad.
+    #
+    # Dlaczego to jest BIT W BIT rownowazne: ATR Wildera to filtr
+    # rekurencyjny, out[i] zalezy wylacznie od out[i-1] i TR[i]. Zasiew
+    # (srednia pierwszych `period` TR) tez zalezy tylko od poczatku serii.
+    # Wartosc w indeksie i jest wiec identyczna niezaleznie od tego, czy
+    # podamy prefiks do i, czy cala serie - te same dzialania, ta sama
+    # kolejnosc. Zero zmiany wynikow, zero rebaselinacji.
+    _atr_full = _atr_series(highs, lows, closes, p["atr"])
+    atr = _atr_full[-1] if _atr_full and _atr_full[-1] is not None else None
+    atr_hist = [_atr_full[i]
+                for i in range(max(0, len(closes) - 50), len(closes))
+                if i < len(_atr_full) and _atr_full[i]]
     bb = _bollinger(closes, p["bb"][0], p["bb"][1])
     adx = _adx(highs, lows, closes, p["adx"])
     st = _supertrend(highs, lows, closes, p["st_atr"], p["st_mult"])

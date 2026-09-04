@@ -51,6 +51,20 @@ class ExecutionResult:
     exchange_order_id: str | None = None
     raw: Any = None
     reason: str | None = None
+    # ILE naprawde sie wypelnilo i po jakiej cenie.
+    #
+    # `accepted` odpowiada na pytanie "czy venue przyjal komende", a NIE
+    # "czy mam pozycje". Zmierzone w exec_gate: zlecenie wypelnione w 0.4
+    # z 1.0 i zlecenie, ktore nie wypelnilo sie wcale, dawaly ten sam wynik
+    # `accepted=True` bez zadnego sladu po ilosci. Informacja istniala
+    # w `raw`, ale nie przechodzila przez granice, wiec wolajacy nie mial
+    # jak zaksiegowac tego, co naprawde kupil.
+    #
+    # `None` znaczy "venue nie podal", a nie "zero" - te dwie rzeczy musza
+    # dac sie odroznic, bo z zera wolno ksiegowac brak pozycji, a z braku
+    # informacji nie wolno niczego.
+    filled_quantity: Decimal | None = None
+    average_price: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)

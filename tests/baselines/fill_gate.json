@@ -1,0 +1,1635 @@
+{
+  "meta": {
+    "cases": 22,
+    "order_wrong": 3,
+    "ledger_wrong": 5,
+    "events_desync": 0,
+    "raised": 0
+  },
+  "config": {
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
+    "watched": {
+      "MIN_SIGNAL_STRENGTH": 0.48,
+      "MAX_POSITIONS": 10,
+      "MAX_SAME_DIRECTION_PCT": 0.65,
+      "TAKER_FEE": 0.0006,
+      "MAKER_FEE": 0.0002,
+      "LEVERAGE": 10,
+      "DAYTRADING_MIN_EXPECTED_NET_R": 0.05,
+      "DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.1,
+      "DAYTRADING_QUALITY_MIN": 0.55,
+      "DAYTRADING_MIN_GATE_VOTES": 3,
+      "DAYTRADING_SIZE_R_TARGET": 0.4,
+      "DAYTRADING_TIME_STOP_MIN_R": 0.5,
+      "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
+      "DAYTRADING_INVALIDATION_BARS": 2,
+      "DAYTRADING_NET_R_MIN_SAMPLE": 20,
+      "REVERSAL_MIN_STRENGTH": 0.32,
+      "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R": 0.45,
+      "USE_EXPECTED_NET_R_FILTER": true
+    }
+  },
+  "order_wrong_cases": [
+    "fee_reported_incrementally",
+    "quantity_without_average_price",
+    "quantity_without_price_then_price"
+  ],
+  "ledger_wrong_cases": [
+    "overfill_beyond_requested",
+    "partial_fills_at_moving_prices",
+    "quantity_without_average_price",
+    "quantity_without_price_then_price",
+    "role_missing_on_market_order"
+  ],
+  "events_desync_cases": [],
+  "results": [
+    {
+      "case": "single_full_fill",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "two_partials_at_one_price",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 7.0,
+            "avg_price": 100.0,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 7.0,
+            "avg_price": 100.0,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2,
+            "events_qty": 7.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 7.0,
+            "vwap": 100.0,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2,
+            "remaining": 3.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 2,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "partial_fills_at_moving_prices",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 7.0,
+            "avg_price": 100.4285714286,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 7.0,
+            "avg_price": 100.4285714286,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2,
+            "events_qty": 7.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 7.0,
+            "vwap": 100.1836734694,
+            "fee": 0.42,
+            "role": "taker",
+            "events": 2,
+            "remaining": 3.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": [
+            "cena 100.1836734694 zamiast 100.4285714286"
+          ]
+        },
+        {
+          "n": 2,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.9,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.9,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.3985714286,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 3,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": [
+            "cena 100.3985714286 zamiast 100.9"
+          ]
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [
+          "cena 100.3985714286 zamiast 100.9"
+        ],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "partial_never_completes",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 3.0,
+            "avg_price": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 3.0,
+            "avg_price": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 3.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 3.0,
+            "vwap": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1,
+            "remaining": 7.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 3.0,
+            "avg_price": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 3.0,
+            "avg_price": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 3.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 3.0,
+            "vwap": 100.0,
+            "fee": 0.18,
+            "role": "taker",
+            "events": 1,
+            "remaining": 7.0
+          },
+          "ledger_step": {
+            "skipped": "brak przyrostu"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "quantity_without_average_price",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "events_qty": 0.0,
+            "timeout": false,
+            "last_error": "FILL_WITHOUT_PRICE"
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "skipped": "brak ceny w wierszu"
+          },
+          "order_vs_truth": [
+            "ilosc 0.0 zamiast 5.0",
+            "cena None zamiast 100.0",
+            "fee 0.0 zamiast 0.3",
+            "rola None zamiast taker",
+            "zdarzen 0 zamiast 1"
+          ],
+          "ledger_vs_truth": [
+            "ilosc 0.0 zamiast 5.0",
+            "cena None zamiast 100.0",
+            "fee 0.0 zamiast 0.3",
+            "rola None zamiast taker",
+            "zdarzen 0 zamiast 1"
+          ]
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [
+          "ilosc 0.0 zamiast 5.0",
+          "cena None zamiast 100.0",
+          "fee 0.0 zamiast 0.3",
+          "rola None zamiast taker",
+          "zdarzen 0 zamiast 1"
+        ],
+        "ledger_vs_truth": [
+          "ilosc 0.0 zamiast 5.0",
+          "cena None zamiast 100.0",
+          "fee 0.0 zamiast 0.3",
+          "rola None zamiast taker",
+          "zdarzen 0 zamiast 1"
+        ],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "quantity_without_price_then_price",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "events_qty": 0.0,
+            "timeout": false,
+            "last_error": "FILL_WITHOUT_PRICE"
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "skipped": "brak ceny w wierszu"
+          },
+          "order_vs_truth": [
+            "ilosc 0.0 zamiast 5.0",
+            "cena None zamiast 100.0",
+            "fee 0.0 zamiast 0.3",
+            "rola None zamiast taker",
+            "zdarzen 0 zamiast 1"
+          ],
+          "ledger_vs_truth": [
+            "ilosc 0.0 zamiast 5.0",
+            "cena None zamiast 100.0",
+            "fee 0.0 zamiast 0.3",
+            "rola None zamiast taker",
+            "zdarzen 0 zamiast 1"
+          ]
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": "FILL_WITHOUT_PRICE"
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [
+            "zdarzen 1 zamiast 2"
+          ],
+          "ledger_vs_truth": [
+            "zdarzen 1 zamiast 2"
+          ]
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [
+          "zdarzen 1 zamiast 2"
+        ],
+        "ledger_vs_truth": [
+          "zdarzen 1 zamiast 2"
+        ],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "same_row_redelivered",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 6.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 6.0,
+            "vwap": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "remaining": 4.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 6.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 6.0,
+            "vwap": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "remaining": 4.0
+          },
+          "ledger_step": {
+            "skipped": "brak przyrostu"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 2,
+          "truth": {
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 6.0,
+            "avg_price": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 6.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 6.0,
+            "vwap": 100.0,
+            "fee": 0.36,
+            "role": "taker",
+            "events": 1,
+            "remaining": 4.0
+          },
+          "ledger_step": {
+            "skipped": "brak przyrostu"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "filled_size_goes_backwards",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 8.0,
+            "avg_price": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 8.0,
+            "avg_price": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 8.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 8.0,
+            "vwap": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1,
+            "remaining": 2.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 8.0,
+            "avg_price": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 8.0,
+            "avg_price": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 8.0,
+            "timeout": false,
+            "last_error": "FILLED_SIZE_WENT_BACKWARDS"
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 8.0,
+            "vwap": 100.0,
+            "fee": 0.48,
+            "role": "taker",
+            "events": 1,
+            "remaining": 2.0
+          },
+          "ledger_step": {
+            "skipped": "brak przyrostu"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "overfill_beyond_requested",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 12.0,
+            "avg_price": 100.0,
+            "fee": 0.72,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 12.0,
+            "avg_price": 100.0,
+            "fee": 0.72,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 12.0,
+            "timeout": false,
+            "last_error": "OVERFILL"
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "raised": "ValueError: fill quantity exceeds remaining order quantity"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": [
+            "ilosc 0.0 zamiast 12.0",
+            "cena None zamiast 100.0",
+            "fee 0.0 zamiast 0.72",
+            "rola None zamiast taker",
+            "zdarzen 0 zamiast 1"
+          ]
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [
+          "ilosc 0.0 zamiast 12.0",
+          "cena None zamiast 100.0",
+          "fee 0.0 zamiast 0.72",
+          "rola None zamiast taker",
+          "zdarzen 0 zamiast 1"
+        ],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "role_missing_on_market_order",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": null,
+            "events": 1,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": [
+            "rola None zamiast taker"
+          ]
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [
+          "rola None zamiast taker"
+        ],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "role_missing_on_limit_order",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": null,
+            "events": 1
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": null,
+            "events": 1,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": null,
+            "events": 1,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "role_changes_between_fills",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "maker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "maker",
+            "events": 1,
+            "events_qty": 5.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 5.0,
+            "vwap": 100.0,
+            "fee": 0.3,
+            "role": "maker",
+            "events": 1,
+            "remaining": 5.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "mixed",
+            "events": 2
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "mixed",
+            "events": 2,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "mixed",
+            "events": 2,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "fee_reported_cumulatively",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 5.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 5.0,
+            "vwap": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1,
+            "remaining": 5.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "fee_reported_incrementally",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 5.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 5.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 5.0,
+            "vwap": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 1,
+            "remaining": 5.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.3,
+            "role": "taker",
+            "events": 2,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 2,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [
+            "fee 0.3 zamiast 0.6"
+          ],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [
+          "fee 0.3 zamiast 0.6"
+        ],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "refresh_timeout",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0
+          },
+          "order": {
+            "state": "UNKNOWN",
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "events_qty": 0.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "skipped": "brak wiersza"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "partial_then_timeout",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "UNKNOWN",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "skipped": "brak wiersza"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "empty_response",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0
+          },
+          "order": {
+            "state": "UNKNOWN",
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "events_qty": 0.0,
+            "timeout": false,
+            "last_error": "ORDER_ROW_NOT_MATCHED"
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "skipped": "brak wiersza"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "foreign_order_row_is_not_matched",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0
+          },
+          "order": {
+            "state": "UNKNOWN",
+            "filled": 0.0,
+            "avg_price": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "events_qty": 0.0,
+            "timeout": false,
+            "last_error": "ORDER_ROW_NOT_MATCHED"
+          },
+          "ledger": {
+            "status": "ACCEPTED",
+            "filled": 0.0,
+            "vwap": null,
+            "fee": 0.0,
+            "role": null,
+            "events": 0,
+            "remaining": 10.0
+          },
+          "ledger_step": {
+            "skipped": "brak wiersza"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "partial_then_foreign_row",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "UNKNOWN",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": "ORDER_ROW_NOT_MATCHED"
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "skipped": "brak wiersza"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "alternative_field_names",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "FILLED",
+            "filled": 10.0,
+            "avg_price": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 10.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "FILLED",
+            "filled": 10.0,
+            "vwap": 100.0,
+            "fee": 0.6,
+            "role": "taker",
+            "events": 1,
+            "remaining": 0.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "canceled_after_partial",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "applied": true
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        },
+        {
+          "n": 1,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "CANCELED",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "PARTIALLY_FILLED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "skipped": "brak przyrostu"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    },
+    {
+      "case": "fill_before_lifecycle_was_accepted",
+      "steps": [
+        {
+          "n": 0,
+          "truth": {
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1
+          },
+          "order": {
+            "state": "PARTIAL",
+            "filled": 4.0,
+            "avg_price": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "events_qty": 4.0,
+            "timeout": false,
+            "last_error": null
+          },
+          "ledger": {
+            "status": "CREATED",
+            "filled": 4.0,
+            "vwap": 100.0,
+            "fee": 0.24,
+            "role": "taker",
+            "events": 1,
+            "remaining": 6.0
+          },
+          "ledger_step": {
+            "raised": "InvalidTransition: CREATED -> PARTIALLY_FILLED"
+          },
+          "order_vs_truth": [],
+          "ledger_vs_truth": []
+        }
+      ],
+      "summary": {
+        "order_vs_truth": [],
+        "ledger_vs_truth": [],
+        "events_desync": false
+      }
+    }
+  ]
+}

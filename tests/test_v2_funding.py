@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import patch
 
+import config
 from daytrading_engine_v2 import DayTradingEngineV2
 from daytrading_backtester import (
     AsOfBlofinFeed, apply_observed_funding, replay_daytrading_v2, ReplayTradeV2,
@@ -17,6 +18,13 @@ class TestV2FundingSkip(unittest.TestCase):
         self.feeder = FakeFeeder()
         self.feeder.blofin.funding = {}
         self.engine = DayTradingEngineV2(self.feeder)
+        # Te atrapy dziedzicza skale 100-120 z test_daytrading_engine_v2,
+        # wiec sitko DAYTRADING_V2_MAX_SL_PCT (10%) odrzucaloby je zanim
+        # kaskada dojdzie do fundingu. Ten plik bada funding, nie szerokosc
+        # SL - patrz TestSlWidthSieve po pelne uzasadnienie.
+        sieve_off = patch.object(config, "DAYTRADING_V2_MAX_SL_PCT", 0.0)
+        sieve_off.start()
+        self.addCleanup(sieve_off.stop)
 
     def _long_ready(self, symbol="BTC"):
         swing = _up_swing_1h()
@@ -133,14 +141,47 @@ class TestObservedFundingReplay(unittest.TestCase):
 
 
 class TestAltReplaySlip(unittest.TestCase):
-    def test_alt_floor_is_30bps_rt_major_is_6(self):
-        self.assertAlmostEqual(replay_slip_round_trip("BTC"), 0.0006, places=5)
-        self.assertGreaterEqual(replay_slip_round_trip("PEPE"), 0.003)
-        self.assertAlmostEqual(replay_slip_round_trip("XAU"), 0.001, places=4)
+    """Dwie sciezki poslizgu i obie musza dzialac.
 
-    def test_thin_alt_bar_adds_impact(self):
+    ZMIERZONA (symbol jest w venue_microstructure): round-trip rowna sie
+    jednemu pelnemu spreadowi, bo zlecenie miesci sie na szczycie ksiegi.
+    STARA (symbol niezmierzony): floor z profilu plus impact z wolumenu swiecy.
+
+    Poprzednia wersja tych testow przypinala stale starego modelu
+    (BTC == 0.0006, alt >= 0.003) - czyli betonowala zgadywanke zamiast
+    sprawdzac zachowanie. Zostaja tu jako pokrycie starej sciezki, ale na
+    symbolu, ktorego pomiar nie obejmuje.
+    """
+
+    UNMEASURED = "SYMBOL_SPOZA_POMIARU"
+
+    def test_measured_symbol_uses_its_own_spread(self):
+        # BTC: zmierzony spread 0.01331 bps = 1.331e-6 round-trip.
+        self.assertAlmostEqual(replay_slip_round_trip("BTC"), 1.331e-6, places=9)
+
+    def test_measured_slip_is_symbol_specific_not_a_new_constant(self):
+        """Sens calej zmiany: to ma byc rozklad, a nie kolejna jedna liczba."""
+        btc = replay_slip_round_trip("BTC")
+        sol = replay_slip_round_trip("SOL")
+        trump = replay_slip_round_trip("TRUMP")
+        self.assertGreater(trump, sol)
+        self.assertGreater(sol, btc)
+        self.assertGreater(trump / btc, 100.0)
+
+    def test_measured_slip_is_far_below_the_old_floor(self):
+        """Stary floor major to 6 bps; zmierzony BTC to 0.0133 bps."""
+        self.assertLess(replay_slip_round_trip("BTC"), 0.0006 / 100.0)
+
+    def test_unmeasured_symbol_still_uses_the_old_alt_floor(self):
+        self.assertGreaterEqual(replay_slip_round_trip(self.UNMEASURED), 0.003)
+
+    def test_unmeasured_metal_still_uses_the_metal_floor(self):
+        # XAG jest w profilu metal i NIE ma go w pliku pomiarowym.
+        self.assertAlmostEqual(replay_slip_round_trip("XAG"), 0.001, places=4)
+
+    def test_unmeasured_thin_bar_still_adds_impact(self):
         ohlcv = {"volumes": [1.0], "closes": [0.001]}
-        fat = replay_slip_round_trip("PEPE", ohlcv, 0, 0.001)
+        fat = replay_slip_round_trip(self.UNMEASURED, ohlcv, 0, 0.001)
         self.assertGreater(fat, 0.003)
 
     def test_alt_sl_costs_more_r_than_major(self):

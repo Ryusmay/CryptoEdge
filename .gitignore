@@ -1,35 +1,38 @@
-# secrets
 .env
-.env.*
-!.env.example
 logs/
-logs/secrets.bin
-logs/.secrets_salt
-
-# caches / build
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
+data/disk_cache/
+*.zip
 .pytest_cache/
 .ruff_cache/
-.venv/
-venv/
-data/
-data/disk_cache/
 reports/
-backups/
-HISTORY/
-*.zip
-*.log
-*.exe
-*.lnk
 
-# frontend build
+# Srodowiska i artefakty budowania (dodane przy commicie przebudowy v20.12.0).
+# Wszystko ponizej da sie odtworzyc: pip install -r requirements.txt,
+# npm ci, npm run tauri build. Do repo nie trafia.
+.venv/
 frontend/node_modules/
 frontend/dist/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
+backups/
+*.exe
 
-.DS_Store
-Thumbs.db
+# Zamrozone bundle replay. Do repo trafiaja WYLACZNIE 30-dniowe: piec plikow,
+# 8,7 MB, wejscie bramki parity. Tyle wystarczy, zeby ktos z zewnatrz powtorzyl
+# pomiar. Reszta to setki megabajtow danych rynkowych, ktore odtwarza jedno
+# polecenie:
+#     python tools/fetch_bundles.py --days 180 --top 50
+#
+# Regula jest odwrotna niz zwykle - najpierw wszystko, potem wyjatek - zeby
+# NOWY horyzont (60d, 365d, cokolwiek) byl ignorowany DOMYSLNIE. Lista
+# dozwolonych, o ktorej rozszerzeniu trzeba pamietac, predzej czy pozniej
+# wpuscilaby 300 MB przez przypadek.
+data/replay/*
+!data/replay/*_30d.json
+
+# docs/analysis CELOWO nie ma tu reguly. W tym repozytorium te pliki sa
+# sledzone - historia pomiarow ma wartosc. Z publikacji wypadaja osobno, przy
+# budowaniu commitu publikacyjnego. Wpis ignorujacy plik, ktory i tak jest
+# sledzony, nic by nie zrobil, a sugerowalby granice w zlym miejscu.

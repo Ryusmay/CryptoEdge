@@ -128,7 +128,26 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         self.assertEqual("sl", t.exit_reason)
         self.assertEqual(3, t.exit_i)
 
-    def test_htf_reversal_does_not_close_by_default(self):
+    def test_htf_reversal_is_off_by_default(self):
+        """Domyslna wartosc przelacznika - zmiana ma byc glosna.
+
+        Historia: config uzasadnial False slowami "4H to kontekst wejscia,
+        nie twardy exit. 90D WF: 977/1082 zamkniec = htf_reversal".
+        Strojenie 01.09.2026 wlaczylo go z powrotem; dekompozycja pokazala,
+        ze samo to kosztowalo okolo 12R na 30-dniowym oknie, i przelacznik
+        wrocil na False. Ten test pilnuje, zeby kolejna taka zmiana nie
+        przeszla niezauwazona.
+        """
+        import config
+        self.assertFalse(config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL)
+
+    def test_htf_reversal_does_not_close_when_flag_off(self):
+        # Wczesniej ten test nazywal sie "..._by_default" i polegal na tym,
+        # ze domyslna wartosc to False. Po zmianie domyslnej wartosci
+        # przestal cokolwiek znaczyc, wiec teraz ustawia flage WPROST -
+        # razem z blizniakiem ponizej pinuje obie strony przelacznika,
+        # niezaleznie od tego, jak stoi domyslka.
+        import config
         n = 10
         bars = _flat_bars(n, price=100.0)
         bars["opens"][1] = 100.0
@@ -138,11 +157,16 @@ class TestReplayDaytradingV2Mechanics(unittest.TestCase):
         def htf_bias_at(i):
             return "SHORT" if i >= 3 else "LONG"
 
-        result = replay_daytrading_v2(
-            bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
-            htf_bias_at=htf_bias_at,
-            max_bars=8,
-        )
+        old = config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL
+        config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = False
+        try:
+            result = replay_daytrading_v2(
+                bars, self._single_long_signal(entry=100.0, sl=98.0, tp1=101.5, tp2=104.0),
+                htf_bias_at=htf_bias_at,
+                max_bars=8,
+            )
+        finally:
+            config.DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = old
         self.assertEqual(1, result["count"])
         t = result["trades"][0]
         self.assertNotEqual("htf_reversal", t.exit_reason)

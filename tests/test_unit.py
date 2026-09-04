@@ -74,6 +74,11 @@ class TestAccounting(unittest.TestCase):
     def test_fees_round_trip(self):
         c = entry_exit_costs(1000)
         self.assertAlmostEqual(float(c["fee_entry"]), 0.6, places=6)
+        # 0.6 wejscie + 0.6 wyjscie + 0.8 poslizg (SLIPPAGE 0.0008).
+        # Strojenie 01.09.2026 zbilo poslizg na 0.0003 (total 1.5) i zostalo
+        # cofniete. Liczba zostaje wpisana wprost, a nie liczona z configu -
+        # inaczej test przeszedlby przy KAZDYM poslizgu i przestal cokolwiek
+        # pilnowac.
         self.assertAlmostEqual(float(c["total_usd"]), 2.0, places=5)
 
     def test_funding_sign(self):

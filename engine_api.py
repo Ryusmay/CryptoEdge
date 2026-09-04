@@ -392,6 +392,54 @@ def _candles(symbol: str, tf: str) -> dict:
     return {"symbol": symbol, "tf": tf, "candles": {key: list(frame.get(key) or [])[-180:] for key in allowed}}
 
 
+def _market_projection(rt, limit: int = 180) -> dict:
+    """Read-only OHLCV projection for the desktop stream."""
+    from ui_trade_projection import project_ui_trades
+
+    trader = getattr(rt, "trader", None)
+    positions = list(getattr(trader, "positions", []) or []) if trader else []
+    closed = list(getattr(trader, "closed_positions", []) or [])[-200:] if trader else []
+    projected_trades = project_ui_trades(
+        candidates=_candidates(rt, limit=50), positions=positions,
+        closed=closed, events=_events(rt, limit=100),
+    )
+    symbols = list(WATCHLIST_SYMBOLS)
+    for row in _positions(rt):
+        symbol = str(row.get("symbol") or "").upper().replace("USDT", "")
+        if symbol and symbol not in symbols:
+            symbols.append(symbol)
+    market = {}
+    for symbol in symbols[:24]:
+        frame = _candles(symbol, "15m").get("candles") or {}
+        columns = [list(frame.get(key) or []) for key in ("timestamps", "opens", "highs", "lows", "closes", "volumes")]
+        count = min([len(column) for column in columns[:5]] or [0])
+        start = max(0, count - max(1, int(limit)))
+        candles = []
+        for index in range(start, count):
+            try:
+                candle = {
+                    "time": int(float(columns[0][index]) / 1000 if float(columns[0][index]) > 100_000_000_000 else float(columns[0][index])), "open": float(columns[1][index]),
+                    "high": float(columns[2][index]), "low": float(columns[3][index]),
+                    "close": float(columns[4][index]),
+                }
+                if index < len(columns[5]):
+                    candle["volume"] = float(columns[5][index])
+                candles.append(candle)
+            except (TypeError, ValueError, OverflowError):
+                continue
+        overlays = projected_trades.get(symbol, {})
+        market[symbol] = {
+            "candles": candles,
+            "levels": list(overlays.get("levels") or []),
+            "markers": list(overlays.get("markers") or []),
+        }
+    for symbol, overlays in projected_trades.items():
+        market.setdefault(symbol, {"candles": [], "levels": [], "markers": []})
+        market[symbol]["levels"] = list(overlays.get("levels") or [])
+        market[symbol]["markers"] = list(overlays.get("markers") or [])
+    return market
+
+
 WATCHLIST_SYMBOLS = ("BTC", "ETH", "SOL", "XRP", "DOGE", "ADA", "BNB", "AVAX")
 
 
@@ -625,6 +673,7 @@ class EngineApi:
         self.token = str(getattr(config, "ENGINE_API_TOKEN", "") or "")
         self.httpd: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
+        self.market_stream = None
         self.url = ""
         self.replay = ReplayJob(runtime)
 
@@ -648,10 +697,39 @@ class EngineApi:
         self.url = f"http://{self.host}:{self.port}/"
         self.thread = threading.Thread(target=self.httpd.serve_forever, daemon=True, name="engine-api")
         self.thread.start()
+        try:
+            from market_stream_server import MarketStreamServer
+            from ui_read_models import build_ui_read_models
+
+            def stream_snapshot():
+                payload = build_status(self.rt)
+                payload["market"] = _market_projection(self.rt)
+                payload["ui"] = build_ui_read_models(self.rt)
+                return payload
+
+            def stream_delta():
+                prices = getattr(self.rt, "last_price_map", {}) or {}
+                return {
+                    "ts": time.time(),
+                    "prices": {key: _num(value, 10) for key, value in prices.items() if _num(value, 10) is not None},
+                    "market": _market_projection(self.rt, limit=2),
+                    "ui": build_ui_read_models(self.rt),
+                }
+
+            self.market_stream = MarketStreamServer(
+                stream_snapshot, stream_delta, host=self.host, port=self.port + 1, token=self.token,
+            ).start()
+            if self.market_stream.error:
+                print(f"[WS] nie startuję ({self.market_stream.error})")
+        except Exception as exc:
+            print(f"[WS] nie startuję ({exc})")
         print(f"[API] {self.url}  (Qt bez zmian, przeglądarka opcjonalna)")
         return self
 
     def stop(self):
+        if self.market_stream:
+            self.market_stream.stop()
+            self.market_stream = None
         if self.httpd:
             try:
                 self.httpd.shutdown()
@@ -749,7 +827,10 @@ class EngineApi:
             return
         if path == "/api/status":
             try:
-                self._send(handler, 200, build_status(self.rt))
+                from ui_read_models import build_ui_read_models
+                payload = build_status(self.rt)
+                payload["ui"] = build_ui_read_models(self.rt)
+                self._send(handler, 200, payload)
             except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
                 return
             except Exception as exc:

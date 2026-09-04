@@ -221,6 +221,19 @@ DAYTRADING_V2_BE_AFTER_TP1 = True
 # Punkt 18: min. R:R do TP1, ponizej ktorego "no trade" (SL zbyt szeroki
 # wzgledem TP1).
 DAYTRADING_V2_MIN_TP1_R_RATIO = 0.6
+# Optional V2 stop-loss width sieve. Zero disables it (baseline behavior).
+DAYTRADING_V2_MAX_SL_PCT = 0.0
+# Controlled optimization experiments; all disabled in the production baseline.
+# 01.09.2026: EARLY_CUT byl JEDYNYM z tych przelacznikow, ktorego tu brakowalo,
+# a v2_trade_lifecycle czytal go z domyslka 12.0 - czyli regula
+# `dynamic_time_stop` byla AKTYWNA wbrew zdaniu powyzej. Klucz jest tu teraz
+# jawnie, zeby "wylaczone" bylo widoczne w configu, a nie zalezalo od
+# wartosci domyslnej ukrytej w kodzie.
+DAYTRADING_V2_EARLY_CUT_HOURS = 0.0
+DAYTRADING_V2_SOFT_4H_EXPERIMENT = False
+DAYTRADING_V2_15M_SCORING_EXPERIMENT = False
+DAYTRADING_V2_15M_SCORE_THRESHOLD = 60
+DAYTRADING_V2_5M_TIMING_EXPERIMENT = False
 DAYTRADING_V2_TARGET_BUFFER_ATR = 0.15  # TP1 przed potwierdzona przeszkoda 1h
 
 # Punkt 19: SL musi byc >= N x koszt round-trip (liczony z realnego configu
@@ -342,15 +355,29 @@ DAYTRADING_V2_COLD_START_BATCH_SIZE = 8
 DAYTRADING_V2_TP1_FRAC = 0.50          # partial na TP1 (teraz ~2R)
 DAYTRADING_V2_TP2_FRAC = 0.50          # 50% POZOSTALEJ po TP1; reszta trail
 DAYTRADING_V2_BE_AFTER_TP2 = False     # trail po TP2; BE już po TP1
-# Freqtrade unclog: po 24h BEZ TP1 i mark R < MIN_R → close. 96h = twardy pion.
-# Replay 90D: wyjscia po 6h byly ujemne IS i OOS, podczas gdy te same
-# setupy utrzymane do 10h mialy dodatni wynik. Nie kasuj wolnego setupu
-# przed jego maksymalnym intraday horyzontem.
-DAYTRADING_V2_TIME_STOP_HOURS = 10.0
+# Freqtrade unclog: po SOFT godzinach BEZ TP1 i mark R < MIN_R -> close.
+# HARD to twardy pion, niezaleznie od TP1.
+#
+# 04.09.2026, v20.66.0. Oba progi mialy 10.0 i to byla POMYLKA, nie decyzja.
+# 01.09.2026 ktos ustawil hard na 48.0, zapalilo to 37 testow (opisane w
+# docs/analysis/ACTION_ITEMS.md:7-8) i wartosc wrocila do 10.0 - nie dlatego,
+# ze 10h zmierzono jako lepsze, tylko dlatego, ze rebaseline bramek byl
+# drozszy niz revert. Soft przy okazji zostal zrownany z hardem.
+#
+# Skutek na 560 transakcjach: KAZDA niezastopowana transakcja wychodzila co
+# do bara na 120 (= 10h), mediana MFE 0,337R, tylko 10,7% dociera do 1,0R
+# przy TP1 stojacym na ~1,5R. Model dostawal populacje przycieta zegarem,
+# a nie struktura rynku.
+#
+# Poprzedni komentarz bronil 10h przebiegiem "wyjscia po 6h byly ujemne, te
+# same setupy do 10h dodatnie". To porownanie 6h z 10h, a nie 10h z 24/48h -
+# nie jest dowodem, ze 10h to maksimum. Domyslki w kodzie produkcyjnym
+# (v2_trade_lifecycle.py, paper_trader.py) od zawsze mialy 24 i 48.
+DAYTRADING_V2_TIME_STOP_HOURS = 24.0
 DAYTRADING_V2_TIME_STOP_MIN_R = 0.35
 # Unclog tylko martwe: jeśli MFE ≥ 0.5R, trade miał ruch — 24h go nie ścina.
 DAYTRADING_V2_UNCLOG_SKIP_MFE_R = 0.5
-DAYTRADING_V2_HARD_TIME_STOP_HOURS = 10.0
+DAYTRADING_V2_HARD_TIME_STOP_HOURS = 48.0
 # 4H to kontekst wejścia, nie twardy exit. 90D WF: 977/1082 zamknięć = htf_reversal.
 DAYTRADING_V2_EXIT_ON_HTF_REVERSAL = False
 STALE_DATA_SECONDS = 45          # odmowa handlu gdy dane starsze niz 45s
@@ -407,6 +434,9 @@ RECOVERY_REATTACH_EXCHANGE_SL = True
 RECOVERY_WARN_ORPHANS = True
 AUTO_CANCEL_ORPHAN_ORDERS = True
 RECOVERY_RECONCILE_IN_PAPER = True  # paper: porównuj lokalny stan vs planowane SL
+# LIVE: gdy restart nie potwierdził stanu giełdy (ex_pos / reconcile padły),
+# brak pozycji NIE znaczy "płasko". Blokuj nowe wejścia, zostaw redukcję.
+RECOVERY_REDUCE_ONLY_ON_LIVE_FAILURE = True
 
 # --- Market-data correctness (Etap 3) ---
 CLOSED_CANDLES_STRICT = True
@@ -497,7 +527,7 @@ VOLATILITY_SIZE_SCALE = True     # zmniejsz size przy wysokim ATR%
 LIVE_ATR_TRAILING_ENABLED = True
 # Minimalny odstęp między kolejnymi ZACIEŚNIENIAMI traila. Pierwsza aktywacja
 # zawsze przechodzi od razu; kolejne podniesienia SL nie częściej niż co N s
-# (nie zaciska SL na każdym ticku 1s).
+# (nie zaciskaj SL na każdym ticku 1s).
 TRAILING_MIN_UPDATE_INTERVAL_SEC = 5.0
 
 # Lokalne HTTP API (krok pod Tauri): ten sam stan co DESK, bez ruszania Qt.

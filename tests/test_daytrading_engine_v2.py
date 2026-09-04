@@ -138,6 +138,18 @@ class TestDayTradingEngineV2Cascade(unittest.TestCase):
     def setUp(self):
         self.feeder = FakeFeeder()
         self.engine = DayTradingEngineV2(self.feeder)
+        # 01.09.2026: atrapy w tej klasie stoja na skali 100-120, wiec swing
+        # ma rozpietosc 20%, a wejscie na retracement 0.5 lezy ~11% nad SL
+        # (112 -> 99.5 = 11.2% ceny). Sitko DAYTRADING_V2_MAX_SL_PCT (10%)
+        # odrzucalo przez to WSZYSTKIE 20 przypadkow kaskady, zanim
+        # zdazyly cokolwiek sprawdzic - a badaja one kaskade 1d/4h/1h/15m/5m
+        # i konsumpcje swingu, nie szerokosc SL. To artefakt skali
+        # syntetycznych liczb, nie wypowiedz o strategii.
+        # 0.0 = wylaczone (tak czyta to silnik: `if max_sl_pct > 0`).
+        # Samo sitko ma wlasne pokrycie w TestSlWidthSieve.
+        sieve_off = patch.object(config, "DAYTRADING_V2_MAX_SL_PCT", 0.0)
+        sieve_off.start()
+        self.addCleanup(sieve_off.stop)
 
     def _set_frames(self, symbol, d1=None, h4=None, h1=None, m15=None, m5=None):
         b = self.feeder.blofin
@@ -925,6 +937,62 @@ class TestV2BinanceKlineFallback(unittest.TestCase):
         engine = DayTradingEngineV2(feeder)
         out = engine._fetch("BTC", "4H", 260)
         self.assertEqual(100.0, out["closes"][-1])
+
+
+class TestSlWidthSieve(unittest.TestCase):
+    """DAYTRADING_V2_MAX_SL_PCT - sitko dodane przy strojeniu 01.09.2026.
+
+    Sitko nie mialo zadnego wlasnego testu, za to odrzucalo 20 przypadkow
+    kaskady, ktore badaja co innego. Tutaj jest badane wprost: ten sam
+    scenariusz przechodzi albo nie, zaleznie WYLACZNIE od progu.
+    """
+
+    def setUp(self):
+        self.feeder = FakeFeeder()
+        self.engine = DayTradingEngineV2(self.feeder)
+
+    def _evaluate(self, max_sl_pct):
+        b = self.feeder.blofin
+        b.frames[("BTC", "1D")] = _flat_ohlcv(260)
+        b.frames[("BTC", "4H")] = _flat_ohlcv(260)
+        b.frames[("BTC", "1H")] = _up_swing_1h(low=100.0, high=120.0)
+        b.frames[("BTC", "15m")] = _15m_trigger_series(zone_near=110.0, direction="LONG")
+        b.frames[("BTC", "5m")] = _flat_ohlcv(60)
+
+        def fake_compute_indicators(ohlcv, tf="1h"):
+            if tf in ("1d", "4h"):
+                return indicator("up")
+            if tf == "1h":
+                return indicator("up", atr=1.0)
+            return {}
+
+        with patch.object(config, "DAYTRADING_V2_MAX_SL_PCT", max_sl_pct), \
+                patch("daytrading_engine_v2.compute_indicators",
+                      side_effect=fake_compute_indicators):
+            return self.engine.evaluate({"symbol": "BTC", "price": 112.0},
+                                        now_ts=10_000_000.0)
+
+    def test_sl_wider_than_the_cap_is_rejected(self):
+        # Wejscie 112, SL pod dolkiem 100 minus bufor ATR -> ~11.2% ceny.
+        result = self._evaluate(0.10)
+        self.assertEqual("V2_SL_TOO_WIDE", result["reject_reason"])
+        self.assertEqual("NEUTRAL", result["direction"])
+
+    def test_same_setup_passes_when_the_cap_allows_it(self):
+        # Ten sam scenariusz, zmieniony WYLACZNIE prog. Bez tego przypadku
+        # test powyzej nie dowodzilby, ze odrzuca wlasnie sitko, a nie
+        # cokolwiek innego w kaskadzie.
+        result = self._evaluate(0.20)
+        self.assertIsNone(result["reject_reason"])
+        self.assertEqual("LONG", result["direction"])
+
+    def test_zero_disables_the_sieve(self):
+        # Silnik czyta 0 jako "wylaczone" (`if max_sl_pct > 0`). Na tym
+        # opiera sie setUp klasy kaskady - gdyby semantyka sie zmienila,
+        # tamte 20 testow zaczeloby cicho testowac cos innego.
+        result = self._evaluate(0.0)
+        self.assertIsNone(result["reject_reason"])
+        self.assertEqual("LONG", result["direction"])
 
 
 if __name__ == "__main__":

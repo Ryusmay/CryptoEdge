@@ -3,7 +3,7 @@ from decimal import Decimal
 from cryptoedge.services.decision_pipeline import DecisionPipeline
 from cryptoedge.market_data import LegacyMarketDataAdapter
 from cryptoedge.execution import (
-    LegacyExecutionAdapter, PaperExecutionAdapter, SubmitOrder,
+    LegacyExecutionAdapter, PaperExecutionAdapter, ReducePosition, SubmitOrder,
 )
 from cryptoedge.portfolio import PortfolioManager
 from cryptoedge.risk import LegacyRiskAdapter
@@ -58,6 +58,39 @@ def open_entry(rt, trader, signal):
     # FILLED daje pozycje; ACCEPTED to zaparkowany limit, a wtedy stara
     # sciezka tez zwracala None.
     return result.raw if result.state == "FILLED" else None
+
+
+def reduce_via_port(rt, trader, symbol, direction, price, reason, price_map):
+    """Zamkniecie pozycji przez ExecutionPort, z powrotem do starej sciezki.
+
+    Te same dwa zabezpieczenia co `open_entry`, z tych samych powodow:
+
+    1. **Tylko adapter PAPER.** W LIVE `rt.execution_port` to adapter gieldy,
+       ktorego `reduce` wysyla PRAWDZIWE zlecenie redukujace. Warunkiem jest
+       konkretny typ portu, nie samo "port istnieje".
+    2. **Fallback strukturalny, nie ponawiajacy.** Decyzja zapada ZANIM
+       cokolwiek zostanie wyslane - ponowienie po czesciowym `reduce`
+       zamykaloby pozycje drugi raz.
+
+    Cene i powod ustala wolajacy przez `close_policy` (v20.36.0) i podaje je
+    tutaj gotowe; port ich nie wymysla.
+    """
+    port = getattr(rt, "execution_port", None)
+    if not isinstance(port, PaperExecutionAdapter):
+        return trader.close_by_symbol(symbol, price_map, reason=reason)
+
+    result = port.reduce(ReducePosition(
+        symbol=symbol,
+        direction=str(direction or ""),
+        # PAPER zamyka cala pozycje i sam to sygnalizuje reasonem
+        # PAPER_FULL_CLOSE_QUANTITY_IGNORED - patrz znana luka w paper_port.
+        quantity=Decimal("0"),
+        price=Decimal(str(price)),
+        reason=reason,
+    ))
+    if result.state != "FILLED":
+        return None
+    return float((result.raw or {}).get("pnl"))
 
 
 def attach_runtime_modules(rt):

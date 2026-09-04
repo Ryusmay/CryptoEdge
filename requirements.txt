@@ -1,6 +1,7 @@
 requests>=2.31.0
 cryptography>=41.0.0
 websocket-client>=1.7.0
+websockets>=13,<18
 redis>=5.0.0
 grpcio>=1.60.0
 

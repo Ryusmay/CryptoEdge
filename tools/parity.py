@@ -15,6 +15,13 @@ od razu jako zmiane konfiguracji, a nie jako tajemnicza roznice w wynikach.
 Porownywane sa transakcje ORAZ lejek odrzucen. Sam net_r nie wystarcza:
 refaktor moze przypadkiem przesunac powod odrzucenia bez zmiany wyniku
 koncowego i taka zmiana tez ma byc widoczna.
+
+Osobno opisywane jest WEJSCIE. replay chodzi po wspolnym indeksie baru, a
+nie po zegarze, wiec bundle o przesunietych oknach daja liczbe, ktora
+wyglada jak portfel, a nim nie jest. Dzis XRP i ZEC startuja 263 h wczesniej
+niz BTC/ETH/SOL. Ten rozjazd jest mierzony, drukowany i zapisany w baseline
+(sekcja "windows"), a --require-aligned pozwala calkiem odmowic wyniku.
+Zadna liczba stad nie ma prawa wyjsc bez opisu wejscia, z ktorego powstala.
 """
 from __future__ import annotations
 
@@ -55,6 +62,17 @@ WATCHED_CONFIG = [
     "DAYTRADING_QUALITY_MIN", "DAYTRADING_MIN_GATE_VOTES",
     "DAYTRADING_SIZE_R_TARGET", "DAYTRADING_TIME_STOP_MIN_R",
     "DAYTRADING_HARD_TIME_STOP_HOURS", "DAYTRADING_V2_HARD_TIME_STOP_HOURS",
+    # Soft time-stop byl pokryty TYLKO hashem, wiec jego zmiana pojawialaby sie
+    # w diffie jako anonimowa zmiana hasha, bez nazwy i bez starej wartosci.
+    # Hard stop stal obok, nazwany. Ta asymetria nie mialaby uzasadnienia:
+    # oba progi steruja tym samym horyzontem transakcji.
+    "DAYTRADING_V2_TIME_STOP_HOURS",
+    # Bufor BE od v20.72.0 steruje stopem PO TP1 w OBU torach (przedtem
+    # siedzial tylko w adapterze runtime, wiec replayu nie dotykal i nie
+    # musial byc nazwany). Teraz jego zmiana zmienia wynik replayu - ma
+    # sie pokazywac w diffie z nazwa i stara wartoscia, nie jako anonimowa
+    # zmiana hasha.
+    "DAYTRADING_BREAK_EVEN_BUFFER_PCT",
     "DAYTRADING_INVALIDATION_BARS", "DAYTRADING_NET_R_MIN_SAMPLE",
     "REVERSAL_MIN_STRENGTH", "REVERSAL_PRIOR_ONLY_MIN_EXPECTED_NET_R",
     "USE_EXPECTED_NET_R_FILTER",
@@ -130,7 +148,16 @@ def load_bundles(symbols, days: int) -> dict:
         if not path.exists():
             missing.append(path.name)
             continue
-        bundles[symbol] = json.loads(path.read_text(encoding="utf-8"))["bundle"]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        bundle = payload["bundle"]
+        # Stawki fundingu leza OBOK klucza "bundle", na najwyzszym poziomie
+        # pliku. Samo payload["bundle"] je gubilo, wiec parity ksiegowalo
+        # funding = 0 - nie dlatego, ze funding nic nie kosztuje, tylko
+        # dlatego, ze nie bylo czego liczyc. AsOfBlofinFeed czyta ten klucz
+        # (daytrading_backtester.py:34), a portfolio_replay_v2 czyta go
+        # z symbols_data (daytrading_backtester.py:967).
+        bundle["funding"] = payload.get("funding") or []
+        bundles[symbol] = bundle
     if missing:
         raise SystemExit(
             "Brak zamrozonych danych replay: " + ", ".join(missing) +
@@ -139,13 +166,60 @@ def load_bundles(symbols, days: int) -> dict:
     return bundles
 
 
-def run_parity(symbols, days: int) -> dict:
+def _iso(ms) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.gmtime(int(ms) / 1000.0))
+
+
+def window_alignment(bundles: dict) -> dict:
+    """Czy wszystkie bundle opisuja ten sam kawalek czasu?
+
+    portfolio_replay_v2 chodzi po WSPOLNYM indeksie baru, a nie po zegarze.
+    Gdy okna sa przesuniete, "bar 5000" to inna chwila dla kazdego symbolu:
+    limit slotow i limit tego samego kierunku porownuja wtedy pozycje, ktore
+    naprawde nigdy nie byly otwarte jednoczesnie, a podzial IS/OOS tnie kazdy
+    symbol w innej dacie.
+
+    Narzedzie pomiarowe nie ma prawa podac liczby po cichu z takiego wejscia.
+    Ten opis laduje w wyniku i w baseline, wiec kazda zmiana okien czerwieni
+    bramke dokladnie tak samo jak zmiana kodu.
+    """
+    per = {}
+    starts, ends = [], []
+    for symbol in sorted(bundles):
+        ts = (bundles[symbol].get("5m") or {}).get("timestamps") or []
+        if not ts:
+            per[symbol] = {"bars": 0, "start": None, "end": None}
+            continue
+        first, last = int(ts[0]), int(ts[-1])
+        starts.append(first)
+        ends.append(last)
+        per[symbol] = {"bars": len(ts), "start": _iso(first), "end": _iso(last)}
+    if not starts:
+        return {"symbols": per, "offset_min": 0, "overlap_h": 0.0, "aligned": True}
+    offset_ms = max(starts) - min(starts)
+    overlap_ms = max(0, min(ends) - max(starts))
+    return {
+        "symbols": per,
+        "offset_min": int(offset_ms // 60_000),
+        "overlap_h": round(overlap_ms / 3_600_000, 1),
+        "aligned": offset_ms == 0,
+    }
+
+
+def run_parity(symbols, days: int, with_final_gate: bool = False) -> dict:
+    """with_final_gate: dolacza net_r_ok, ktore historical_replay podaje, a ta
+    bramka nie. To jest EKSPERYMENT, nie tryb pracy - wynik ma sie roznic od
+    baseline i ma to byc widac w meta, a nie tylko w liczbie transakcji."""
     from daytrading_backtester import (
         production_signal_provider_v2, htf_bias_provider_v2,
         htf_trail_anchor_provider_v2, portfolio_replay_v2,
     )
+    final_gate = None
+    if with_final_gate:
+        from expected_net_r import net_r_ok as final_gate  # noqa: F401
 
     bundles = load_bundles(symbols, days)
+    alignment = window_alignment(bundles)
     bar_count = min(len(b["5m"]["opens"]) for b in bundles.values())
     symbols_data = {}
     for symbol, bundle in bundles.items():
@@ -165,7 +239,13 @@ def run_parity(symbols, days: int) -> dict:
             "htf_bias_at": _cache_bias(htf_bias_provider_v2(symbol, bundle), ts5),
             "htf_trail_anchor_at": _cache_trail(htf_trail_anchor_provider_v2(symbol, bundle), ts5),
             "notify_exit": getattr(engine, "notify_exit", None),
+            # portfolio_replay_v2 czyta data.get("funding")
+            # (daytrading_backtester.py:967). Bez tego klucza settlementy
+            # miedzy entry a exit nie byly ksiegowane.
+            "funding": bundle.get("funding") or [],
         }
+        if final_gate is not None:
+            symbols_data[symbol]["final_gate"] = final_gate
 
     started = time.time()
     result = portfolio_replay_v2(
@@ -193,14 +273,20 @@ def run_parity(symbols, days: int) -> dict:
     # diff nie zalezal od niej nawet gdyby sie kiedys zmienila.
     trades.sort(key=lambda row: (row["entry_i"] or 0, row["symbol"]))
     net_r = round(sum(row["realised_r"] for row in trades), 6)
+    meta = {
+        "symbols": list(symbols), "days": days, "bars": bar_count,
+        "skip_bars": SKIP_BARS, "split_i": split_i,
+        "max_positions": MAX_POSITIONS, "fee_rt": FEE_RT,
+        "slippage_rt": SLIPPAGE_RT, "elapsed_s": round(elapsed, 1),
+    }
+    if final_gate is not None:
+        # meta jest porownywane denylista, wiec przebieg eksperymentalny sam
+        # z siebie krzyczy "to jest inny pomiar", zanim ktos spojrzy na net_r.
+        meta["final_gate"] = "expected_net_r.net_r_ok"
     return {
-        "meta": {
-            "symbols": list(symbols), "days": days, "bars": bar_count,
-            "skip_bars": SKIP_BARS, "split_i": split_i,
-            "max_positions": MAX_POSITIONS, "fee_rt": FEE_RT,
-            "slippage_rt": SLIPPAGE_RT, "elapsed_s": round(elapsed, 1),
-        },
+        "meta": meta,
         "config": config_fingerprint(),
+        "windows": alignment,
         "totals": {
             "trades": len(trades),
             "net_r": net_r,
@@ -256,9 +342,24 @@ def compare(baseline: dict, current: dict) -> list:
                 problems.append(f"  {name}: {old_w.get(name)!r} -> {new_w.get(name)!r}")
     old_meta = baseline.get("meta") or {}
     new_meta = current.get("meta") or {}
-    for field in ("symbols", "days", "bars", "skip_bars", "max_positions", "fee_rt", "slippage_rt"):
+    # Denylist, nie allowlist. Nowe pole w meta ma byc porownywane od razu -
+    # przy allowliscie mozna dodac wymiar pomiaru, ktorego bramka nie pilnuje,
+    # i ona nadal powie "IDENTYCZNIE".
+    for field in sorted((set(old_meta) | set(new_meta)) - {"elapsed_s"}):
         if old_meta.get(field) != new_meta.get(field):
             problems.append(f"ZAKRES: {field} {old_meta.get(field)!r} -> {new_meta.get(field)!r}")
+    old_win = baseline.get("windows") or {}
+    new_win = current.get("windows") or {}
+    if old_win != new_win:
+        problems.append("OKNA DANYCH:")
+        for field in ("aligned", "offset_min", "overlap_h"):
+            if old_win.get(field) != new_win.get(field):
+                problems.append(f"  {field}: {old_win.get(field)!r} -> {new_win.get(field)!r}")
+        old_sym = old_win.get("symbols") or {}
+        new_sym = new_win.get("symbols") or {}
+        for name in sorted(set(old_sym) | set(new_sym)):
+            if old_sym.get(name) != new_sym.get(name):
+                problems.append(f"  {name}: {old_sym.get(name)!r} -> {new_sym.get(name)!r}")
     old_tot = baseline.get("totals") or {}
     new_tot = current.get("totals") or {}
     for field in sorted(set(old_tot) | set(new_tot)):
@@ -295,16 +396,63 @@ def main(argv=None) -> int:
                     help="zapisz biezacy wynik jako nowy punkt odniesienia")
     ap.add_argument("--json", type=Path, default=None,
                     help="dodatkowo zapisz surowy wynik do tego pliku")
+    ap.add_argument("--require-aligned", action="store_true",
+                    help="odmow wyniku, gdy okna danych sie nie pokrywaja (exit 3)")
+    ap.add_argument("--final-gate", action="store_true",
+                    help="EKSPERYMENT: dolacz net_r_ok, ktore podaje historical_replay")
+    ap.add_argument("--prior-floor", type=float, default=None,
+                    help="EKSPERYMENT: podmien DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R "
+                         "(tylko z --final-gate; izoluje prog zimnego kalibratora)")
     args = ap.parse_args(argv)
 
+    if (args.final_gate or args.prior_floor is not None) and args.write_baseline:
+        print("[parity] To eksperyment, nie punkt odniesienia. "
+              "Nie zapisuje go jako baseline.", flush=True)
+        return 2
+    if args.prior_floor is not None and not args.final_gate:
+        # Bez final_gate net_r_ok w ogole nie jest wolane - podmiana progu
+        # nie zmienilaby niczego, a wynik wygladalby na pomiar.
+        print("[parity] --prior-floor bez --final-gate nic nie mierzy: "
+              "net_r_ok nie jest wtedy wolane.", flush=True)
+        return 2
+    if args.prior_floor is not None:
+        # Replay wymusza pusty kalibrator, wiec expected_net_r zawsze wraca
+        # PRIOR_ONLY i porownuje z tym progiem. Podmiana izoluje sam prog:
+        # 0.10 to LIVE po restarcie, 0.05 to LIVE z historia (n >= 30).
+        # config_hash sie przez to zmieni - i tak ma byc, to inna konfiguracja.
+        config.DAYTRADING_PRIOR_ONLY_MIN_EXPECTED_NET_R = float(args.prior_floor)
+
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
-    print(f"[parity] {len(symbols)} symboli x {args.days}d: {', '.join(symbols)}", flush=True)
-    current = run_parity(symbols, args.days)
+    print(f"[parity] {len(symbols)} symboli x {args.days}d: {', '.join(symbols)}"
+          + (" | EKSPERYMENT: final_gate=net_r_ok" if args.final_gate else "")
+          + (f" | prior_floor={args.prior_floor}" if args.prior_floor is not None else ""),
+          flush=True)
+    current = run_parity(symbols, args.days, with_final_gate=args.final_gate)
     meta, totals = current["meta"], current["totals"]
     print(f"[parity] {meta['elapsed_s']}s | transakcji {totals['trades']} "
           f"(IS {totals['is_trades']} / OOS {totals['oos_trades']}) | "
           f"net {totals['net_r']:+.4f}R (OOS {totals['oos_net_r']:+.4f}R) | "
           f"config {current['config']['hash']}", flush=True)
+
+    win = current.get("windows") or {}
+    if not win.get("aligned", True):
+        offset_min = win.get("offset_min") or 0
+        print("[parity] UWAGA: okna zamrozonych danych sie nie pokrywaja.", flush=True)
+        print(f"[parity]   rozjazd startow: {offset_min} min "
+              f"({round(offset_min / 60.0, 1)} h) | wspolny zakres: {win.get('overlap_h')} h",
+              flush=True)
+        for name in sorted(win.get("symbols") or {}):
+            row = win["symbols"][name]
+            print(f"[parity]   {name:<6} {row.get('start')} -> {row.get('end')}"
+                  f"  barow {row.get('bars')}", flush=True)
+        print("[parity]   replay chodzi po WSPOLNYM indeksie baru, wiec ten sam indeks "
+              "to inna chwila dla kazdego symbolu.", flush=True)
+        print("[parity]   liczby per symbol pozostaja poprawne; portfelowa interpretacja "
+              "(sloty, limit kierunku, podzial IS/OOS) - nie.", flush=True)
+        if args.require_aligned:
+            print("[parity] ODMAWIAM WYNIKU: --require-aligned, a wejscie jest niespojne.",
+                  flush=True)
+            return 3
 
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)

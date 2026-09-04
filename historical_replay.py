@@ -821,7 +821,12 @@ def run_portfolio_replay_v2(feed, request: "ReplayRequest",
         1, int(max_positions * float(getattr(config, "MAX_SAME_DIRECTION_PCT", 0.65)))
     )
     def _run_portfolio(start_i: int, end_i: int, time_stop_hours: float | None = None):
-        original = float(getattr(config, "DAYTRADING_V2_TIME_STOP_HOURS", 10.0))
+        # Domyslka 24.0, zgodna z v2_trade_lifecycle.py:117 i paper_trader.py:574.
+        # Bylo tu 10.0 - kopia owczesnej wartosci z configu, nie awaryjna
+        # domyslka. Taka kopia przy nastepnej zmianie progu cicho przywracalaby
+        # stary horyzont dokladnie w tym miejscu, ktore go PRZYWRACA po
+        # eksperymencie counterfactual.
+        original = float(getattr(config, "DAYTRADING_V2_TIME_STOP_HOURS", 24.0))
         if time_stop_hours is not None:
             config.DAYTRADING_V2_TIME_STOP_HOURS = float(time_stop_hours)
         try:

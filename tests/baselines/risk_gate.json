@@ -7,8 +7,8 @@
     "distinct_reasons": 29
   },
   "config": {
-    "hash": "bee6af3c6d61120d",
-    "keys": 531,
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,
@@ -23,7 +23,8 @@
       "DAYTRADING_SIZE_R_TARGET": 0.4,
       "DAYTRADING_TIME_STOP_MIN_R": 0.5,
       "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
-      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
       "DAYTRADING_INVALIDATION_BARS": 2,
       "DAYTRADING_NET_R_MIN_SAMPLE": 20,
       "REVERSAL_MIN_STRENGTH": 0.32,
@@ -44,8 +45,8 @@
     "INVALID_STRENGTH",
     "Kapital zbyt niski",
     "Max pozycji (10)",
-    "NON_POSITIVE_NET_R(-0.40<=0)",
-    "NON_POSITIVE_NET_R(-23.92<=0)",
+    "NON_POSITIVE_NET_R(-0.17<=0)",
+    "NON_POSITIVE_NET_R(-19.93<=0)",
     "OK",
     "Pauza (STOP/PAUSE) – kliknij START",
     "RISK_REDUCE_ONLY",
@@ -360,14 +361,14 @@
     {
       "case": "sl_hair_tight",
       "approved": false,
-      "reason": "NON_POSITIVE_NET_R(-23.92<=0)",
+      "reason": "NON_POSITIVE_NET_R(-19.93<=0)",
       "size_mult": null,
       "size_usd": 800.0
     },
     {
       "case": "sl_tight",
       "approved": false,
-      "reason": "NON_POSITIVE_NET_R(-0.40<=0)",
+      "reason": "NON_POSITIVE_NET_R(-0.17<=0)",
       "size_mult": null,
       "size_usd": 800.0
     },

@@ -228,6 +228,66 @@ class ModularServicesTests(unittest.TestCase):
             open_entry(rt, book, {"symbol": "BTC", "direction": "LONG"})
         self.assertEqual(1, len(calls), "ksiega zostala zawolana dwa razy")
 
+    def test_reduce_never_goes_through_a_live_venue_port(self):
+        """Bliźniak testu wejscia - najwazniejsze zabezpieczenie redukcji."""
+        from cryptoedge.apps.runtime import reduce_via_port
+        from cryptoedge.execution import LegacyExecutionAdapter
+
+        class _Venue:
+            def close_market(self, *a, **k):
+                raise AssertionError("redukcja PAPER dotknela adaptera gieldy")
+
+        closed = []
+        trader = SimpleNamespace(
+            close_by_symbol=lambda s, pm=None, reason="": closed.append((s, reason)) or 7.5)
+        rt = SimpleNamespace(execution_port=LegacyExecutionAdapter(
+            _Venue(), enabled=True, live=True))
+        out = reduce_via_port(rt, trader, "BTC", "LONG", 101.0, "manual", {"BTC": 101.0})
+        self.assertEqual(7.5, out)
+        self.assertEqual([("BTC", "manual")], closed)
+
+    def test_reduce_falls_back_when_there_is_no_paper_port(self):
+        from cryptoedge.apps.runtime import reduce_via_port
+        closed = []
+        trader = SimpleNamespace(
+            close_by_symbol=lambda s, pm=None, reason="": closed.append(pm) or 1.0)
+        for port in (None, object()):
+            closed.clear()
+            out = reduce_via_port(SimpleNamespace(execution_port=port), trader,
+                                  "BTC", "LONG", 101.0, "manual", {"BTC": 101.0})
+            self.assertEqual(1.0, out)
+            self.assertEqual([{"BTC": 101.0}], closed)
+
+    def test_reduce_uses_the_paper_port_and_passes_price_and_reason(self):
+        from cryptoedge.apps.runtime import reduce_via_port
+        from cryptoedge.execution import PaperExecutionAdapter
+
+        class _Book:
+            def __init__(self, pnl):
+                self.pnl = pnl
+                self.seen = []
+
+            def close_by_symbol(self, symbol, price_map=None, reason="manual"):
+                self.seen.append((symbol, dict(price_map or {}), reason))
+                return self.pnl
+
+        book = _Book(12.5)
+        rt = SimpleNamespace(execution_port=PaperExecutionAdapter(book))
+        out = reduce_via_port(rt, book, "BTC", "LONG", 250.0,
+                              "manual:STALE_PRICE_900s", {"BTC": 250.0})
+        self.assertEqual(12.5, out)
+        # Slad po nieswiezej cenie musi przejsc przez port nietkniety.
+        self.assertEqual([("BTC", {"BTC": 250.0}, "manual:STALE_PRICE_900s")],
+                         book.seen)
+
+    def test_reduce_of_a_missing_position_returns_none(self):
+        from cryptoedge.apps.runtime import reduce_via_port
+        from cryptoedge.execution import PaperExecutionAdapter
+        book = SimpleNamespace(close_by_symbol=lambda *a, **k: None)
+        rt = SimpleNamespace(execution_port=PaperExecutionAdapter(book))
+        self.assertIsNone(reduce_via_port(rt, book, "ETH", "LONG", 10.0,
+                                          "manual", {"ETH": 10.0}))
+
     def test_paper_port_has_no_price_source_of_its_own(self):
         """Regula ceny zamkniecia ma jednego wlasciciela: close_policy.
 

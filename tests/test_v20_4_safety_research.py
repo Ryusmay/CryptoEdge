@@ -16,6 +16,37 @@ class TestV204Safety(unittest.TestCase):
         self.assertEqual((100, 101, 102, 103, 104), tuple(x[k] for k in
             ("strategy_price", "decision_price", "submitted_price", "fill_price", "mark_price")))
 
+    def test_missing_mark_is_unknown_not_the_strategy_price(self):
+        """Brak marka z gieldy nie moze udawac zmierzonego zera.
+
+        `mark_price` schodzil kiedys na `strategy_price`, wiec `basis_pct`
+        wychodzilo zawsze 0.0 - i wygladalo jak pomiar, a nie jak brak
+        pomiaru. `dynamic_spread` czyta te wartosc i rozszerza nia limit
+        spreadu (SPREAD_K_BASIS), wiec zero bylo cicha deklaracja "basisu
+        nie ma". Zmierzone: `blofin_mark` nie ma w repo ani jednego pisarza,
+        a kanal mark z `blofin_ws` nie trafia do sygnalu, wiec ten fallback
+        dzialal ZAWSZE.
+        """
+        # `execution_price` podawane tak, jak robi to `Position.__init__`
+        # (paper_trader.py:26) - bez tego `fill_price` schodzi na submitted.
+        bez_marka = extract_price_layers(
+            {"strategy_price": 100.0, "decision_price": 100.0,
+             "submitted_price": 99.7, "price": 100.05},
+            execution_price=100.05)
+        self.assertIsNone(bez_marka["mark_price"], "mark znow jest zmyslany")
+        self.assertIsNone(bez_marka["basis_pct"], "basis znow udaje zmierzone zero")
+        # Pozostale warstwy maja zostac rozdzielone - to dziala i ma dzialac.
+        self.assertEqual(100.0, bez_marka["strategy_price"])
+        self.assertEqual(99.7, bez_marka["submitted_price"])
+        self.assertEqual(100.05, bez_marka["fill_price"])
+
+    def test_real_mark_still_produces_a_basis(self):
+        """Gdy gielda poda marka, mechanizm ma liczyc jak liczyl."""
+        z_markiem = extract_price_layers(
+            {"strategy_price": 100.0, "price": 100.0, "mark_price": 100.4})
+        self.assertEqual(100.4, z_markiem["mark_price"])
+        self.assertAlmostEqual(0.4, z_markiem["basis_pct"], places=6)
+
     def test_reduce_only_blocks_new_risk(self):
         risk = RiskManager(starting_capital=1000)
         rt = BotRuntime(); rt.risk = risk

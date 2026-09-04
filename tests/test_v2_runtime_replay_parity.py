@@ -29,16 +29,26 @@ class V2RuntimeReplayParityTests(unittest.TestCase):
         from v2_trade_lifecycle import (
             V2Observation, V2TradeView, decide_v2_lifecycle,
         )
+        import config
         view = V2TradeView("LONG", 100.0, 98.0, 104.0, 106.0)
+        # Runtime widzi POJEDYNCZY TICK (high=low=close), replay caly BAR 5m.
+        # Wczesniej oba wywolania mialy identyczne argumenty, wiec
+        # assertEqual(quote, bar) porownywalo wywolanie samo ze soba i nie
+        # moglo paść. Bar dostaje teraz realny zakres wokol tej samej ceny.
         quote = decide_v2_lifecycle(
             view, V2Observation(104.0, 104.0, 104.0, 300.0), initial_risk=2.0,
         )
         bar = decide_v2_lifecycle(
-            view, V2Observation(104.0, 104.0, 104.0, 300.0), initial_risk=2.0,
+            view, V2Observation(104.5, 103.5, 104.0, 300.0), initial_risk=2.0,
         )
         self.assertEqual(quote, bar)
         self.assertEqual(quote.action, "tp1")
-        self.assertEqual(quote.new_sl, 100.0)
+        # BE po TP1 stoi na wejsciu POWIEKSZONYM o bufor - taki stop stawia
+        # bot na zywo (paper_trader.py:479-486), a od v20.72.0 to samo robi
+        # replay, bo bufor przeniesiony zostal do wspolnego reducera.
+        buf = float(config.DAYTRADING_BREAK_EVEN_BUFFER_PCT) / 100.0
+        self.assertAlmostEqual(quote.new_sl, 100.0 * (1 + buf), places=9)
+        self.assertNotAlmostEqual(quote.new_sl, 100.0, places=6)
 
     def test_paper_adapter_uses_shared_lifecycle_contract(self):
         from paper_trader import Position

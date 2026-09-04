@@ -11,6 +11,66 @@ See also [`docs/architecture/MIGRATION_PLAN.md`](docs/architecture/MIGRATION_PLA
 
 ---
 
+## Where it actually stands — 2026-09-04, v20.73.0
+
+The milestones below are unchanged in intent. What changed is that the thing
+they were sequencing towards turned out to need re-establishing first.
+
+**The expectancy model failed measurement on both sides.** Cost was overstated
+by an order of magnitude (a flat 4 bps spread against measured 0.0133–0.73 bps,
+and market impact charged against a whole candle's turnover instead of book
+depth). Gross was wrong in shape, not in parameters: measured `p(TP1)` = 0.091
+against a prior of 0.55, on 1224 trades across 49 symbols and 180 days. (An
+earlier revision of this file said 0.009; that came from a measurement tool
+reading the wrong field and is retracted in `docs/changelog/v20.68.0.md`.) The
+two errors partly cancelled, which is why the outputs looked plausible. Mean
+realised R is **−0.0705 ± 0.0545**, and the interval is optimistic because it
+assumes 1224 independent trades where 49 correlated coins share one window. No
+feature known at entry separates outcomes.
+
+**And the simulator was not simulating the bot.** Replay and runtime share the
+decision core, so every result-level gate passed — while the two tracks applied
+that shared decision differently. The break-even stop landed 0.18% apart, the
+trailing anchor came from two different calculations, and the partial ladder
+was 50/30/20 in replay against 50/25/25 live because the same config name meant
+*fraction of the original* on one side and *fraction of the remainder* on the
+other. None of this was visible in any number the project published, because
+every number came from the side that was wrong. It surfaced only after building
+a gate that compares the two tracks decision-by-decision
+(`tools/decision_parity.py`, v20.72.0).
+
+The direction chosen is to unify **toward the live bot**: the simulator imitates
+reality, not the other way round. Two of four divergences are closed
+(v20.72.0, v20.73.0); the trailing anchor and the volume-rank profile remain.
+
+This does not move M1 later so much as change what M1 has to prove. “Freeze V2”
+now means *first* rebuild the expectancy model onto a measured three-state base
+rate with confidence intervals and an `n_min` fallback — no per-feature
+multipliers, because none of them earned their place in the measurement.
+
+**M0 status:** ADR stages 0–5 closed. Stage 6 (runtime/replay decision parity,
+EventClock, UI decoupling) in progress; the decision-parity gate now exists and
+is green, so the stage has a measurable exit condition for the first time.
+Stage 7 not started.
+
+Open parity defects, in the order they will be taken: the trailing anchor has
+two sources (a confirmed 1H swing in replay, a chandelier stop live, because the
+signal key the runtime prefers has no producer in the repository); the volume
+rank is never refreshed in replay, so every symbol outside BTC/ETH/SOL falls
+back to the "alt" profile; and `market_regime` is `UNKNOWN` for every replay
+trade — that last one is not a labelling fix, because the regime feeds the
+expectancy calibrator and therefore changes entry decisions.
+
+The earlier claim that "the TP1 flag never fires" was **wrong** and is retracted
+in `docs/changelog/v20.68.0.md`: the flag fires, the tool that read it was
+looking at the wrong field name.
+
+**Frontend:** the Tauri shell exists and has still never been built or tested
+(`npm test`, `npm run build`, `cargo build` all unrun). M3 is honest about
+being “already built” only in the sense that the code exists.
+
+---
+
 ## M0 — Now → Oct 2026 — modular monolith
 
 Finish ADR stages 5–7. Dual-path ends or becomes an explicit adapter.

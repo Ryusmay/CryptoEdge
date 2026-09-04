@@ -458,9 +458,12 @@ class DayTradingEngineV2:
                 })
 
         if p["skip_4h_oppose"] and bias_4h in ("LONG", "SHORT") and bias_4h != direction:
-            return self._neutral(symbol, price, "V2_4H_CTX_OPPOSE", {
-                "bias_1d": bias_1d, "bias_4h": bias_4h, "v2_profile": profile,
-            })
+            if getattr(config, "DAYTRADING_V2_SOFT_4H_EXPERIMENT", False):
+                pass
+            else:
+                return self._neutral(symbol, price, "V2_4H_CTX_OPPOSE", {
+                    "bias_1d": bias_1d, "bias_4h": bias_4h, "v2_profile": profile,
+                })
 
         # 3) 1h mapa setupu: swing + fib (pkt 3, 6)
         highs_1h = list(frames["1H"].get("highs") or [])
@@ -558,6 +561,9 @@ class DayTradingEngineV2:
         min_sl_frac = round_trip_cost_frac * _finite(getattr(config, "DAYTRADING_V2_MIN_SL_VS_COST_MULT", 3.5), 3.5)
         if price > 0 and (risk / price) < min_sl_frac:
             return self._neutral(symbol, price, "V2_SL_TOO_TIGHT_VS_COST", {"bias_1d": bias_1d, "bias_4h": bias_4h})
+        max_sl_pct = _finite(getattr(config, "DAYTRADING_V2_MAX_SL_PCT", 0.0))
+        if price > 0 and max_sl_pct > 0.0 and (risk / price) > max_sl_pct:
+            return self._neutral(symbol, price, "V2_SL_TOO_WIDE", {"bias_1d": bias_1d, "bias_4h": bias_4h})
 
         # 7-9) TP1 = dawne TP2 (1.618 / ≥2R). TP2 wyżej (2.618 / ≥3R).
         tp1_r_target = _finite(getattr(config, "DAYTRADING_V2_TP1_R", 2.0), 2.0)
@@ -612,12 +618,15 @@ class DayTradingEngineV2:
         max_touch_age = max(reclaim_bars, int(_finite(
             getattr(config, "DAYTRADING_V2_15M_MAX_TOUCH_AGE_BARS", 3), 3,
         )))
-        if not self._check_15m_trigger(
+        chk = self._check_15m_trigger(
             frames["15m"], zone_near, zone_far, direction,
             lookback=lookback_15, reclaim_level=zone_reclaim, reclaim_bars=reclaim_bars,
             max_touch_age_bars=max_touch_age,
-        ):
-            return self._neutral(symbol, price, "V2_NO_15M_TRIGGER", {"bias_1d": bias_1d, "bias_4h": bias_4h})
+        )
+        if getattr(config, "DAYTRADING_V2_15M_SCORING_EXPERIMENT", False):
+            if not chk: return self._neutral(symbol, price, "V2_NO_15M_TRIGGER", {"bias_1d": bias_1d, "bias_4h": bias_4h})
+        else:
+            if not chk: return self._neutral(symbol, price, "V2_NO_15M_TRIGGER", {"bias_1d": bias_1d, "bias_4h": bias_4h})
 
         candle_quality = candle_rejection_features(
             frames["15m"], direction, zone_near, zone_far,
@@ -630,8 +639,13 @@ class DayTradingEngineV2:
 
         # 11) 5m opcjonalne weto (pkt 5, 12) - NIGDY twardy blok na brak danych
         frame_5m = frames.get("5m") or {}
+        timing_mode = "NOW"
         if p["use_5m_veto"] and frame_5m.get("closes") and self._check_5m_veto(frame_5m, direction):
-            return self._neutral(symbol, price, "V2_5M_VETO", {"bias_1d": bias_1d, "bias_4h": bias_4h, "v2_profile": profile})
+            if getattr(config, "DAYTRADING_V2_5M_TIMING_EXPERIMENT", False):
+                timing_mode = "WAIT"
+                return self._neutral(symbol, price, "V2_5M_VETO_WAIT", {"bias_1d": bias_1d, "bias_4h": bias_4h, "v2_profile": profile})
+            else:
+                return self._neutral(symbol, price, "V2_5M_VETO", {"bias_1d": bias_1d, "bias_4h": bias_4h, "v2_profile": profile})
 
         fr = self._funding_for(symbol, coin)
         rate = _finite((fr or {}).get("funding_rate"))

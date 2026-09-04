@@ -117,6 +117,63 @@ def params_for(profile: str) -> dict:
     }
 
 
+def _planned_notional_usd(symbol: str) -> float:
+    """Notional modelowanego zlecenia. Uwaga: przypiety do STARTING_CAPITAL,
+    wiec powiekszenie konta 100x go NIE rusza. To osobna wada, tu tylko
+    odtworzona wiernie, zeby porownanie ze stara sciezka bylo uczciwe."""
+    p = params_for(profile_for(symbol))
+    eq = float(getattr(config, "STARTING_CAPITAL", 100) or 100)
+    lev = float(getattr(config, "LEVERAGE", 10) or 10)
+    return eq * (float(p.get("margin_pct") or 5.0) / 100.0) * lev
+
+
+def _measured_slip_round_trip(symbol: str) -> Optional[float]:
+    """Round-trip slip ze zmierzonej mikrostruktury, albo None.
+
+    None znaczy "nie umiem tego policzyc z pomiaru" - nie "zero". Wolajacy
+    wraca wtedy do starego modelu i to jest swiadome, a nie ciche.
+    """
+    try:
+        import venue_microstructure
+    except Exception:
+        return None
+    spread = venue_microstructure.spread_frac(symbol)
+    if spread is None:
+        return None
+    notional = _planned_notional_usd(symbol)
+    # Bierzemy CIENSZA strone ksiegi - wejscie i wyjscie ida w przeciwne
+    # strony, wiec liczy sie ta gorsza z dwoch.
+    depths = [d for d in (venue_microstructure.top1_depth_usd(symbol, "ask"),
+                          venue_microstructure.top1_depth_usd(symbol, "bid"))
+              if d]
+    if not depths:
+        return None
+    thinnest = min(depths)
+    if notional > thinnest:
+        # Zlecenie zjada ksiege glebiej niz pierwszy poziom. Nie mamy ksztaltu
+        # ksiegi ponizej szczytu, wiec nie zmyslamy - stary model.
+        return None
+    # Miesci sie na szczycie: caly koszt to przejscie spreadu, raz w kazda
+    # strone, czyli round-trip = jeden pelny spread. Impact zerowy.
+    return max(0.0, min(0.02, float(spread)))
+
+
+def slip_includes_spread(symbol: str) -> bool:
+    """Czy `slip_rt` tego symbolu ZAWIERA juz spread.
+
+    To nie jest kosmetyka. Zmierzona sciezka zwraca round-trip rowny jednemu
+    pelnemu spreadowi, wiec `expected_net_r` nie moze doliczac `spread_r`
+    obok - byloby to policzenie spreadu dwa razy. Stara sciezka natomiast
+    zwraca stala `slip_one_way`, ktora spreadu NIE zawiera, wiec tam
+    `spread_r` doliczyc trzeba.
+
+    Bezwarunkowe zerowanie `spread_r` przy obecnym `slip_rt` odwrocilo by
+    decyzje w przypadkach z szeroka ksiazka zlecen (wide_spread_*), gdzie
+    spread jest glownym kosztem i ma zostac policzony.
+    """
+    return _measured_slip_round_trip(symbol) is not None
+
+
 def replay_slip_round_trip(
     symbol: str,
     ohlcv: Optional[dict] = None,
@@ -124,9 +181,36 @@ def replay_slip_round_trip(
     price: float = 0.0,
     fallback: float = 0.0006,
 ) -> float:
-    """Round-trip slip for V2 replay. Major ~6 bps, alt ≥30 bps + impact, metal ~10 bps."""
+    """Round-trip slip for V2 replay.
+
+    ZMIERZONA SCIEZKA (gdy symbol jest w venue_microstructure). Dla zlecenia,
+    ktore miesci sie na szczycie ksiegi, calym kosztem egzekucji wzgledem mid
+    jest przejscie pol spreadu w kazda strone - czyli round-trip rowna sie
+    JEDNEMU spreadowi. Market impact zaczyna sie dopiero, gdy zlecenie zjada
+    ksiege, i wtedy wlasciwym mianownikiem jest GLEBOKOSC SZCZYTU, a nie obrot
+    calej swiecy 5m.
+
+    Zmierzone na 19 symbolach: modelowane zlecenie to od 0.016% szczytu ksiegi
+    (BTC) do 16% (XMR). Nigdzie go nie przekracza, wiec impact jest dzis zerowy
+    w calym uniwersum - ale prog realnie wiaze i przy wiekszym koncie zacznie
+    dzialac.
+
+    Stary model liczyl partycypacje wzgledem obrotu calej swiecy z twardo
+    wpisanym k=0.08 i wykladnikiem 0.6, ktorych nie ma nawet w config.py.
+    Dawal mediane 0.0901 R - wiecej niz caly medianowy edge (0.0476 R).
+
+    STARA SCIEZKA zostaje dla symboli niezmierzonych ORAZ dla zlecen wiekszych
+    niz szczyt ksiegi. Tego drugiego przypadku nie umiemy dzis policzyc lepiej
+    (potrzebny byly by ksztalt ksiegi glebiej), wiec zamiast wymyslac kolejna
+    stala - wracamy do modelu, ktory przynajmniej jest udokumentowany.
+    """
     if not symbol:
         return float(fallback)
+
+    measured = _measured_slip_round_trip(symbol)
+    if measured is not None:
+        return measured
+
     p = params_for(profile_for(symbol))
     base = float(p.get("slip_one_way") or 0.0003)
     eq = float(getattr(config, "STARTING_CAPITAL", 100) or 100)

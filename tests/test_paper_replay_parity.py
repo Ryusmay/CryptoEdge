@@ -15,11 +15,18 @@ class TestPaperReplaySlipParity(unittest.TestCase):
         }
 
     def test_v2_paper_uses_replay_slip_not_config_0008(self):
+        """Sedno testu: paper bierze poslizg z TEJ SAMEJ funkcji co replay,
+        a nie z legacy config.SLIPPAGE. Poprzednia wersja dokladala tu
+        `pepe.slip_rt >= 0.003`, czyli przypinala floor starego modelu -
+        po zastapieniu go pomiarem asercja mowila juz tylko o nieaktualnej
+        stalej, a nie o parytecie paper/replay."""
         btc = Position(self._sig("BTC"), 75.0, leverage=10)
         pepe = Position(self._sig("PEPE"), 50.0, leverage=10)
-        self.assertAlmostEqual(btc.slip_rt, replay_slip_round_trip("BTC"), places=6)
-        self.assertGreaterEqual(pepe.slip_rt, 0.003)
-        self.assertAlmostEqual(btc.slip_rt, paper_slip_round_trip("BTC", self._sig("BTC")), places=6)
+        self.assertAlmostEqual(btc.slip_rt, replay_slip_round_trip("BTC"), places=9)
+        self.assertAlmostEqual(pepe.slip_rt, replay_slip_round_trip("PEPE"), places=9)
+        self.assertAlmostEqual(btc.slip_rt, paper_slip_round_trip("BTC", self._sig("BTC")), places=9)
+        # I nie jest to legacy config.SLIPPAGE = 0.0008 - o to w tym tescie chodzi.
+        self.assertNotAlmostEqual(btc.slip_rt, 0.0008, places=6)
 
     def test_close_alt_costs_more_than_major(self):
         btc = Position(self._sig("BTC"), 75.0, leverage=10)

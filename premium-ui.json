@@ -1,0 +1,11 @@
+{
+  "profile": "product-admin",
+  "sourceRoots": ["frontend/src"],
+  "locale": "pl-PL",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Select/Listbox", "Form", "Scrollbar", "Toast"],
+  "ownership": { "Select/Listbox": "native", "Form": "authored" },
+  "requiredCommands": ["unit", "build"],
+  "commands": { "unit": "npm --prefix frontend test -- --run --maxWorkers=1", "build": "npm --prefix frontend run build" },
+  "evidence": { "failurePaths": "frontend/src/transport/webSocketTransport.test.ts" }
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from decimal import Decimal
 from typing import Any, Sequence
 
 from .ports import (
@@ -18,12 +19,32 @@ def _value(obj: Any, name: str, default: Any = None) -> Any:
     return obj.get(name, default) if isinstance(obj, dict) else getattr(obj, name, default)
 
 
+def _decimal(value: Any) -> Decimal | None:
+    """Liczba z legacy obiektu na Decimal. Brak danych zostaje brakiem."""
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except (ArithmeticError, TypeError, ValueError):
+        return None
+
+
+# Stany, w ktorych gielda NIE POWIEDZIALA, co sie stalo. `Order.filled_size`
+# stoi wtedy na domyslnym 0.0 - i wlasnie dlatego nie wolno go przepuszczac:
+# zero znaczy "nic sie nie wypelnilo", a tu prawda brzmi "nie wiem". Wolajacy,
+# ktory przeczyta zero po TIMEOUCIE, uzna, ze pozycji nie ma, i wejdzie drugi
+# raz. To ten sam kontrakt, ktory `blofin_executor` trzyma na poziomie stanu
+# (TIMEOUT nigdy nie staje sie REJECTED) - tu trzyma go dla ilosci.
+_UNKNOWN_FILL_STATES = frozenset({"TIMEOUT", "UNKNOWN"})
+
+
 def _result(raw: Any, client_order_id: str) -> ExecutionResult:
     state_obj = _value(raw, "state", "UNKNOWN")
     state = str(getattr(state_obj, "value", state_obj))
     accepted = state.upper() in {
         "SUBMITTED", "ACCEPTED", "PARTIAL", "PARTIALLY_FILLED", "FILLED",
     }
+    known = state.upper() not in _UNKNOWN_FILL_STATES
     return ExecutionResult(
         accepted=accepted,
         state=state,
@@ -31,6 +52,10 @@ def _result(raw: Any, client_order_id: str) -> ExecutionResult:
         exchange_order_id=_value(raw, "order_id", _value(raw, "exchange_order_id")),
         raw=raw,
         reason=_value(raw, "reject_reason", _value(raw, "last_error")),
+        # Legacy `Order` zna wypelnienie - dotad nie przechodzilo przez
+        # granice portu i wolajacy nie mial jak odroznic partiala od pelnego.
+        filled_quantity=_decimal(_value(raw, "filled_size")) if known else None,
+        average_price=_decimal(_value(raw, "avg_fill_price")) if known else None,
     )
 
 

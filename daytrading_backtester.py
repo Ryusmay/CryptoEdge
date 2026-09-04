@@ -424,6 +424,14 @@ class ReplayTradeV2:
     mfe_r: float = 0.0
     fill_kind: str = "market"
     fee_rt: Optional[float] = None
+    # Cena planowanego limitu i cena, po ktorej pozycja faktycznie wyszla.
+    # Bez tych dwoch pol zbior wynikow nie pozwala odtworzyc ani jakosci
+    # fillu (limit_price vs entry: czy rynek przeszedl przez limit i dostalismy
+    # LEPIEJ niz planowano), ani tego, GDZIE lada wyjscia - a wlasnie to jest
+    # potrzebne do przeprojektowania stony brutto, bo 45% transakcji konczy
+    # sie w przedziale +/-0.25R i model dwustanowy tego nie widzi.
+    limit_price: Optional[float] = None
+    exit_price: Optional[float] = None
     symbol: str = ""
     v2_profile: str = "unknown"
     market_regime: str = "unknown"
@@ -492,6 +500,18 @@ def _open_trade_v2(i: int, entry: float, sig: dict, tp1_frac: float) -> Optional
         float(tp1_frac), risk, highest=entry, lowest=entry,
     )
     trade.fill_kind = str(sig.get("fill_kind") or "market")
+    # Prowizja wg RODZAJU fillu, ustawiana TU - przy narodzinach transakcji,
+    # a nie u wolajacego. Wczesniej robil to tylko portfolio_replay_v2 (linia
+    # ~864), a replay_daytrading_v2 nie - przez co zbior wynikow liczyl kazda
+    # transakcje po plaskim FEE_RT = 0.0012, mimo ze 100% wejsc to limity
+    # placace 0.0008. Ta sama pomylka co w expected_net_r przed v20.60.0,
+    # tylko w drugim miejscu. Portfelowy runner nadal moze to nadpisac
+    # wlasnymi maker_fee/taker_fee - i ma pierwszenstwo.
+    _mf = float(getattr(config, "MAKER_FEE", 0.0002))
+    _tf = float(getattr(config, "TAKER_FEE", 0.0006))
+    trade.fee_rt = (_mf + _tf) if trade.fill_kind == "limit" else (2.0 * _tf)
+    _lp = sig.get("limit_price")
+    trade.limit_price = None if _lp is None else float(_lp)
     trade.symbol = str(sig.get("symbol") or "").upper()
     trade.v2_profile = str(sig.get("v2_profile") or "unknown").lower()
     trade.market_regime = str(
@@ -537,6 +557,29 @@ def resolve_v2_fill(sig: dict, i: int, signal_i: int,
     return None, ""
 
 
+def _frakcje_partiali(tp1_frac, tp2_frac):
+    """Frakcje partiali z configu, z tym samym zaciskiem co bot na zywo.
+
+    Do v20.72.0 replay mial je ZASZYTE w sygnaturze (0.5 / 0.3), wiec
+    `DAYTRADING_V2_TP1_FRAC` i `DAYTRADING_V2_TP2_FRAC` nie dotykaly go
+    wcale. Byly to dwie niezalezne liczby o tej samej nazwie, i do tego
+    o innym znaczeniu: replayowe `tp2_frac` bylo ulamkiem CALOSCI, a
+    configowe jest ulamkiem RESZTY po TP1 (config.py:356 oraz
+    paper_trader.py:1472 + :1508). Przy 0.50 daje to 0.25 calosci,
+    a replay zamykal 0.30 - czyli o jedna piata wiecej.
+
+    Zacisk min/max jest przepisany z `paper_trader.py:1476` i `:1493`.
+    Przy dzisiejszych wartosciach jest bezczynny; istnieje po to, zeby
+    ekstremalna wartosc w configu dawala w obu torach ten sam wynik.
+    """
+    import config
+    t1 = tp1_frac if tp1_frac is not None else float(
+        getattr(config, "DAYTRADING_V2_TP1_FRAC", 0.50) or 0.50)
+    t2 = tp2_frac if tp2_frac is not None else float(
+        getattr(config, "DAYTRADING_V2_TP2_FRAC", 0.50) or 0.50)
+    return min(0.9, max(0.1, float(t1))), min(0.9, max(0.1, float(t2)))
+
+
 def _process_trade_bar_v2(
     trade: ReplayTradeV2, i: int, high: float, low: float, close: float,
     htf_bias: Optional[str], htf_trail_anchor: Optional[float],
@@ -558,7 +601,8 @@ def _process_trade_bar_v2(
             trade.mae_r = max(trade.mae_r, (trade.highest - trade.entry) / risk)
             trade.mfe_r = max(trade.mfe_r, (trade.entry - trade.lowest) / risk)
 
-    def _close(reason: str, mark_price: Optional[float] = None) -> None:
+    def _close(reason: str, mark_price: Optional[float] = None,
+               exit_price: Optional[float] = None) -> None:
         if mark_price is not None:
             mark_r = ((mark_price - trade.entry) / risk if trade.direction == "LONG"
                       else (trade.entry - mark_price) / risk)
@@ -568,6 +612,10 @@ def _process_trade_bar_v2(
         )) / max(risk / trade.entry, 1e-9)
         trade.realised_r -= cost_r
         trade.exit_i, trade.exit_reason = i, reason
+        # Cena wyjscia: jawna, gdy podana (sl, tp2), inaczej cena marku.
+        px = exit_price if exit_price is not None else mark_price
+        if px is not None:
+            trade.exit_price = float(px)
 
     from v2_trade_lifecycle import (
         V2Observation, V2TradeView, decide_v2_lifecycle,
@@ -590,7 +638,7 @@ def _process_trade_bar_v2(
         stop_r = ((float(decision.price) - trade.entry) / risk if trade.direction == "LONG"
                   else (trade.entry - float(decision.price)) / risk)
         trade.realised_r += trade.remaining * stop_r
-        _close("sl")
+        _close("sl", exit_price=float(decision.price))
     elif decision.action == "htf_reversal":
         _close("htf_reversal", mark_price=float(decision.price))
     elif decision.action == "tp1":
@@ -600,12 +648,17 @@ def _process_trade_bar_v2(
         if decision.new_sl is not None:
             trade.sl = float(decision.new_sl)
     elif decision.action == "tp2":
-        tp2_take = min(tp2_frac, trade.remaining)
+        # tp2_frac jest ulamkiem RESZTY po TP1, nie calosci - tak liczy bot
+        # na zywo (paper_trader.py:1508 mnozy przez biezacy `size_usd`).
+        # Przedtem stalo tu min(tp2_frac, trade.remaining), czyli ulamek
+        # CALOSCI: przy 0.30 replay zamykal 30% pozycji tam, gdzie bot
+        # zamykal 25%, i zostawialo mu 20% ogona zamiast 25%.
+        tp2_take = min(trade.remaining, tp2_frac * trade.remaining)
         trade.realised_r += tp2_take * abs(trade.tp2 - trade.entry) / risk
         trade.remaining -= tp2_take
         trade.tp2_done = True
         if trade.remaining <= 1e-9:
-            _close("tp2")
+            _close("tp2", exit_price=float(trade.tp2))
         elif decision.new_sl is not None:
             trade.sl = float(decision.new_sl)
     elif decision.action in ("time_stop", "hard_time_stop"):
@@ -639,7 +692,10 @@ def _v2_unclog_due(trade: ReplayTradeV2, i: int, close: float, risk: float) -> b
 
 def v2_max_bars_5m() -> int:
     """Hard time-stop w barach 5m = DAYTRADING_V2_HARD_TIME_STOP_HOURS (nie magiczne 400)."""
-    hours = float(getattr(config, "DAYTRADING_V2_HARD_TIME_STOP_HOURS", 96.0) or 96.0)
+    # Domyslka 48.0, a nie 96.0: v2_trade_lifecycle.py:125 i paper_trader.py:585
+    # od zawsze mialy 48.0. Trzy rozne liczby awaryjne dla tego samego progu
+    # znaczylyby, ze przy braku stalej w configu kazda sciezka tnie gdzie indziej.
+    hours = float(getattr(config, "DAYTRADING_V2_HARD_TIME_STOP_HOURS", 48.0) or 48.0)
     return max(24, int(round(hours * 12.0)))
 
 
@@ -652,8 +708,11 @@ def replay_daytrading_v2(
     fee_frac_round_trip: float = 0.0012,
     slippage_frac_round_trip: float = 0.0006,
     max_bars: int | None = None,
-    tp1_frac: float = 0.5,
-    tp2_frac: float = 0.3,
+    # None = wez z configu, tak samo jak bot na zywo. Zaszyte 0.5/0.3
+    # oznaczaly, ze zmiana DAYTRADING_V2_*_FRAC nie dotykala replayu wcale -
+    # dwie niezalezne liczby o tej samej nazwie (v20.73.0).
+    tp1_frac: float | None = None,
+    tp2_frac: float | None = None,
     funding: Optional[List[dict]] = None,
 ) -> dict:
     """Replay V2: SL/TP1/TP2 ze swingu 1h (z sygnalu), TP3 trailing po TP2
@@ -670,6 +729,7 @@ def replay_daytrading_v2(
     hamulce czestotliwosci; symbol brany z sig["symbol"] przy wejsciu."""
     if max_bars is None:
         max_bars = v2_max_bars_5m()
+    tp1_frac, tp2_frac = _frakcje_partiali(tp1_frac, tp2_frac)
     opens = list(ohlcv_5m.get("opens") or [])
     highs = list(ohlcv_5m.get("highs") or [])
     lows = list(ohlcv_5m.get("lows") or [])
@@ -758,8 +818,9 @@ def portfolio_replay_v2(
     fee_frac_round_trip: float = 0.0012,
     slippage_frac_round_trip: float = 0.0006,
     max_bars: int | None = None,
-    tp1_frac: float = 0.5,
-    tp2_frac: float = 0.3,
+    # Jak w replay_daytrading_v2: None = z configu (v20.73.0).
+    tp1_frac: float | None = None,
+    tp2_frac: float | None = None,
     max_same_direction: int | None = None,
     latency_ms: int = 0,
     cancel_latency_ms: int = 0,
@@ -781,6 +842,7 @@ def portfolio_replay_v2(
                 "rejected_for_slots": 0, "by_symbol": {}}
     if max_bars is None:
         max_bars = v2_max_bars_5m()
+    tp1_frac, tp2_frac = _frakcje_partiali(tp1_frac, tp2_frac)
 
     n = min(len(data["ohlcv_5m"].get("opens") or []) for data in symbols_data.values())
     open_positions: Dict[str, ReplayTradeV2] = {}
@@ -924,6 +986,7 @@ def portfolio_replay_v2(
         costs += float(trade.slip_rt) if trade.slip_rt is not None else slippage_frac_round_trip
         trade.realised_r -= costs / max(risk / trade.entry, 1e-9)
         trade.exit_i, trade.exit_reason = last_i, "window_end_mark"
+        trade.exit_price = close
         all_trades.append((symbol, trade))
         open_at_end += 1
         notify_exit = data.get("notify_exit")

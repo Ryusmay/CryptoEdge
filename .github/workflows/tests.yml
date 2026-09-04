@@ -1,0 +1,47 @@
+name: tests
+
+# Bramka na kazdy push i PR. Repozytorium opiera sie na twierdzeniu, ze
+# refaktor nie zmienia zachowania strategii - takie twierdzenie musi byc
+# sprawdzane maszynowo, inaczej jest tylko deklaracja.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.12"]
+    env:
+      # Czesc testow importuje PySide6. Offscreen pozwala im dzialac bez
+      # serwera X i bez xvfb.
+      QT_QPA_PLATFORM: offscreen
+      # Determinizm: bez tego kolejnosc iteracji po zbiorach stringow rozni
+      # sie miedzy przebiegami, a czesc bramek porownuje wyniki bit w bit.
+      PYTHONHASHSEED: "0"
+      PYTHONIOENCODING: utf-8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      - name: Biblioteki systemowe dla Qt (offscreen)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libdbus-1-3
+
+      - name: Zaleznosci
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Suita
+        run: python run_tests.py

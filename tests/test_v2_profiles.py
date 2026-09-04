@@ -43,6 +43,12 @@ class TestProfileEngine(unittest.TestCase):
         self.feeder = FakeFeeder()
         self.engine = DayTradingEngineV2(self.feeder)
         refresh_volume_ranks([])
+        # Jak w test_v2_funding: atrapy stoja na skali 100-120, wiec sitko
+        # DAYTRADING_V2_MAX_SL_PCT (10%) odrzucaloby je zanim profil zdazy
+        # cokolwiek powiedziec. Ten plik bada profile, nie szerokosc SL.
+        sieve_off = patch.object(config, "DAYTRADING_V2_MAX_SL_PCT", 0.0)
+        sieve_off.start()
+        self.addCleanup(sieve_off.stop)
 
     def _set(self, symbol, **frames):
         b = self.feeder.blofin

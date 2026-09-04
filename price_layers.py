@@ -31,7 +31,21 @@ def extract_price_layers(signal: dict, execution_price: float = None) -> Dict[st
             return None
 
     strategy_f = _f(strategy)
-    mark_f = _f(mark) or strategy_f
+    # Mark NIE schodzi na cene strategii.
+    #
+    # Zmierzone: `blofin_mark` nie ma w calym repo ani jednego pisarza, a
+    # kanal mark price z `blofin_ws` nie trafia do sygnalu - wiec ten fallback
+    # dzialal ZAWSZE. Skutkiem bylo `mark_price == strategy_price`, a stad
+    # `basis_pct` wychodzilo strukturalnie 0.0 i wygladalo jak zmierzone zero,
+    # a nie jak brak pomiaru. `dynamic_spread` czyta te wartosc i rozszerza
+    # nia limit spreadu (SPREAD_K_BASIS), wiec "zero basis" bylo cicha
+    # deklaracja, ze basisu nie ma - zamiast: ze nikt go nie podal.
+    #
+    # None znaczy teraz "gielda nie podala". Wolajacy, ktory potrzebuje
+    # liczby, ma wlasny jawny fallback (`Position.mark_price` bierze wtedy
+    # `entry_price`, `dynamic_spread` liczy basis jako 0.0) - tyle ze widac
+    # go tam, gdzie jest napisany.
+    mark_f = _f(mark)
     index_f = _f(index)
     decision_f = _f(decision) or strategy_f
     submitted_f = _f(submitted) or decision_f

@@ -1,13 +1,15 @@
 {
   "meta": {
-    "cases": 33,
+    "cases": 47,
     "raised": 0,
     "order_states": 6,
-    "drift_blocking": 5
+    "drift_blocking": 5,
+    "accepted_without_fill_quantity": 0,
+    "retried_submits": 0
   },
   "config": {
-    "hash": "bee6af3c6d61120d",
-    "keys": 531,
+    "hash": "ac8946fc879ac185",
+    "keys": 538,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,
@@ -22,7 +24,8 @@
       "DAYTRADING_SIZE_R_TARGET": 0.4,
       "DAYTRADING_TIME_STOP_MIN_R": 0.5,
       "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
-      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 10.0,
+      "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
+      "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
       "DAYTRADING_INVALIDATION_BARS": 2,
       "DAYTRADING_NET_R_MIN_SAMPLE": 20,
       "REVERSAL_MIN_STRENGTH": 0.32,
@@ -705,6 +708,296 @@
         }
       ],
       "last_error": null
+    },
+    {
+      "case": "port_submit_full_fill",
+      "kind": "port",
+      "port_result": {
+        "accepted": true,
+        "state": "FILLED",
+        "reason": null,
+        "exchange_order_id": "EX-1",
+        "filled_quantity": 1.0,
+        "average_price": 100.5,
+        "raw_knows_filled": 1.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_submit_partial_fill",
+      "kind": "port",
+      "port_result": {
+        "accepted": true,
+        "state": "PARTIAL",
+        "reason": null,
+        "exchange_order_id": "EX-1",
+        "filled_quantity": 0.4,
+        "average_price": 100.5,
+        "raw_knows_filled": 0.4,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_submit_nothing_filled_yet",
+      "kind": "port",
+      "port_result": {
+        "accepted": true,
+        "state": "SUBMITTED",
+        "reason": null,
+        "exchange_order_id": "EX-1",
+        "filled_quantity": 0.0,
+        "average_price": null,
+        "raw_knows_filled": 0.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_submit_rejected_by_venue",
+      "kind": "port",
+      "port_result": {
+        "accepted": false,
+        "state": "REJECTED",
+        "reason": "Insufficient balance",
+        "exchange_order_id": null,
+        "filled_quantity": 0.0,
+        "average_price": null,
+        "raw_knows_filled": 0.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_submit_timeout",
+      "kind": "port",
+      "port_result": {
+        "accepted": false,
+        "state": "TIMEOUT",
+        "reason": null,
+        "exchange_order_id": null,
+        "filled_quantity": null,
+        "average_price": null,
+        "raw_knows_filled": 0.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_submit_row_not_matched",
+      "kind": "port",
+      "port_result": {
+        "accepted": false,
+        "state": "UNKNOWN",
+        "reason": null,
+        "exchange_order_id": "EX-1",
+        "filled_quantity": null,
+        "average_price": null,
+        "raw_knows_filled": 0.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_paper_full_fill",
+      "kind": "port",
+      "port_result": {
+        "accepted": true,
+        "state": "FILLED",
+        "reason": null,
+        "exchange_order_id": null,
+        "filled_quantity": 1.0,
+        "average_price": null,
+        "raw_knows_filled": 1.0,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_paper_partial_fill",
+      "kind": "port",
+      "port_result": {
+        "accepted": true,
+        "state": "FILLED",
+        "reason": null,
+        "exchange_order_id": null,
+        "filled_quantity": 0.4,
+        "average_price": null,
+        "raw_knows_filled": 0.4,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "port_paper_rejected",
+      "kind": "port",
+      "port_result": {
+        "accepted": false,
+        "state": "REJECTED",
+        "reason": "PAPER_OPEN_REJECTED",
+        "exchange_order_id": null,
+        "filled_quantity": null,
+        "average_price": null,
+        "raw_knows_filled": null,
+        "requested": 1.0
+      }
+    },
+    {
+      "case": "idem_timeout_never_reposts",
+      "kind": "idempotency",
+      "cid_trace": [
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/v1/trade/order-detail",
+          "cid": "cid#1"
+        }
+      ],
+      "states": [
+        "UNKNOWN"
+      ],
+      "distinct_cids": 1,
+      "submits": 1,
+      "place_calls": 1,
+      "retried_submit": false
+    },
+    {
+      "case": "idem_caller_supplied_id_is_reused",
+      "kind": "idempotency",
+      "cid_trace": [
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        }
+      ],
+      "states": [
+        "SUBMITTED",
+        "SUBMITTED"
+      ],
+      "distinct_cids": 1,
+      "submits": 2,
+      "place_calls": 2,
+      "retried_submit": false
+    },
+    {
+      "case": "idem_generated_id_is_new_each_call",
+      "kind": "idempotency",
+      "cid_trace": [
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#2"
+        }
+      ],
+      "states": [
+        "SUBMITTED",
+        "SUBMITTED"
+      ],
+      "distinct_cids": 2,
+      "submits": 2,
+      "place_calls": 2,
+      "retried_submit": false
+    },
+    {
+      "case": "idem_cancel_targets_the_same_order",
+      "kind": "idempotency",
+      "cid_trace": [
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/cancel-order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/v1/trade/order-detail",
+          "cid": "cid#1"
+        }
+      ],
+      "states": [
+        "SUBMITTED",
+        "CANCELED"
+      ],
+      "distinct_cids": 1,
+      "submits": 1,
+      "place_calls": 1,
+      "retried_submit": false
+    },
+    {
+      "case": "idem_refresh_after_timeout_stays_on_one_id",
+      "kind": "idempotency",
+      "cid_trace": [
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/account/set-leverage",
+          "cid": null
+        },
+        {
+          "method": "POST",
+          "endpoint": "/api/v1/trade/order",
+          "cid": "cid#1"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/v1/trade/order-detail",
+          "cid": "cid#1"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/v1/trade/order-detail",
+          "cid": "cid#1"
+        }
+      ],
+      "states": [
+        "UNKNOWN",
+        "UNKNOWN"
+      ],
+      "distinct_cids": 1,
+      "submits": 1,
+      "place_calls": 1,
+      "retried_submit": false
     },
     {
       "case": "in_sync_paper",
