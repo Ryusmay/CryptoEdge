@@ -11,6 +11,8 @@ from .enums import (
     DecisionStatus, Direction, LiquidityRole, OrderSide, OrderType,
     PositionStatus, RiskStatus,
 )
+from .execution import ExecutionAssumptions
+from .validity import DecisionTiming
 
 
 def _id(prefix: str) -> str:
@@ -115,6 +117,23 @@ class MarketSnapshot:
         return self.to_legacy()
 
 
+_ENVELOPE_KEYS = ("strategy_version", "model_id", "confidence",
+                  "valid_until_ms", "market_version")
+
+
+def _execution_from_legacy(value: Any) -> Optional[ExecutionAssumptions]:
+    if value is None or isinstance(value, ExecutionAssumptions):
+        return value
+    data = dict(value)
+    data.pop("fee_round_trip_frac", None)  # pochodna, nie pole
+    fields_ = set(ExecutionAssumptions.__dataclass_fields__)
+    extra = {k: v for k, v in data.items() if k not in fields_}
+    kwargs = {k: v for k, v in data.items() if k in fields_}
+    if extra:
+        kwargs["metadata"] = {**dict(kwargs.get("metadata") or {}), **extra}
+    return ExecutionAssumptions(**kwargs)
+
+
 @dataclass(frozen=True, slots=True)
 class StrategyDecision:
     symbol: str
@@ -129,10 +148,33 @@ class StrategyDecision:
     snapshot_id: Optional[str] = None
     expected_net_r: Optional[float] = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    # Rozszerzenie "DecisionEnvelope" - wszystko opcjonalne, zeby istniejace
+    # wywolania i ksztalt legacy dict zostaly bez zmian. Wspolny kontrakt
+    # dla V2, przyszlego Brain/LightGBM: kto zdecydowal (strategy_version /
+    # model_id), jak pewnie (confidence), do kiedy decyzja jest wazna i na
+    # jakim stanie rynku powstala, przy jakich zalozeniach wykonania.
+    strategy_version: Optional[str] = None
+    model_id: Optional[str] = None
+    confidence: Optional[float] = None
+    valid_until_ms: Optional[int] = None
+    market_version: Optional[str] = None
+    execution: Optional[ExecutionAssumptions] = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "symbol", str(self.symbol).upper())
         object.__setattr__(self, "status", enum_value(DecisionStatus, self.status, DecisionStatus.NO_TRADE))
+        if self.confidence is not None:
+            _finite("confidence", self.confidence)
+            if not 0.0 <= float(self.confidence) <= 1.0:
+                raise ValueError("confidence must be within [0, 1]")
+        if self.valid_until_ms is not None:
+            object.__setattr__(self, "valid_until_ms", int(self.valid_until_ms))
+            if self.valid_until_ms < int(self.decision_ts_ms):
+                raise ValueError("valid_until_ms cannot precede decision_ts_ms")
+        if self.market_version is not None:
+            object.__setattr__(self, "market_version", str(self.market_version))
+        if self.execution is not None and not isinstance(self.execution, ExecutionAssumptions):
+            object.__setattr__(self, "execution", _execution_from_legacy(self.execution))
         object.__setattr__(self, "direction", enum_value(Direction, self.direction))
         object.__setattr__(self, "decision_ts_ms", int(self.decision_ts_ms))
         object.__setattr__(self, "reasons", tuple(str(v) for v in self.reasons))
@@ -155,7 +197,9 @@ class StrategyDecision:
             )
         known = {"symbol", "coin", "status", "direction", "decision_ts_ms", "timestamp_ms",
                  "price", "strategy_price", "strength", "engine", "score_type", "reasons",
-                 "decision_id", "snapshot_id", "expected_net_r"}
+                 "decision_id", "snapshot_id", "expected_net_r", "execution_assumptions",
+                 *_ENVELOPE_KEYS}
+        execution = data.get("execution_assumptions")
         return cls(
             symbol=data.get("symbol") or data.get("coin") or "", status=status,
             decision_ts_ms=data.get("decision_ts_ms", data.get("timestamp_ms", decision_ts_ms)) or 0,
@@ -166,10 +210,32 @@ class StrategyDecision:
             decision_id=data.get("decision_id") or _id("dec"), snapshot_id=data.get("snapshot_id"),
             expected_net_r=data.get("expected_net_r"),
             metadata={k: v for k, v in data.items() if k not in known},
+            strategy_version=data.get("strategy_version"), model_id=data.get("model_id"),
+            confidence=data.get("confidence"), valid_until_ms=data.get("valid_until_ms"),
+            market_version=data.get("market_version"),
+            execution=_execution_from_legacy(execution),
+        )
+
+    def timing(self, *, max_price_drift_frac: Optional[float] = None,
+               invalidation_price: Optional[float] = None) -> DecisionTiming:
+        """Dane do `assess_validity` - Execution Router nie musi znac pol decyzji."""
+        return DecisionTiming(
+            created_ts_ms=self.decision_ts_ms, valid_until_ms=self.valid_until_ms,
+            market_version=self.market_version, reference_price=self.strategy_price,
+            max_price_drift_frac=max_price_drift_frac,
+            invalidation_price=invalidation_price, direction=self.direction,
         )
 
     def to_legacy(self) -> dict:
         data = thaw(self.metadata)
+        # Pola koperty trafiaja do dict tylko gdy sa ustawione: ksztalt
+        # sygnalu legacy (i bramki porownujace go bajt w bajt) bez zmian.
+        for key in _ENVELOPE_KEYS:
+            value = getattr(self, key)
+            if value is not None:
+                data[key] = value
+        if self.execution is not None:
+            data["execution_assumptions"] = self.execution.to_legacy()
         data.update({
             "symbol": self.symbol, "status": self.status.value,
             "decision_ts_ms": self.decision_ts_ms,
