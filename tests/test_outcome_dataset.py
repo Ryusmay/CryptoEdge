@@ -100,14 +100,25 @@ class TestResume(unittest.TestCase):
 class TestSymbolDiscovery(unittest.TestCase):
 
     def test_available_symbols_are_parsed_from_bundle_names(self):
-        got = od.available_symbols(90)
-        self.assertTrue(got, "brak bundli 90d - sprawdz data/replay")
+        """Parsowanie nazwy pliku. Biegnie na bundlach 30d, bo tylko te sa
+        opublikowane (commit "Publikacja stanu v20.73.0": piec plikow, 4,6 MB)."""
+        got = od.available_symbols(30)
+        self.assertTrue(got, "brak bundli 30d - sprawdz data/replay")
         for name in got:
             self.assertNotIn("_", name.replace("1000BONK", "BONK"))
             self.assertNotIn(".json", name)
-        # Zestaw wyrownany jest PODZBIOREM dostepnych, a nie calym zbiorem -
-        # to jest sedno poprawki: do tego pomiaru wyrownanie okien nie ma
-        # znaczenia, bo kazdy symbol jest odtwarzany niezaleznie.
+
+    @unittest.skipUnless(
+        od.available_symbols(90),
+        "asercja o korpusie 90d; te bundle nie sa publikowane (rozmiar)",
+    )
+    def test_the_90d_corpus_is_wider_than_the_aligned_set(self):
+        """Zestaw wyrownany jest PODZBIOREM dostepnych, a nie calym zbiorem -
+        to jest sedno poprawki: do tego pomiaru wyrownanie okien nie ma
+        znaczenia, bo kazdy symbol jest odtwarzany niezaleznie.
+
+        Asercja o KORPUSIE, nie o kodzie, wiec zostaje przy korpusie."""
+        got = od.available_symbols(90)
         self.assertTrue(set(od.ALIGNED_90D).issubset(set(got)))
         self.assertGreater(len(got), len(od.ALIGNED_90D))
 

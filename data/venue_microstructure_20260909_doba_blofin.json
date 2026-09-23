@@ -1,0 +1,5791 @@
+{
+ "as_of": "2026-09-09T00:44:49.464151+00:00 - 2026-09-10T00:07:47.541103+00:00",
+ "source": "BloFin REST /market/books size=20, 24 migawek co 3600.0s; spread=srednia, glebokosc=minimum",
+ "venue": "blofin",
+ "venue_note": "sama gielda, na ktorej bot handluje - nie proxy",
+ "notional_usd_modelowane": 50.0,
+ "instruments": {
+  "0G": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.9517,
+    "rt_bps_max": 19.5146,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.9517,
+     "rt_bps_max": 19.5146,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 13.1053,
+     "rt_bps_max": 19.6814,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "0G-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.2007,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 11482.85,
+   "spread_bps_avg": 12.3647,
+   "spread_bps_max": 15.8186,
+   "top1_depth_usd": {
+    "bid": 126.59,
+    "ask": 5.0
+   },
+   "top20_depth_usd": {
+    "bid": 129947.6,
+    "ask": 160355.79
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 5.0281,
+    "spread_in_ticks": 2.46
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1000.0,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "1000BONK": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.9811,
+    "rt_bps_max": 12.1048,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.9811,
+     "rt_bps_max": 12.1048,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.0061,
+     "rt_bps_max": 12.7052,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "1000BONK-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.003043,
+   "contract_value": 1000.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 6386795.99,
+   "spread_bps_avg": 7.9113,
+   "spread_bps_max": 10.4694,
+   "top1_depth_usd": {
+    "bid": 150.95,
+    "ask": 25.9
+   },
+   "top20_depth_usd": {
+    "bid": 525712.89,
+    "ask": 517994.08
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 3.3301,
+    "spread_in_ticks": 2.38
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 193.035,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "1000FLOKI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.5228,
+    "rt_bps_max": 15.534,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.5228,
+     "rt_bps_max": 15.534,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.5228,
+     "rt_bps_max": 15.534,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "1000FLOKI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.02629,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 1294305.73,
+   "spread_bps_avg": 9.5228,
+   "spread_bps_max": 15.534,
+   "top1_depth_usd": {
+    "bid": 178.97,
+    "ask": 196.97
+   },
+   "top20_depth_usd": {
+    "bid": 211978.48,
+    "ask": 157371.31
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 3.8631,
+    "spread_in_ticks": 2.47
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 27.937,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "1000RATS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.6103,
+    "rt_bps_max": 25.0627,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.6103,
+     "rt_bps_max": 25.0627,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.8822,
+     "rt_bps_max": 25.0627,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "1000RATS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.03917,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 24596.14,
+   "spread_bps_avg": 12.4846,
+   "spread_bps_max": 25.0627,
+   "top1_depth_usd": {
+    "bid": 4.99,
+    "ask": 5.28
+   },
+   "top20_depth_usd": {
+    "bid": 17614.76,
+    "ask": 17661.63
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.5427,
+    "spread_in_ticks": 4.91
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1002.004,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "1INCH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.0221,
+    "rt_bps_max": 15.1926,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.0221,
+     "rt_bps_max": 15.1926,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.4563,
+     "rt_bps_max": 15.1926,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "1INCH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.09284,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 20176.92,
+   "spread_bps_avg": 6.4086,
+   "spread_bps_max": 15.1926,
+   "top1_depth_usd": {
+    "bid": 14.08,
+    "ask": 5.52
+   },
+   "top20_depth_usd": {
+    "bid": 11730.53,
+    "ask": 17349.04
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.0812,
+    "spread_in_ticks": 5.93
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 905.615,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AAVE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 2.3428,
+    "rt_bps_max": 3.8698,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 2.3428,
+     "rt_bps_max": 3.8698,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 2.3728,
+     "rt_bps_max": 3.8698,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AAVE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 128.88,
+   "contract_value": 0.1,
+   "tick_size": 0.01,
+   "vol24h_usd": 1376389.43,
+   "spread_bps_avg": 2.3003,
+   "spread_bps_max": 3.8698,
+   "top1_depth_usd": {
+    "bid": 33.96,
+    "ask": 141.67
+   },
+   "top20_depth_usd": {
+    "bid": 97497.32,
+    "ask": 102535.91
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.7788,
+    "spread_in_ticks": 2.95
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 147.229,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ACH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.0434,
+    "rt_bps_max": 15.3345,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.0434,
+     "rt_bps_max": 15.3345,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.4047,
+     "rt_bps_max": 15.3345,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ACH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.005277,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 12710.5,
+   "spread_bps_avg": 7.5417,
+   "spread_bps_max": 15.3345,
+   "top1_depth_usd": {
+    "bid": 10.91,
+    "ask": 15.3
+   },
+   "top20_depth_usd": {
+    "bid": 13267.72,
+    "ask": 13650.88
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.9048,
+    "spread_in_ticks": 3.96
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 458.167,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ADA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.7217,
+    "rt_bps_max": 14.2016,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.7217,
+     "rt_bps_max": 14.2016,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.8422,
+     "rt_bps_max": 14.215,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ADA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.2201,
+   "contract_value": 100.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 2381083.4,
+   "spread_bps_avg": 9.771,
+   "spread_bps_max": 14.1543,
+   "top1_depth_usd": {
+    "bid": 0.22,
+    "ask": 0.21
+   },
+   "top20_depth_usd": {
+    "bid": 4046082.51,
+    "ask": 3512766.83
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 4.5981,
+    "spread_in_ticks": 2.12
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 23730.422,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AIA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 13.1965,
+    "rt_bps_max": 24.0984,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 13.1965,
+     "rt_bps_max": 24.0984,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 13.8346,
+     "rt_bps_max": 24.8646,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AIA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.09463,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 29816.02,
+   "spread_bps_avg": 11.4824,
+   "spread_bps_max": 21.6476,
+   "top1_depth_usd": {
+    "bid": 5.45,
+    "ask": 5.55
+   },
+   "top20_depth_usd": {
+    "bid": 1322.06,
+    "ask": 1884.7
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.1404,
+    "spread_in_ticks": 10.07
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 917.162,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AIGENSYN": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.3809,
+    "rt_bps_max": 19.98,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.3809,
+     "rt_bps_max": 19.98,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 14.6753,
+     "rt_bps_max": 19.98,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AIGENSYN-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01999,
+   "contract_value": 100.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 14858.57,
+   "spread_bps_avg": 13.7948,
+   "spread_bps_max": 19.98,
+   "top1_depth_usd": {
+    "bid": 5.97,
+    "ask": 36.02
+   },
+   "top20_depth_usd": {
+    "bid": 55459.04,
+    "ask": 72691.22
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 5.0183,
+    "spread_in_ticks": 2.75
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 837.1,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AKT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.0254,
+    "rt_bps_max": 27.2526,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.0254,
+     "rt_bps_max": 27.2526,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.2485,
+     "rt_bps_max": 27.2526,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AKT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.5932,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 63050.04,
+   "spread_bps_avg": 10.64,
+   "spread_bps_max": 27.2526,
+   "top1_depth_usd": {
+    "bid": 48.11,
+    "ask": 5.23
+   },
+   "top20_depth_usd": {
+    "bid": 5905.8,
+    "ask": 9582.35
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.7174,
+    "spread_in_ticks": 6.2
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 956.535,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "APT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.1794,
+    "rt_bps_max": 16.8566,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.1794,
+     "rt_bps_max": 16.8566,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.2649,
+     "rt_bps_max": 16.8766,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "APT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.6542,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 187183.89,
+   "spread_bps_avg": 4.9792,
+   "spread_bps_max": 7.7924,
+   "top1_depth_usd": {
+    "bid": 0.19,
+    "ask": 0.2
+   },
+   "top20_depth_usd": {
+    "bid": 70636.09,
+    "ask": 95847.63
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.5357,
+    "spread_in_ticks": 3.24
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 26645.35,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ARB": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.4098,
+    "rt_bps_max": 9.7674,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.4098,
+     "rt_bps_max": 9.7674,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.4808,
+     "rt_bps_max": 9.7674,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ARB-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.16384,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 1104460.02,
+   "spread_bps_avg": 3.04,
+   "spread_bps_max": 9.7674,
+   "top1_depth_usd": {
+    "bid": 4.93,
+    "ask": 4.99
+   },
+   "top20_depth_usd": {
+    "bid": 20379.09,
+    "ask": 22811.76
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.6192,
+    "spread_in_ticks": 4.91
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1014.676,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ATH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.6413,
+    "rt_bps_max": 18.3468,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.6413,
+     "rt_bps_max": 18.3468,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.0147,
+     "rt_bps_max": 18.3468,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ATH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.004901,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 84332.0,
+   "spread_bps_avg": 9.9227,
+   "spread_bps_max": 18.3468,
+   "top1_depth_usd": {
+    "bid": 0.5,
+    "ask": 5.02
+   },
+   "top20_depth_usd": {
+    "bid": 20777.47,
+    "ask": 24172.66
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 2.0173,
+    "spread_in_ticks": 4.92
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 10092.854,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ATOM": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.4014,
+    "rt_bps_max": 21.1193,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.4014,
+     "rt_bps_max": 21.1193,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.4042,
+     "rt_bps_max": 21.1193,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ATOM-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.851,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 1166276.23,
+   "spread_bps_avg": 12.1882,
+   "spread_bps_max": 21.1193,
+   "top1_depth_usd": {
+    "bid": 121.84,
+    "ask": 1.88
+   },
+   "top20_depth_usd": {
+    "bid": 651014.59,
+    "ask": 702908.61
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 5.3218,
+    "spread_in_ticks": 2.29
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 2656.748,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AVAX": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.3401,
+    "rt_bps_max": 5.0264,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.3401,
+     "rt_bps_max": 5.0264,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.3476,
+     "rt_bps_max": 5.0264,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AVAX-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 7.984,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 3024758.36,
+   "spread_bps_avg": 3.2058,
+   "spread_bps_max": 5.0264,
+   "top1_depth_usd": {
+    "bid": 2196.43,
+    "ask": 7.18
+   },
+   "top20_depth_usd": {
+    "bid": 326717.98,
+    "ask": 393720.32
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.2605,
+    "spread_in_ticks": 2.54
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 696.796,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "AXS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.2579,
+    "rt_bps_max": 9.6344,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.2579,
+     "rt_bps_max": 9.6344,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.4334,
+     "rt_bps_max": 9.6344,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "AXS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.958,
+   "contract_value": 0.1,
+   "tick_size": 0.0001,
+   "vol24h_usd": 6018.54,
+   "spread_bps_avg": 3.9405,
+   "spread_bps_max": 9.6344,
+   "top1_depth_usd": {
+    "bid": 81.05,
+    "ask": 8.52
+   },
+   "top20_depth_usd": {
+    "bid": 15009.8,
+    "ask": 27005.2
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.051,
+    "spread_in_ticks": 3.75
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 587.1,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BANANA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.7098,
+    "rt_bps_max": 19.7336,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.7098,
+     "rt_bps_max": 19.7336,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.1643,
+     "rt_bps_max": 19.7336,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BANANA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 4.052,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 48156.8,
+   "spread_bps_avg": 11.0512,
+   "spread_bps_max": 19.7336,
+   "top1_depth_usd": {
+    "bid": 5.4,
+    "ask": 11.54
+   },
+   "top20_depth_usd": {
+    "bid": 19956.81,
+    "ask": 20980.98
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 2.4566,
+    "spread_in_ticks": 4.5
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 925.223,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BCH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 2.1548,
+    "rt_bps_max": 3.8715,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 2.1548,
+     "rt_bps_max": 3.8715,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 2.2025,
+     "rt_bps_max": 3.8715,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BCH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 259.15,
+   "contract_value": 0.1,
+   "tick_size": 0.01,
+   "vol24h_usd": 2634283.07,
+   "spread_bps_avg": 2.0927,
+   "spread_bps_max": 3.8715,
+   "top1_depth_usd": {
+    "bid": 25.81,
+    "ask": 129.25
+   },
+   "top20_depth_usd": {
+    "bid": 14035.56,
+    "ask": 16536.8
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.3888,
+    "spread_in_ticks": 5.38
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 193.761,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BLUAI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.911,
+    "rt_bps_max": 18.6888,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.911,
+     "rt_bps_max": 18.6888,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.9419,
+     "rt_bps_max": 18.9437,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BLUAI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.011565,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 55760.99,
+   "spread_bps_avg": 5.8022,
+   "spread_bps_max": 17.685,
+   "top1_depth_usd": {
+    "bid": 5.43,
+    "ask": 4.98
+   },
+   "top20_depth_usd": {
+    "bid": 1379.51,
+    "ask": 1671.46
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 0.8819,
+    "spread_in_ticks": 6.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1003.943,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BNB": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 0.8458,
+    "rt_bps_max": 2.6611,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 0.8458,
+     "rt_bps_max": 2.6611,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 0.8458,
+     "rt_bps_max": 2.6611,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BNB-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 756.06,
+   "contract_value": 0.01,
+   "tick_size": 0.01,
+   "vol24h_usd": 2722262.08,
+   "spread_bps_avg": 0.8458,
+   "spread_bps_max": 2.6611,
+   "top1_depth_usd": {
+    "bid": 111.51,
+    "ask": 301.68
+   },
+   "top20_depth_usd": {
+    "bid": 89161.19,
+    "ask": 90270.12
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.1342,
+    "spread_in_ticks": 6.3
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 44.839,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "BSB": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.9299,
+    "rt_bps_max": 20.041,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.9299,
+     "rt_bps_max": 20.041,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.306,
+     "rt_bps_max": 20.041,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BSB-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.10489,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 25007.87,
+   "spread_bps_avg": 9.1678,
+   "spread_bps_max": 20.041,
+   "top1_depth_usd": {
+    "bid": 20.3,
+    "ask": 5.23
+   },
+   "top20_depth_usd": {
+    "bid": 6480.39,
+    "ask": 5163.54
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.9699,
+    "spread_in_ticks": 9.45
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 955.84,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BSV": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 17.3313,
+    "rt_bps_max": 25.3376,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 17.3313,
+     "rt_bps_max": 25.3376,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 17.3868,
+     "rt_bps_max": 26.6698,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BSV-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 17.15,
+   "contract_value": 1.0,
+   "tick_size": 0.01,
+   "vol24h_usd": 196069.09,
+   "spread_bps_avg": 17.0089,
+   "spread_bps_max": 24.0529,
+   "top1_depth_usd": {
+    "bid": 17.03,
+    "ask": 100.62
+   },
+   "top20_depth_usd": {
+    "bid": 113527.57,
+    "ask": 94418.36
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 5.9145,
+    "spread_in_ticks": 2.88
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 293.6,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "BTC": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 0.4621,
+    "rt_bps_max": 1.2855,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 0.4621,
+     "rt_bps_max": 1.2855,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 0.4621,
+     "rt_bps_max": 1.2855,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "BTC-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 78650.1,
+   "contract_value": 0.001,
+   "tick_size": 0.1,
+   "vol24h_usd": 222847059.63,
+   "spread_bps_avg": 0.4621,
+   "spread_bps_max": 1.2855,
+   "top1_depth_usd": {
+    "bid": 78.04,
+    "ask": 78.76
+   },
+   "top20_depth_usd": {
+    "bid": 1814.33,
+    "ask": 69921.07
+   },
+   "tick_check": {
+    "tick_size": 0.1,
+    "tick_bps": 0.0127,
+    "spread_in_ticks": 36.41
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 64.073,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "CETUS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 16.5867,
+    "rt_bps_max": 21.8866,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 16.5867,
+     "rt_bps_max": 21.8866,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 17.3734,
+     "rt_bps_max": 21.8866,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "CETUS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.02287,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 20191.69,
+   "spread_bps_avg": 15.8173,
+   "spread_bps_max": 21.8866,
+   "top1_depth_usd": {
+    "bid": 22.57,
+    "ask": 7.77
+   },
+   "top20_depth_usd": {
+    "bid": 36133.49,
+    "ask": 63125.71
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 4.3684,
+    "spread_in_ticks": 3.62
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 643.865,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "COLLECT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 19.7009,
+    "rt_bps_max": 43.095,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 19.7009,
+     "rt_bps_max": 43.095,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 20.218,
+     "rt_bps_max": 43.095,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "COLLECT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.02561,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 131284.54,
+   "spread_bps_avg": 18.6159,
+   "spread_bps_max": 43.095,
+   "top1_depth_usd": {
+    "bid": 10.22,
+    "ask": 5.35
+   },
+   "top20_depth_usd": {
+    "bid": 15871.29,
+    "ask": 9729.81
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 4.1624,
+    "spread_in_ticks": 4.47
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 934.44,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "DEXE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.4322,
+    "rt_bps_max": 16.0043,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.4322,
+     "rt_bps_max": 16.0043,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.4322,
+     "rt_bps_max": 16.0043,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "DEXE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.946,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 33145.83,
+   "spread_bps_avg": 12.4322,
+   "spread_bps_max": 16.0043,
+   "top1_depth_usd": {
+    "bid": 346.84,
+    "ask": 109.55
+   },
+   "top20_depth_usd": {
+    "bid": 74831.54,
+    "ask": 108668.17
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 5.2373,
+    "spread_in_ticks": 2.37
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 45.64,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "DOGE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.1196,
+    "rt_bps_max": 6.6386,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.1196,
+     "rt_bps_max": 6.6386,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.1196,
+     "rt_bps_max": 6.6386,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "DOGE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.09053,
+   "contract_value": 1000.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 8416125.98,
+   "spread_bps_avg": 3.1196,
+   "spread_bps_max": 6.6386,
+   "top1_depth_usd": {
+    "bid": 706.01,
+    "ask": 15665.15
+   },
+   "top20_depth_usd": {
+    "bid": 1164820.34,
+    "ask": 1369501.98
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.1193,
+    "spread_in_ticks": 2.79
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 7.082,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "DOT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.6539,
+    "rt_bps_max": 8.9952,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.6539,
+     "rt_bps_max": 8.9952,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.6539,
+     "rt_bps_max": 8.9952,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "DOT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.2101,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 2429919.16,
+   "spread_bps_avg": 3.6539,
+   "spread_bps_max": 8.9952,
+   "top1_depth_usd": {
+    "bid": 125.11,
+    "ask": 85.5
+   },
+   "top20_depth_usd": {
+    "bid": 147186.35,
+    "ask": 109987.99
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 0.8621,
+    "spread_in_ticks": 4.24
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 58.476,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "DRIFT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 26.3579,
+    "rt_bps_max": 40.2478,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 26.3579,
+     "rt_bps_max": 40.2478,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 26.5744,
+     "rt_bps_max": 41.5244,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "DRIFT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01216,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 27650.58,
+   "spread_bps_avg": 25.0434,
+   "spread_bps_max": 33.4448,
+   "top1_depth_usd": {
+    "bid": 52.56,
+    "ask": 4.67
+   },
+   "top20_depth_usd": {
+    "bid": 55761.81,
+    "ask": 39030.0
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 8.3565,
+    "spread_in_ticks": 3.0
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1070.893,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ENA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.8693,
+    "rt_bps_max": 14.1065,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.8693,
+     "rt_bps_max": 14.1065,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.8718,
+     "rt_bps_max": 14.1065,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ENA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.16008,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 1722420.62,
+   "spread_bps_avg": 4.7986,
+   "spread_bps_max": 14.1065,
+   "top1_depth_usd": {
+    "bid": 4.8,
+    "ask": 495.4
+   },
+   "top20_depth_usd": {
+    "bid": 43827.43,
+    "ask": 53951.86
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.6259,
+    "spread_in_ticks": 7.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1042.514,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ENJ": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.3365,
+    "rt_bps_max": 18.4877,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.3365,
+     "rt_bps_max": 18.4877,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.8773,
+     "rt_bps_max": 18.4877,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ENJ-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.0272,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 6767.58,
+   "spread_bps_avg": 10.6248,
+   "spread_bps_max": 18.4877,
+   "top1_depth_usd": {
+    "bid": 22.34,
+    "ask": 10.12
+   },
+   "top20_depth_usd": {
+    "bid": 55521.45,
+    "ask": 77265.45
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 3.6932,
+    "spread_in_ticks": 2.88
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 494.096,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ENS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.6648,
+    "rt_bps_max": 12.1198,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.6648,
+     "rt_bps_max": 12.1198,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.9058,
+     "rt_bps_max": 12.7329,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ENS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 6.216,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 163395.64,
+   "spread_bps_avg": 6.5538,
+   "spread_bps_max": 11.3095,
+   "top1_depth_usd": {
+    "bid": 5.37,
+    "ask": 8.43
+   },
+   "top20_depth_usd": {
+    "bid": 13709.41,
+    "ask": 25799.17
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.6589,
+    "spread_in_ticks": 3.95
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 931.047,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ETC": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.781,
+    "rt_bps_max": 12.6677,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.781,
+     "rt_bps_max": 12.6677,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.781,
+     "rt_bps_max": 12.6677,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ETC-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 8.769,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 739203.02,
+   "spread_bps_avg": 3.781,
+   "spread_bps_max": 12.6677,
+   "top1_depth_usd": {
+    "bid": 119.48,
+    "ask": 192.54
+   },
+   "top20_depth_usd": {
+    "bid": 80892.31,
+    "ask": 93289.58
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.1967,
+    "spread_in_ticks": 3.16
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 41.849,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "ETH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 0.6577,
+    "rt_bps_max": 5.0792,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 0.6577,
+     "rt_bps_max": 5.0792,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 0.66,
+     "rt_bps_max": 5.0792,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ETH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 2491.8,
+   "contract_value": 0.01,
+   "tick_size": 0.01,
+   "vol24h_usd": 61242824.99,
+   "spread_bps_avg": 0.6543,
+   "spread_bps_max": 5.0792,
+   "top1_depth_usd": {
+    "bid": 24.89,
+    "ask": 24.68
+   },
+   "top20_depth_usd": {
+    "bid": 295744.4,
+    "ask": 67582.76
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.0402,
+    "spread_in_ticks": 16.29
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 202.577,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ETHFI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 5.1188,
+    "rt_bps_max": 16.2311,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 5.1188,
+     "rt_bps_max": 16.2311,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 5.2475,
+     "rt_bps_max": 16.2311,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ETHFI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.6007,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 667300.81,
+   "spread_bps_avg": 4.9073,
+   "spread_bps_max": 16.2311,
+   "top1_depth_usd": {
+    "bid": 21.65,
+    "ask": 4.95
+   },
+   "top20_depth_usd": {
+    "bid": 67048.46,
+    "ask": 67600.15
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.6348,
+    "spread_in_ticks": 3.0
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1010.673,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "EUL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.1308,
+    "rt_bps_max": 22.3517,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.1308,
+     "rt_bps_max": 22.3517,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.8492,
+     "rt_bps_max": 22.3517,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "EUL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.2663,
+   "contract_value": 0.1,
+   "tick_size": 0.0001,
+   "vol24h_usd": 5383.42,
+   "spread_bps_avg": 4.5039,
+   "spread_bps_max": 22.3517,
+   "top1_depth_usd": {
+    "bid": 4.93,
+    "ask": 4.89
+   },
+   "top20_depth_usd": {
+    "bid": 2409.82,
+    "ask": 4113.89
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 0.7947,
+    "spread_in_ticks": 5.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1022.288,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "FARTCOIN": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 15.3534,
+    "rt_bps_max": 20.5409,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 15.3534,
+     "rt_bps_max": 20.5409,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.3534,
+     "rt_bps_max": 20.5409,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "FARTCOIN-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.1673,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 1222716.9,
+   "spread_bps_avg": 15.3534,
+   "spread_bps_max": 20.5409,
+   "top1_depth_usd": {
+    "bid": 374.86,
+    "ask": 349.57
+   },
+   "top20_depth_usd": {
+    "bid": 485573.36,
+    "ask": 346212.16
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 6.166,
+    "spread_in_ticks": 2.49
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 14.303,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "FIL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.2131,
+    "rt_bps_max": 7.2072,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.2131,
+     "rt_bps_max": 7.2072,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.2527,
+     "rt_bps_max": 7.2072,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "FIL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.8497,
+   "contract_value": 0.1,
+   "tick_size": 0.0001,
+   "vol24h_usd": 559783.21,
+   "spread_bps_avg": 3.1842,
+   "spread_bps_max": 7.2072,
+   "top1_depth_usd": {
+    "bid": 80.11,
+    "ask": 32.53
+   },
+   "top20_depth_usd": {
+    "bid": 211637.7,
+    "ask": 325443.45
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.1941,
+    "spread_in_ticks": 2.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 153.713,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "GALA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.9912,
+    "rt_bps_max": 16.5153,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.9912,
+     "rt_bps_max": 16.5153,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.9912,
+     "rt_bps_max": 16.5153,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "GALA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.001898,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 53765.8,
+   "spread_bps_avg": 12.9912,
+   "spread_bps_max": 16.5153,
+   "top1_depth_usd": {
+    "bid": 120.48,
+    "ask": 229.33
+   },
+   "top20_depth_usd": {
+    "bid": 525456.68,
+    "ask": 369464.08
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 5.3862,
+    "spread_in_ticks": 2.41
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 41.501,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "GAS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 20.6329,
+    "rt_bps_max": 31.6456,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 20.6329,
+     "rt_bps_max": 31.6456,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 20.6607,
+     "rt_bps_max": 31.6456,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "GAS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.267,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 13641.79,
+   "spread_bps_avg": 20.0608,
+   "spread_bps_max": 31.6456,
+   "top1_depth_usd": {
+    "bid": 222.77,
+    "ask": 6.36
+   },
+   "top20_depth_usd": {
+    "bid": 129637.99,
+    "ask": 78352.54
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 7.8954,
+    "spread_in_ticks": 2.54
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 786.164,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "GMX": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.6308,
+    "rt_bps_max": 14.404,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.6308,
+     "rt_bps_max": 14.404,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.2055,
+     "rt_bps_max": 14.5518,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "GMX-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 8.325,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 71888.87,
+   "spread_bps_avg": 7.0952,
+   "spread_bps_max": 14.404,
+   "top1_depth_usd": {
+    "bid": 19.14,
+    "ask": 4.93
+   },
+   "top20_depth_usd": {
+    "bid": 5071.42,
+    "ask": 5365.34
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.2247,
+    "spread_in_ticks": 5.79
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1013.294,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "GRASS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.1033,
+    "rt_bps_max": 21.6275,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.1033,
+     "rt_bps_max": 21.6275,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.1816,
+     "rt_bps_max": 21.6275,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "GRASS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.3323,
+   "contract_value": 10.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 78164.27,
+   "spread_bps_avg": 10.4619,
+   "spread_bps_max": 21.6275,
+   "top1_depth_usd": {
+    "bid": 3.74,
+    "ask": 71.48
+   },
+   "top20_depth_usd": {
+    "bid": 95446.66,
+    "ask": 128190.16
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 2.796,
+    "spread_in_ticks": 3.74
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1337.256,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "HOME": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.0327,
+    "rt_bps_max": 10.1042,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.0327,
+     "rt_bps_max": 10.1042,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.2019,
+     "rt_bps_max": 10.1308,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "HOME-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.006029,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 8256.84,
+   "spread_bps_avg": 4.6265,
+   "spread_bps_max": 8.3299,
+   "top1_depth_usd": {
+    "bid": 0.47,
+    "ask": 0.48
+   },
+   "top20_depth_usd": {
+    "bid": 32894.23,
+    "ask": 22797.27
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.6833,
+    "spread_in_ticks": 2.75
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 10609.404,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "HYPE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 1.0401,
+    "rt_bps_max": 3.7187,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 1.0401,
+     "rt_bps_max": 3.7187,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 1.0409,
+     "rt_bps_max": 3.7187,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "HYPE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 85.639,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 17377437.68,
+   "spread_bps_avg": 1.0281,
+   "spread_bps_max": 3.7187,
+   "top1_depth_usd": {
+    "bid": 8.59,
+    "ask": 404.51
+   },
+   "top20_depth_usd": {
+    "bid": 28397.05,
+    "ask": 21196.25
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 0.1168,
+    "spread_in_ticks": 8.8
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 581.842,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ICP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.5928,
+    "rt_bps_max": 21.0011,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.5928,
+     "rt_bps_max": 21.0011,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.602,
+     "rt_bps_max": 21.0011,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ICP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 2.913,
+   "contract_value": 0.01,
+   "tick_size": 0.001,
+   "vol24h_usd": 728727.32,
+   "spread_bps_avg": 9.1849,
+   "spread_bps_max": 21.0011,
+   "top1_depth_usd": {
+    "bid": 3.18,
+    "ask": 733.77
+   },
+   "top20_depth_usd": {
+    "bid": 405385.48,
+    "ask": 420194.72
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 3.4986,
+    "spread_in_ticks": 2.63
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1570.061,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "INJ": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.4217,
+    "rt_bps_max": 14.095,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.4217,
+     "rt_bps_max": 14.095,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.5411,
+     "rt_bps_max": 14.8751,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "INJ-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 6.519,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 3157811.42,
+   "spread_bps_avg": 6.4047,
+   "spread_bps_max": 12.2888,
+   "top1_depth_usd": {
+    "bid": 81.29,
+    "ask": 7.91
+   },
+   "top20_depth_usd": {
+    "bid": 35141.72,
+    "ask": 61867.38
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.6038,
+    "spread_in_ticks": 3.99
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 632.071,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "IRYS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 21.5133,
+    "rt_bps_max": 32.116,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 21.5133,
+     "rt_bps_max": 32.116,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 22.2827,
+     "rt_bps_max": 36.6014,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "IRYS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01478,
+   "contract_value": 100.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 13075.87,
+   "spread_bps_avg": 20.1307,
+   "spread_bps_max": 26.738,
+   "top1_depth_usd": {
+    "bid": 13.35,
+    "ask": 5.91
+   },
+   "top20_depth_usd": {
+    "bid": 32533.3,
+    "ask": 17321.63
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 6.7163,
+    "spread_in_ticks": 3.0
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 845.737,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "JELLYJELLY": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.9387,
+    "rt_bps_max": 21.0637,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.9387,
+     "rt_bps_max": 21.0637,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.0808,
+     "rt_bps_max": 21.6178,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "JELLYJELLY-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.05696,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 10635.0,
+   "spread_bps_avg": 11.0999,
+   "spread_bps_max": 21.0637,
+   "top1_depth_usd": {
+    "bid": 4.54,
+    "ask": 41.61
+   },
+   "top20_depth_usd": {
+    "bid": 10091.64,
+    "ask": 9115.19
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.7882,
+    "spread_in_ticks": 6.21
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1101.904,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "JUP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.6142,
+    "rt_bps_max": 19.3187,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.6142,
+     "rt_bps_max": 19.3187,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 10.7126,
+     "rt_bps_max": 19.6986,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "JUP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.2445,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 703627.97,
+   "spread_bps_avg": 8.1733,
+   "spread_bps_max": 12.8562,
+   "top1_depth_usd": {
+    "bid": 4.59,
+    "ask": 4.6
+   },
+   "top20_depth_usd": {
+    "bid": 280823.75,
+    "ask": 355946.72
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 4.0859,
+    "spread_in_ticks": 2.0
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1088.329,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "KAITO": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.8643,
+    "rt_bps_max": 14.2524,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.8643,
+     "rt_bps_max": 14.2524,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.0273,
+     "rt_bps_max": 14.5992,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "KAITO-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.3285,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 39553.37,
+   "spread_bps_avg": 7.5289,
+   "spread_bps_max": 9.8248,
+   "top1_depth_usd": {
+    "bid": 35.52,
+    "ask": 8.5
+   },
+   "top20_depth_usd": {
+    "bid": 137922.47,
+    "ask": 171252.96
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 3.0673,
+    "spread_in_ticks": 2.45
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 587.917,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "KAS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.3988,
+    "rt_bps_max": 22.4845,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.3988,
+     "rt_bps_max": 22.4845,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 10.5168,
+     "rt_bps_max": 22.4845,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "KAS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.03601,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 788737.26,
+   "spread_bps_avg": 10.2451,
+   "spread_bps_max": 22.4845,
+   "top1_depth_usd": {
+    "bid": 27.89,
+    "ask": 195.72
+   },
+   "top20_depth_usd": {
+    "bid": 55024.33,
+    "ask": 44391.7
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.7924,
+    "spread_in_ticks": 3.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 179.279,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "LDO": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.8271,
+    "rt_bps_max": 13.3636,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.8271,
+     "rt_bps_max": 13.3636,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.9735,
+     "rt_bps_max": 13.3636,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "LDO-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.3869,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 155870.79,
+   "spread_bps_avg": 8.4974,
+   "spread_bps_max": 13.3636,
+   "top1_depth_usd": {
+    "bid": 33.39,
+    "ask": 4.95
+   },
+   "top20_depth_usd": {
+    "bid": 162562.39,
+    "ask": 155394.08
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 2.6117,
+    "spread_in_ticks": 3.25
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1009.754,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "LIGHT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 15.342,
+    "rt_bps_max": 22.5225,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 15.342,
+     "rt_bps_max": 22.5225,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.4279,
+     "rt_bps_max": 22.5225,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "LIGHT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.1783,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 4989.37,
+   "spread_bps_avg": 15.2161,
+   "spread_bps_max": 22.5225,
+   "top1_depth_usd": {
+    "bid": 68.03,
+    "ask": 24.82
+   },
+   "top20_depth_usd": {
+    "bid": 29835.72,
+    "ask": 33323.06
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 5.8105,
+    "spread_in_ticks": 2.62
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 201.423,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "LINK": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.5264,
+    "rt_bps_max": 22.7041,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.5264,
+     "rt_bps_max": 22.7041,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.5478,
+     "rt_bps_max": 22.7641,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "LINK-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 12.493,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 5813582.57,
+   "spread_bps_avg": 2.8842,
+   "spread_bps_max": 15.5286,
+   "top1_depth_usd": {
+    "bid": 2.49,
+    "ask": 1.22
+   },
+   "top20_depth_usd": {
+    "bid": 248527.94,
+    "ask": 266791.17
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 0.8217,
+    "spread_in_ticks": 3.51
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 4083.299,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "LTC": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.21,
+    "rt_bps_max": 5.6417,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.21,
+     "rt_bps_max": 5.6417,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.2211,
+     "rt_bps_max": 5.6417,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "LTC-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 54.3,
+   "contract_value": 1.0,
+   "tick_size": 0.01,
+   "vol24h_usd": 4298331.53,
+   "spread_bps_avg": 4.0889,
+   "spread_bps_max": 5.6417,
+   "top1_depth_usd": {
+    "bid": 10.79,
+    "ask": 107.04
+   },
+   "top20_depth_usd": {
+    "bid": 739721.89,
+    "ask": 1042390.13
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 1.8514,
+    "spread_in_ticks": 2.21
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 463.22,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "LUNA2": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.7428,
+    "rt_bps_max": 14.5455,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.7428,
+     "rt_bps_max": 14.5455,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.0008,
+     "rt_bps_max": 14.5455,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "LUNA2-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.04848,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 10501.35,
+   "spread_bps_avg": 8.6245,
+   "spread_bps_max": 14.5455,
+   "top1_depth_usd": {
+    "bid": 30.78,
+    "ask": 57.83
+   },
+   "top20_depth_usd": {
+    "bid": 27266.17,
+    "ask": 50055.99
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.0883,
+    "spread_in_ticks": 4.13
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 162.423,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "M": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.6632,
+    "rt_bps_max": 24.3677,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.6632,
+     "rt_bps_max": 24.3677,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.2568,
+     "rt_bps_max": 24.634,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "M-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.23,
+   "contract_value": 10.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 229483.56,
+   "spread_bps_avg": 7.7021,
+   "spread_bps_max": 24.3278,
+   "top1_depth_usd": {
+    "bid": 11.79,
+    "ask": 11.81
+   },
+   "top20_depth_usd": {
+    "bid": 5668.03,
+    "ask": 5147.7
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 0.8367,
+    "spread_in_ticks": 9.21
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 424.124,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "MANA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.1214,
+    "rt_bps_max": 12.3195,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.1214,
+     "rt_bps_max": 12.3195,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.2618,
+     "rt_bps_max": 12.3195,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "MANA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.07622,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 18394.17,
+   "spread_bps_avg": 5.4423,
+   "spread_bps_max": 12.3195,
+   "top1_depth_usd": {
+    "bid": 9.87,
+    "ask": 15.85
+   },
+   "top20_depth_usd": {
+    "bid": 23719.08,
+    "ask": 34360.55
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.3281,
+    "spread_in_ticks": 4.1
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 506.806,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "MERL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 13.7707,
+    "rt_bps_max": 26.8697,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 13.7707,
+     "rt_bps_max": 26.8697,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 14.1014,
+     "rt_bps_max": 26.8697,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "MERL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.02319,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 2015.74,
+   "spread_bps_avg": 13.6052,
+   "spread_bps_max": 26.8697,
+   "top1_depth_usd": {
+    "bid": 5.51,
+    "ask": 61.27
+   },
+   "top20_depth_usd": {
+    "bid": 66694.06,
+    "ask": 53265.39
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 4.4155,
+    "spread_in_ticks": 3.08
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 907.78,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "MET": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.9629,
+    "rt_bps_max": 18.8748,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.9629,
+     "rt_bps_max": 18.8748,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.0007,
+     "rt_bps_max": 19.1079,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "MET-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.1941,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 12713.16,
+   "spread_bps_avg": 10.7882,
+   "spread_bps_max": 15.5804,
+   "top1_depth_usd": {
+    "bid": 7.15,
+    "ask": 64.69
+   },
+   "top20_depth_usd": {
+    "bid": 84238.5,
+    "ask": 82360.09
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 4.9633,
+    "spread_in_ticks": 2.17
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 699.594,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "MITO": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 17.7935,
+    "rt_bps_max": 39.0371,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 17.7935,
+     "rt_bps_max": 39.0371,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 17.8023,
+     "rt_bps_max": 39.0371,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "MITO-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.0151,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 21649.02,
+   "spread_bps_avg": 17.5491,
+   "spread_bps_max": 39.0371,
+   "top1_depth_usd": {
+    "bid": 4.92,
+    "ask": 111.27
+   },
+   "top20_depth_usd": {
+    "bid": 32592.61,
+    "ask": 49686.44
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 6.8133,
+    "spread_in_ticks": 2.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1017.253,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "MNT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.5655,
+    "rt_bps_max": 17.146,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.5655,
+     "rt_bps_max": 17.146,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.6897,
+     "rt_bps_max": 17.146,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "MNT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.6338,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 61898.18,
+   "spread_bps_avg": 6.2285,
+   "spread_bps_max": 17.146,
+   "top1_depth_usd": {
+    "bid": 55.83,
+    "ask": 6.4
+   },
+   "top20_depth_usd": {
+    "bid": 36775.51,
+    "ask": 35679.8
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.5922,
+    "spread_in_ticks": 3.91
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 781.739,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "NAORIS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 18.9575,
+    "rt_bps_max": 36.3078,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 18.9575,
+     "rt_bps_max": 36.3078,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 19.9389,
+     "rt_bps_max": 36.3078,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "NAORIS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.0397,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 56338.27,
+   "spread_bps_avg": 16.3864,
+   "spread_bps_max": 36.3078,
+   "top1_depth_usd": {
+    "bid": 4.53,
+    "ask": 4.84
+   },
+   "top20_depth_usd": {
+    "bid": 7885.91,
+    "ask": 5605.6
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.7008,
+    "spread_in_ticks": 6.07
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1104.582,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "NEAR": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.1162,
+    "rt_bps_max": 26.8456,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.1162,
+     "rt_bps_max": 26.8456,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.7963,
+     "rt_bps_max": 26.8456,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "NEAR-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 2.344,
+   "contract_value": 10.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 4720935.54,
+   "spread_bps_avg": 10.5478,
+   "spread_bps_max": 26.8456,
+   "top1_depth_usd": {
+    "bid": 9.94,
+    "ask": 7.76
+   },
+   "top20_depth_usd": {
+    "bid": 784777.27,
+    "ask": 884610.88
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 4.0449,
+    "spread_in_ticks": 2.61
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 643.998,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "NOM": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.1856,
+    "rt_bps_max": 27.1219,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.1856,
+     "rt_bps_max": 27.1219,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 14.2029,
+     "rt_bps_max": 27.5375,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "NOM-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.001728,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 9074.85,
+   "spread_bps_avg": 13.7647,
+   "spread_bps_max": 18.0018,
+   "top1_depth_usd": {
+    "bid": 5.49,
+    "ask": 82.75
+   },
+   "top20_depth_usd": {
+    "bid": 29067.73,
+    "ask": 35282.27
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 5.689,
+    "spread_in_ticks": 2.42
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 910.031,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ONDO": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.7609,
+    "rt_bps_max": 13.0675,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.7609,
+     "rt_bps_max": 13.0675,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.8963,
+     "rt_bps_max": 13.1775,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ONDO-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.3751,
+   "contract_value": 0.1,
+   "tick_size": 0.0001,
+   "vol24h_usd": 2024642.61,
+   "spread_bps_avg": 5.8265,
+   "spread_bps_max": 10.7181,
+   "top1_depth_usd": {
+    "bid": 10.65,
+    "ask": 6.14
+   },
+   "top20_depth_usd": {
+    "bid": 731252.49,
+    "ask": 931060.33
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 2.6896,
+    "spread_in_ticks": 2.17
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 813.941,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "OP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.4637,
+    "rt_bps_max": 11.6618,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.4637,
+     "rt_bps_max": 11.6618,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.5146,
+     "rt_bps_max": 11.6618,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "OP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.10529,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 261604.06,
+   "spread_bps_avg": 4.1673,
+   "spread_bps_max": 11.6618,
+   "top1_depth_usd": {
+    "bid": 17.29,
+    "ask": 16.5
+   },
+   "top20_depth_usd": {
+    "bid": 83197.87,
+    "ask": 79505.32
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.9705,
+    "spread_in_ticks": 4.29
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 303.12,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PENGU": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.4185,
+    "rt_bps_max": 8.8568,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.4185,
+     "rt_bps_max": 8.8568,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.4185,
+     "rt_bps_max": 8.8568,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PENGU-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.008104,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 1905202.59,
+   "spread_bps_avg": 4.4185,
+   "spread_bps_max": 8.8568,
+   "top1_depth_usd": {
+    "bid": 182.49,
+    "ask": 255.18
+   },
+   "top20_depth_usd": {
+    "bid": 94889.86,
+    "ask": 154483.64
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.2472,
+    "spread_in_ticks": 3.54
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 27.399,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "PEPE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.7699,
+    "rt_bps_max": 16.4114,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.7699,
+     "rt_bps_max": 16.4114,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.7699,
+     "rt_bps_max": 16.4114,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PEPE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 3.707e-06,
+   "contract_value": 10000000.0,
+   "tick_size": 1e-09,
+   "vol24h_usd": 4742283.18,
+   "spread_bps_avg": 6.7699,
+   "spread_bps_max": 16.4114,
+   "top1_depth_usd": {
+    "bid": 139.0,
+    "ask": 8106.62
+   },
+   "top20_depth_usd": {
+    "bid": 1423751.42,
+    "ask": 865803.35
+   },
+   "tick_check": {
+    "tick_size": 1e-09,
+    "tick_bps": 2.7554,
+    "spread_in_ticks": 2.46
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 35.971,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "PHA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.5159,
+    "rt_bps_max": 26.4026,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.5159,
+     "rt_bps_max": 26.4026,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.7997,
+     "rt_bps_max": 26.4026,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PHA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.02583,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 122614.49,
+   "spread_bps_avg": 12.3011,
+   "spread_bps_max": 26.4026,
+   "top1_depth_usd": {
+    "bid": 21.81,
+    "ask": 100.7
+   },
+   "top20_depth_usd": {
+    "bid": 24299.82,
+    "ask": 14488.98
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 3.5556,
+    "spread_in_ticks": 3.46
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 229.265,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PIPPIN": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.8877,
+    "rt_bps_max": 20.5444,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.8877,
+     "rt_bps_max": 20.5444,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.971,
+     "rt_bps_max": 20.5444,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PIPPIN-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01928,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 32795.86,
+   "spread_bps_avg": 11.7103,
+   "spread_bps_max": 20.5444,
+   "top1_depth_usd": {
+    "bid": 9.51,
+    "ask": 50.99
+   },
+   "top20_depth_usd": {
+    "bid": 50146.04,
+    "ask": 28544.56
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 5.2094,
+    "spread_in_ticks": 2.25
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 525.762,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PNUT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.2906,
+    "rt_bps_max": 17.8696,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.2906,
+     "rt_bps_max": 17.8696,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.6045,
+     "rt_bps_max": 18.2536,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PNUT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.04993,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 11297.91,
+   "spread_bps_avg": 7.5144,
+   "spread_bps_max": 17.8696,
+   "top1_depth_usd": {
+    "bid": 19.52,
+    "ask": 20.26
+   },
+   "top20_depth_usd": {
+    "bid": 10705.0,
+    "ask": 12797.25
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.0021,
+    "spread_in_ticks": 3.75
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 256.103,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "POL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.2317,
+    "rt_bps_max": 10.4268,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.2317,
+     "rt_bps_max": 10.4268,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.3606,
+     "rt_bps_max": 10.7467,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "POL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.0951,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 162909.15,
+   "spread_bps_avg": 3.4454,
+   "spread_bps_max": 8.1227,
+   "top1_depth_usd": {
+    "bid": 7.73,
+    "ask": 4.82
+   },
+   "top20_depth_usd": {
+    "bid": 35112.46,
+    "ask": 112098.89
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.0341,
+    "spread_in_ticks": 3.33
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1037.129,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PORTAL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 17.7971,
+    "rt_bps_max": 29.1971,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 17.7971,
+     "rt_bps_max": 29.1971,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 18.0996,
+     "rt_bps_max": 29.1971,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PORTAL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01642,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 31269.12,
+   "spread_bps_avg": 17.4572,
+   "spread_bps_max": 29.1971,
+   "top1_depth_usd": {
+    "bid": 27.7,
+    "ask": 38.5
+   },
+   "top20_depth_usd": {
+    "bid": 15417.69,
+    "ask": 14295.31
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 5.9809,
+    "spread_in_ticks": 2.92
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 180.479,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PRL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 32.0383,
+    "rt_bps_max": 42.1053,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 32.0383,
+     "rt_bps_max": 42.1053,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 32.7124,
+     "rt_bps_max": 42.1487,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PRL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.1274,
+   "contract_value": 10.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 27027.91,
+   "spread_bps_avg": 30.4589,
+   "spread_bps_max": 42.1053,
+   "top1_depth_usd": {
+    "bid": 4.74,
+    "ask": 4.75
+   },
+   "top20_depth_usd": {
+    "bid": 22741.58,
+    "ask": 19273.39
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 8.3915,
+    "spread_in_ticks": 3.63
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1053.963,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PTB": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.151,
+    "rt_bps_max": 17.5308,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.151,
+     "rt_bps_max": 17.5308,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.6562,
+     "rt_bps_max": 17.5308,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PTB-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.0007428,
+   "contract_value": 10.0,
+   "tick_size": 1e-07,
+   "vol24h_usd": 13424.19,
+   "spread_bps_avg": 8.5974,
+   "spread_bps_max": 17.5308,
+   "top1_depth_usd": {
+    "bid": 4.99,
+    "ask": 17.16
+   },
+   "top20_depth_usd": {
+    "bid": 4274.83,
+    "ask": 4711.32
+   },
+   "tick_check": {
+    "tick_size": 1e-07,
+    "tick_bps": 1.3834,
+    "spread_in_ticks": 6.21
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1001.156,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "PUMP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.5064,
+    "rt_bps_max": 38.0441,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.5064,
+     "rt_bps_max": 38.0441,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.5295,
+     "rt_bps_max": 38.0441,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PUMP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.004416,
+   "contract_value": 1000.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 5336780.16,
+   "spread_bps_avg": 11.5064,
+   "spread_bps_max": 38.0441,
+   "top1_depth_usd": {
+    "bid": 327.26,
+    "ask": 55.73
+   },
+   "top20_depth_usd": {
+    "bid": 269496.35,
+    "ask": 270064.54
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 2.2274,
+    "spread_in_ticks": 5.17
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 89.722,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "PYTH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.3798,
+    "rt_bps_max": 15.9447,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.3798,
+     "rt_bps_max": 15.9447,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.5663,
+     "rt_bps_max": 15.9447,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "PYTH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.05336,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 47774.81,
+   "spread_bps_avg": 6.5923,
+   "spread_bps_max": 15.9447,
+   "top1_depth_usd": {
+    "bid": 5.52,
+    "ask": 4.48
+   },
+   "top20_depth_usd": {
+    "bid": 37792.48,
+    "ask": 58688.39
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.8398,
+    "spread_in_ticks": 3.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1117.269,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "Q": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.9397,
+    "rt_bps_max": 22.7464,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.9397,
+     "rt_bps_max": 22.7464,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.1643,
+     "rt_bps_max": 22.8865,
+     "migawek_z_pelna_ksiega": 23
+    }
+   },
+   "code": "Q-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.026724,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 86347.92,
+   "spread_bps_avg": 5.0778,
+   "spread_bps_max": 16.7618,
+   "top1_depth_usd": {
+    "bid": 2.56,
+    "ask": 2.54
+   },
+   "top20_depth_usd": {
+    "bid": 491.68,
+    "ask": 53.21
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 0.3839,
+    "spread_in_ticks": 13.23
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1968.349,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "QNT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.4268,
+    "rt_bps_max": 13.2345,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.4268,
+     "rt_bps_max": 13.2345,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.6848,
+     "rt_bps_max": 14.1684,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "QNT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 67.08,
+   "contract_value": 0.1,
+   "tick_size": 0.01,
+   "vol24h_usd": 202094.6,
+   "spread_bps_avg": 4.1424,
+   "spread_bps_max": 11.8853,
+   "top1_depth_usd": {
+    "bid": 2.72,
+    "ask": 2.68
+   },
+   "top20_depth_usd": {
+    "bid": 12928.4,
+    "ask": 15136.25
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 1.4808,
+    "spread_in_ticks": 2.8
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1868.46,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "RENDER": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 15.7255,
+    "rt_bps_max": 20.2634,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 15.7255,
+     "rt_bps_max": 20.2634,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.7255,
+     "rt_bps_max": 20.2634,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "RENDER-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.505,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 492637.52,
+   "spread_bps_avg": 15.7255,
+   "spread_bps_max": 20.2634,
+   "top1_depth_usd": {
+    "bid": 451.61,
+    "ask": 150.17
+   },
+   "top20_depth_usd": {
+    "bid": 820044.77,
+    "ask": 621027.47
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 6.6237,
+    "spread_in_ticks": 2.37
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 33.296,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "REZ": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.6736,
+    "rt_bps_max": 18.7383,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.6736,
+     "rt_bps_max": 18.7383,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.0754,
+     "rt_bps_max": 18.7383,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "REZ-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.003136,
+   "contract_value": 10.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 64522.57,
+   "spread_bps_avg": 9.9765,
+   "spread_bps_max": 18.7383,
+   "top1_depth_usd": {
+    "bid": 14.52,
+    "ask": 15.8
+   },
+   "top20_depth_usd": {
+    "bid": 17895.45,
+    "ask": 25735.23
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 3.146,
+    "spread_in_ticks": 3.17
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 344.3,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "RIVER": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 21.4353,
+    "rt_bps_max": 27.1125,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 21.4353,
+     "rt_bps_max": 27.1125,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 21.4353,
+     "rt_bps_max": 27.1125,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "RIVER-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.257,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 21365.98,
+   "spread_bps_avg": 21.4353,
+   "spread_bps_max": 27.1125,
+   "top1_depth_usd": {
+    "bid": 250.15,
+    "ask": 165.43
+   },
+   "top20_depth_usd": {
+    "bid": 110071.69,
+    "ask": 101549.68
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 8.1612,
+    "spread_in_ticks": 2.63
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 30.225,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "RLC": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.6385,
+    "rt_bps_max": 16.1567,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.6385,
+     "rt_bps_max": 16.1567,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.9046,
+     "rt_bps_max": 16.2808,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "RLC-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.3072,
+   "contract_value": 0.1,
+   "tick_size": 0.0001,
+   "vol24h_usd": 9084.0,
+   "spread_bps_avg": 10.6606,
+   "spread_bps_max": 13.2231,
+   "top1_depth_usd": {
+    "bid": 4.61,
+    "ask": 5.63
+   },
+   "top20_depth_usd": {
+    "bid": 37223.24,
+    "ask": 40230.71
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 3.2794,
+    "spread_in_ticks": 3.25
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1085.423,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "RSR": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 19.1072,
+    "rt_bps_max": 29.6505,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 19.1072,
+     "rt_bps_max": 29.6505,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 19.3071,
+     "rt_bps_max": 31.4752,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "RSR-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.001423,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 36226.59,
+   "spread_bps_avg": 17.81,
+   "spread_bps_max": 21.0748,
+   "top1_depth_usd": {
+    "bid": 13.68,
+    "ask": 5.43
+   },
+   "top20_depth_usd": {
+    "bid": 121539.75,
+    "ask": 107895.28
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 6.8928,
+    "spread_in_ticks": 2.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 920.132,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SAGA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 18.1926,
+    "rt_bps_max": 21.4823,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 18.1926,
+     "rt_bps_max": 21.4823,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 18.1926,
+     "rt_bps_max": 21.4823,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SAGA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01473,
+   "contract_value": 1.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 5553.7,
+   "spread_bps_avg": 18.1926,
+   "spread_bps_max": 21.4823,
+   "top1_depth_usd": {
+    "bid": 109.75,
+    "ask": 112.47
+   },
+   "top20_depth_usd": {
+    "bid": 78044.15,
+    "ask": 100962.85
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 6.8219,
+    "spread_in_ticks": 2.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 45.559,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "SAND": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.6619,
+    "rt_bps_max": 13.0497,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.6619,
+     "rt_bps_max": 13.0497,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.7431,
+     "rt_bps_max": 13.0497,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SAND-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.04045,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 107878.94,
+   "spread_bps_avg": 7.4713,
+   "spread_bps_max": 13.0497,
+   "top1_depth_usd": {
+    "bid": 21.95,
+    "ask": 33.69
+   },
+   "top20_depth_usd": {
+    "bid": 111160.19,
+    "ask": 221008.87
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.5615,
+    "spread_in_ticks": 2.92
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 227.842,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SAPIEN": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.4786,
+    "rt_bps_max": 21.6547,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.4786,
+     "rt_bps_max": 21.6547,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 10.6922,
+     "rt_bps_max": 21.6547,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SAPIEN-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.07973,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 16569.49,
+   "spread_bps_avg": 9.6501,
+   "spread_bps_max": 21.6547,
+   "top1_depth_usd": {
+    "bid": 12.72,
+    "ask": 8.82
+   },
+   "top20_depth_usd": {
+    "bid": 3348.65,
+    "ask": 2128.71
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.2586,
+    "spread_in_ticks": 7.67
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 566.836,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SEI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 5.1385,
+    "rt_bps_max": 10.1843,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 5.1385,
+     "rt_bps_max": 10.1843,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 5.1488,
+     "rt_bps_max": 10.1843,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SEI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.04948,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 467047.66,
+   "spread_bps_avg": 5.1385,
+   "spread_bps_max": 10.1843,
+   "top1_depth_usd": {
+    "bid": 66.25,
+    "ask": 114.25
+   },
+   "top20_depth_usd": {
+    "bid": 153094.2,
+    "ask": 143725.71
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.0228,
+    "spread_in_ticks": 2.54
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 75.474,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "SENT": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 17.072,
+    "rt_bps_max": 21.4977,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 17.072,
+     "rt_bps_max": 21.4977,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 17.1487,
+     "rt_bps_max": 21.4977,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SENT-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.01486,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 38219.77,
+   "spread_bps_avg": 17.072,
+   "spread_bps_max": 21.4977,
+   "top1_depth_usd": {
+    "bid": 154.53,
+    "ask": 60.21
+   },
+   "top20_depth_usd": {
+    "bid": 171331.57,
+    "ask": 166157.52
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 6.9429,
+    "spread_in_ticks": 2.46
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 83.042,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "SHIB": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.8219,
+    "rt_bps_max": 8.3989,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.8219,
+     "rt_bps_max": 8.3989,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.9186,
+     "rt_bps_max": 8.6923,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SHIB-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 5.431e-06,
+   "contract_value": 1000000.0,
+   "tick_size": 1e-09,
+   "vol24h_usd": 250876.36,
+   "spread_bps_avg": 4.1035,
+   "spread_bps_max": 5.6845,
+   "top1_depth_usd": {
+    "bid": 5.81,
+    "ask": 5.28
+   },
+   "top20_depth_usd": {
+    "bid": 208248.76,
+    "ask": 206591.99
+   },
+   "tick_check": {
+    "tick_size": 1e-09,
+    "tick_bps": 1.8597,
+    "spread_in_ticks": 2.21
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 946.253,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SOL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 1.2467,
+    "rt_bps_max": 2.9459,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 1.2467,
+     "rt_bps_max": 2.9459,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 1.2475,
+     "rt_bps_max": 2.9459,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SOL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 103.66,
+   "contract_value": 1.0,
+   "tick_size": 0.01,
+   "vol24h_usd": 48631413.14,
+   "spread_bps_avg": 1.2089,
+   "spread_bps_max": 2.9459,
+   "top1_depth_usd": {
+    "bid": 69850.67,
+    "ask": 3.11
+   },
+   "top20_depth_usd": {
+    "bid": 6648475.25,
+    "ask": 2907964.13
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.967,
+    "spread_in_ticks": 1.25
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1609.684,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SPACE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.874,
+    "rt_bps_max": 17.948,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.874,
+     "rt_bps_max": 17.948,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 10.1161,
+     "rt_bps_max": 17.948,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SPACE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.004996,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 6951.93,
+   "spread_bps_avg": 9.1154,
+   "spread_bps_max": 17.948,
+   "top1_depth_usd": {
+    "bid": 4.99,
+    "ask": 29.34
+   },
+   "top20_depth_usd": {
+    "bid": 11899.49,
+    "ask": 9023.39
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.9899,
+    "spread_in_ticks": 4.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1002.004,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "SUI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 4.0454,
+    "rt_bps_max": 9.0868,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 4.0454,
+     "rt_bps_max": 9.0868,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 4.0465,
+     "rt_bps_max": 9.0868,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "SUI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.8173,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 7825548.61,
+   "spread_bps_avg": 3.8424,
+   "spread_bps_max": 9.0868,
+   "top1_depth_usd": {
+    "bid": 0.81,
+    "ask": 192.68
+   },
+   "top20_depth_usd": {
+    "bid": 259485.71,
+    "ask": 379216.32
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 1.2434,
+    "spread_in_ticks": 3.09
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 6191.95,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.3871,
+    "rt_bps_max": 34.8389,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.3871,
+     "rt_bps_max": 34.8389,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.4606,
+     "rt_bps_max": 35.0852,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.05893,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 3326.6,
+   "spread_bps_avg": 11.2016,
+   "spread_bps_max": 33.7988,
+   "top1_depth_usd": {
+    "bid": 7.67,
+    "ask": 3.6
+   },
+   "top20_depth_usd": {
+    "bid": 2333.86,
+    "ask": 3272.67
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.7084,
+    "spread_in_ticks": 6.56
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1389.352,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TAKE": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 43.2124,
+    "rt_bps_max": 102.396,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 43.2124,
+     "rt_bps_max": 102.396,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 45.8072,
+     "rt_bps_max": 104.1952,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TAKE-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.05757,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 16272.16,
+   "spread_bps_avg": 28.613,
+   "spread_bps_max": 100.9496,
+   "top1_depth_usd": {
+    "bid": 4.57,
+    "ask": 4.04
+   },
+   "top20_depth_usd": {
+    "bid": 2236.64,
+    "ask": 947.17
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.7204,
+    "spread_in_ticks": 16.63
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1236.43,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TAO": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 2.5707,
+    "rt_bps_max": 6.1111,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 2.5707,
+     "rt_bps_max": 6.1111,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 2.5776,
+     "rt_bps_max": 6.1111,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TAO-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 259.02,
+   "contract_value": 0.01,
+   "tick_size": 0.01,
+   "vol24h_usd": 3961301.65,
+   "spread_bps_avg": 2.4777,
+   "spread_bps_max": 6.1111,
+   "top1_depth_usd": {
+    "bid": 10.23,
+    "ask": 2.6
+   },
+   "top20_depth_usd": {
+    "bid": 30093.37,
+    "ask": 31181.32
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.3863,
+    "spread_in_ticks": 6.41
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1924.928,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TIA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.7059,
+    "rt_bps_max": 14.7991,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.7059,
+     "rt_bps_max": 14.7991,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.8079,
+     "rt_bps_max": 15.3093,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TIA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.4093,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 639592.65,
+   "spread_bps_avg": 6.0747,
+   "spread_bps_max": 10.1859,
+   "top1_depth_usd": {
+    "bid": 4.71,
+    "ask": 19.72
+   },
+   "top20_depth_usd": {
+    "bid": 207769.07,
+    "ask": 316744.92
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 2.5085,
+    "spread_in_ticks": 2.42
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1061.571,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TRUMP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 10.6529,
+    "rt_bps_max": 14.9514,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 10.6529,
+     "rt_bps_max": 14.9514,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 10.7218,
+     "rt_bps_max": 14.9514,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TRUMP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 2.227,
+   "contract_value": 0.1,
+   "tick_size": 0.001,
+   "vol24h_usd": 641963.48,
+   "spread_bps_avg": 10.4876,
+   "spread_bps_max": 14.9514,
+   "top1_depth_usd": {
+    "bid": 27.78,
+    "ask": 1211.02
+   },
+   "top20_depth_usd": {
+    "bid": 1016856.98,
+    "ask": 1114397.56
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 4.5622,
+    "spread_in_ticks": 2.3
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 180.012,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TRUTH": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.2006,
+    "rt_bps_max": 27.4844,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.2006,
+     "rt_bps_max": 27.4844,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.3275,
+     "rt_bps_max": 27.6219,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TRUTH-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.012902,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 13154.88,
+   "spread_bps_avg": 8.4191,
+   "spread_bps_max": 27.4844,
+   "top1_depth_usd": {
+    "bid": 6.45,
+    "ask": 4.22
+   },
+   "top20_depth_usd": {
+    "bid": 1671.39,
+    "ask": 305.73
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 0.7259,
+    "spread_in_ticks": 11.6
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1185.396,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "TRX": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 1.166,
+    "rt_bps_max": 3.4057,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 1.166,
+     "rt_bps_max": 3.4057,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 1.191,
+     "rt_bps_max": 3.939,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "TRX-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.33926,
+   "contract_value": 1000.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 3852270.16,
+   "spread_bps_avg": 1.02,
+   "spread_bps_max": 1.7698,
+   "top1_depth_usd": {
+    "bid": 16.92,
+    "ask": 339.15
+   },
+   "top20_depth_usd": {
+    "bid": 66334.66,
+    "ask": 97167.6
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.295,
+    "spread_in_ticks": 3.46
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 295.578,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "UNI": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 3.6404,
+    "rt_bps_max": 4.8729,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 3.6404,
+     "rt_bps_max": 4.8729,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 3.6417,
+     "rt_bps_max": 4.8729,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "UNI-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 6.768,
+   "contract_value": 1.0,
+   "tick_size": 0.001,
+   "vol24h_usd": 1855055.33,
+   "spread_bps_avg": 3.5778,
+   "spread_bps_max": 4.8729,
+   "top1_depth_usd": {
+    "bid": 3.12,
+    "ask": 108.88
+   },
+   "top20_depth_usd": {
+    "bid": 192290.74,
+    "ask": 350552.19
+   },
+   "tick_check": {
+    "tick_size": 0.001,
+    "tick_bps": 1.5074,
+    "spread_in_ticks": 2.37
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1600.768,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "USELESS": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.1887,
+    "rt_bps_max": 15.1302,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.1887,
+     "rt_bps_max": 15.1302,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.364,
+     "rt_bps_max": 15.58,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "USELESS-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.28716,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 4013029.41,
+   "spread_bps_avg": 6.9683,
+   "spread_bps_max": 15.1302,
+   "top1_depth_usd": {
+    "bid": 6.42,
+    "ask": 20.03
+   },
+   "top20_depth_usd": {
+    "bid": 1876.98,
+    "ask": 1746.69
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.3514,
+    "spread_in_ticks": 19.83
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 778.913,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "VET": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 8.4936,
+    "rt_bps_max": 18.395,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 8.4936,
+     "rt_bps_max": 18.395,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 8.75,
+     "rt_bps_max": 18.413,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "VET-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.008025,
+   "contract_value": 1.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 364781.86,
+   "spread_bps_avg": 5.1939,
+   "spread_bps_max": 15.4859,
+   "top1_depth_usd": {
+    "bid": 0.14,
+    "ask": 0.14
+   },
+   "top20_depth_usd": {
+    "bid": 35178.42,
+    "ask": 35775.35
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.2882,
+    "spread_in_ticks": 4.03
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 36928.713,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "WET": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.8029,
+    "rt_bps_max": 23.383,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.8029,
+     "rt_bps_max": 23.383,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 15.6201,
+     "rt_bps_max": 24.0773,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "WET-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.06478,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 4240.5,
+   "spread_bps_avg": 14.3118,
+   "spread_bps_max": 22.6912,
+   "top1_depth_usd": {
+    "bid": 16.36,
+    "ask": 27.13
+   },
+   "top20_depth_usd": {
+    "bid": 3067.41,
+    "ask": 3568.9
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.5354,
+    "spread_in_ticks": 9.32
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 305.577,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "WIF": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 11.821,
+    "rt_bps_max": 14.7167,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 11.821,
+     "rt_bps_max": 14.7167,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 11.821,
+     "rt_bps_max": 14.7167,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "WIF-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.2122,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 156151.83,
+   "spread_bps_avg": 11.821,
+   "spread_bps_max": 14.7167,
+   "top1_depth_usd": {
+    "bid": 710.29,
+    "ask": 140.01
+   },
+   "top20_depth_usd": {
+    "bid": 618658.36,
+    "ask": 559645.89
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 4.7179,
+    "spread_in_ticks": 2.51
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 35.713,
+    "fits_top1": true
+   },
+   "migawek": 24
+  },
+  "WLD": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 6.6993,
+    "rt_bps_max": 8.881,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 6.6993,
+     "rt_bps_max": 8.881,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 6.7246,
+     "rt_bps_max": 8.881,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "WLD-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.4547,
+   "contract_value": 1.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 3830421.45,
+   "spread_bps_avg": 6.6822,
+   "spread_bps_max": 8.881,
+   "top1_depth_usd": {
+    "bid": 357.87,
+    "ask": 40.82
+   },
+   "top20_depth_usd": {
+    "bid": 284905.78,
+    "ask": 310994.05
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 2.2566,
+    "spread_in_ticks": 2.96
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 122.481,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "XAU": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 0.4311,
+    "rt_bps_max": 1.067,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 0.4311,
+     "rt_bps_max": 1.067,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 0.4392,
+     "rt_bps_max": 1.067,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "XAU-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 4358.02,
+   "contract_value": 0.001,
+   "tick_size": 0.01,
+   "vol24h_usd": 10874907.23,
+   "spread_bps_avg": 0.4022,
+   "spread_bps_max": 1.067,
+   "top1_depth_usd": {
+    "bid": 4.4,
+    "ask": 17.64
+   },
+   "top20_depth_usd": {
+    "bid": 47987.82,
+    "ask": 58299.65
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.0227,
+    "spread_in_ticks": 17.7
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1135.246,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "XLM": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 1.8106,
+    "rt_bps_max": 4.9343,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 1.8106,
+     "rt_bps_max": 4.9343,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 1.8109,
+     "rt_bps_max": 4.9343,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "XLM-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.18803,
+   "contract_value": 100.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 6098358.19,
+   "spread_bps_avg": 1.7888,
+   "spread_bps_max": 4.9343,
+   "top1_depth_usd": {
+    "bid": 1.84,
+    "ask": 169.12
+   },
+   "top20_depth_usd": {
+    "bid": 52609.64,
+    "ask": 84567.9
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 0.5363,
+    "spread_in_ticks": 3.34
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 2716.358,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "XMR": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 2.6187,
+    "rt_bps_max": 12.3529,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 2.6187,
+     "rt_bps_max": 12.3529,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 2.9027,
+     "rt_bps_max": 12.4196,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "XMR-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 495.47,
+   "contract_value": 0.1,
+   "tick_size": 0.01,
+   "vol24h_usd": 4839532.95,
+   "spread_bps_avg": 2.6186,
+   "spread_bps_max": 12.3506,
+   "top1_depth_usd": {
+    "bid": 50.32,
+    "ask": 49.42
+   },
+   "top20_depth_usd": {
+    "bid": 2563.87,
+    "ask": 2392.69
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.1984,
+    "spread_in_ticks": 13.2
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 101.172,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "XNY": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 12.0756,
+    "rt_bps_max": 22.3977,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 12.0756,
+     "rt_bps_max": 22.3977,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 12.919,
+     "rt_bps_max": 23.325,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "XNY-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.006734,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 8412.11,
+   "spread_bps_avg": 9.8882,
+   "spread_bps_max": 20.9518,
+   "top1_depth_usd": {
+    "bid": 4.66,
+    "ask": 4.51
+   },
+   "top20_depth_usd": {
+    "bid": 2352.72,
+    "ask": 2511.2
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 1.5014,
+    "spread_in_ticks": 6.59
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1108.451,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "XRP": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 1.9637,
+    "rt_bps_max": 5.6073,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 1.9637,
+     "rt_bps_max": 5.6073,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 1.9646,
+     "rt_bps_max": 5.6073,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "XRP-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1.4188,
+   "contract_value": 100.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 26555387.33,
+   "spread_bps_avg": 1.8782,
+   "spread_bps_max": 5.6073,
+   "top1_depth_usd": {
+    "bid": 1.42,
+    "ask": 1.42
+   },
+   "top20_depth_usd": {
+    "bid": 973464.33,
+    "ask": 1224006.95
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 0.7048,
+    "spread_in_ticks": 2.66
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 3523.36,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ZAMA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 7.2381,
+    "rt_bps_max": 17.6005,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 7.2381,
+     "rt_bps_max": 17.6005,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 7.3935,
+     "rt_bps_max": 17.6005,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ZAMA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.05084,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 33752.68,
+   "spread_bps_avg": 6.8232,
+   "spread_bps_max": 17.6005,
+   "top1_depth_usd": {
+    "bid": 87.91,
+    "ask": 16.68
+   },
+   "top20_depth_usd": {
+    "bid": 17303.87,
+    "ask": 17782.81
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 1.9461,
+    "spread_in_ticks": 3.51
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 299.674,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ZEC": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 2.0353,
+    "rt_bps_max": 11.1771,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 2.0353,
+     "rt_bps_max": 11.1771,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 2.0414,
+     "rt_bps_max": 11.1771,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ZEC-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 1186.58,
+   "contract_value": 0.1,
+   "tick_size": 0.01,
+   "vol24h_usd": 53682682.8,
+   "spread_bps_avg": 2.0169,
+   "spread_bps_max": 11.1771,
+   "top1_depth_usd": {
+    "bid": 25.44,
+    "ask": 23.73
+   },
+   "top20_depth_usd": {
+    "bid": 18509.66,
+    "ask": 16072.33
+   },
+   "tick_check": {
+    "tick_size": 0.01,
+    "tick_bps": 0.0807,
+    "spread_in_ticks": 25.0
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 210.704,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ZETA": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 14.1008,
+    "rt_bps_max": 20.999,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 14.1008,
+     "rt_bps_max": 20.999,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 14.326,
+     "rt_bps_max": 21.4297,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ZETA-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.03457,
+   "contract_value": 10.0,
+   "tick_size": 1e-05,
+   "vol24h_usd": 5092.51,
+   "spread_bps_avg": 13.2934,
+   "spread_bps_max": 20.999,
+   "top1_depth_usd": {
+    "bid": 4.8,
+    "ask": 5.97
+   },
+   "top20_depth_usd": {
+    "bid": 21915.18,
+    "ask": 44376.41
+   },
+   "tick_check": {
+    "tick_size": 1e-05,
+    "tick_bps": 2.901,
+    "spread_in_ticks": 4.58
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 1042.449,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ZIL": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 9.6005,
+    "rt_bps_max": 13.8313,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 9.6005,
+     "rt_bps_max": 13.8313,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 9.9485,
+     "rt_bps_max": 15.7593,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ZIL-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.003031,
+   "contract_value": 100.0,
+   "tick_size": 1e-06,
+   "vol24h_usd": 43017.16,
+   "spread_bps_avg": 9.2541,
+   "spread_bps_max": 13.8313,
+   "top1_depth_usd": {
+    "bid": 13.89,
+    "ask": 42.82
+   },
+   "top20_depth_usd": {
+    "bid": 36285.46,
+    "ask": 58845.85
+   },
+   "tick_check": {
+    "tick_size": 1e-06,
+    "tick_bps": 3.4731,
+    "spread_in_ticks": 2.66
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 359.842,
+    "fits_top1": false
+   },
+   "migawek": 24
+  },
+  "ZRX": {
+   "koszt_przejscia": {
+    "notional_usd": 50.0,
+    "rt_bps_avg": 27.5928,
+    "rt_bps_max": 29.8359,
+    "migawek_z_pelna_ksiega": 24
+   },
+   "koszt_przejscia_wg_notionalu": {
+    "50": {
+     "notional_usd": 50.0,
+     "rt_bps_avg": 27.5928,
+     "rt_bps_max": 29.8359,
+     "migawek_z_pelna_ksiega": 24
+    },
+    "75": {
+     "notional_usd": 75.0,
+     "rt_bps_avg": 27.5928,
+     "rt_bps_max": 29.8359,
+     "migawek_z_pelna_ksiega": 24
+    }
+   },
+   "code": "ZRX-USDT",
+   "as_of": "2026-09-09T00:44:49.464151+00:00",
+   "price_last": 0.1006,
+   "contract_value": 10.0,
+   "tick_size": 0.0001,
+   "vol24h_usd": 13567.92,
+   "spread_bps_avg": 27.5928,
+   "spread_bps_max": 29.8359,
+   "top1_depth_usd": {
+    "bid": 96.64,
+    "ask": 185.98
+   },
+   "top20_depth_usd": {
+    "bid": 91546.71,
+    "ask": 48982.52
+   },
+   "tick_check": {
+    "tick_size": 0.0001,
+    "tick_bps": 9.4484,
+    "spread_in_ticks": 2.92
+   },
+   "vs_model": {
+    "notional_usd": 50.0,
+    "order_share_of_top1_thin_pct": 51.737,
+    "fits_top1": true
+   },
+   "migawek": 24
+  }
+ }
+}

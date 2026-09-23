@@ -1,0 +1,628 @@
+{
+  "_comment": [
+    "Zmierzona mikrostruktura rynku dla CALEGO uniwersum replayu (19 symboli,",
+    "tyle ile jest bundli 90d). Powod: expected_net_r uzywa DEFAULT_SPREAD_FRAC",
+    "= 0.0004 (4 bps) jako STALEJ, bo replay nie ma ksiazki zlecen, oraz liczy",
+    "market impact z partycypacji wzgledem wolumenu JEDNEJ swiecy 5m. Zadna",
+    "z tych liczb nie byla nigdy porownana z rynkiem.",
+    "",
+    "ZRODLO: CryptoStruct MCP, get_market_snapshot, srednie z ostatnich 60 minut.",
+    "VENUE: binance_swap (Binance USDT-M). NIE jest to BloFin, na ktorym handluje",
+    "bot - BloFin jest mniejszy, wiec jego spread i glebokosc beda gorsze. Te",
+    "liczby sa DOLNYM ograniczeniem kosztu, nie jego odwzorowaniem.",
+    "",
+    "KONTROLA WIARYGODNOSCI: 18 z 19 instrumentow ma sredni spread rowny",
+    "dokladnie jednemu tickowi swojej siatki cen (1.00 +/- 0.03). Jedyny",
+    "odstajacy to XMR z 1.74 ticka - i to jest sensowne, bo XMR ma najcienszy",
+    "szczyt ksiegi w zestawie (310 USD po stronie ask), wiec nie zawsze ktos",
+    "na nim stoi. Spread rowny tickowi to zachowanie ksiegi zawsze ciasnej.",
+    "",
+    "Ta kontrola zrobila realna robote: przy pierwszym przebiegu pokazala 10.02,",
+    "9.89 i 0.10 ticka dla 1000BONK, PUMP i XAU. Nie byly to bledy w danych,",
+    "tylko MOJE bledne zalozenia o wielkosci ticka, chybione dokladnie 10-krotnie.",
+    "Po ich poprawieniu wszystkie trzy wskoczyly na 1.00. Wielkosci tickow sa tu",
+    "wiec wyprowadzone z pomiaru i nim zweryfikowane, a nie przepisane skadkolwiek.",
+    "",
+    "POPRAWKA DO WCZESNIEJSZEGO WNIOSKU. Na piatce z parity wygladalo to na",
+    "'model zawyza spread'. Na pelnym uniwersum jest inaczej i trzeba to",
+    "powiedziec wprost: zmierzone spready rozciagaja sie od 0.0133 bps (BTC) do",
+    "4.48 bps (TRUMP), czyli 337-krotnie, a stala 4 bps lezy PRZY GORNYM koncu",
+    "tego rozkladu. Zawyza wiec dla 18 symboli (do 300x na BTC) i ZANIZA dla",
+    "jednego (TRUMP). To jest blad KSZTALTU: jedna liczba na wielkosc, ktora",
+    "zmienia sie o dwa i pol rzedu wielkosci.",
+    "",
+    "DRUGA POPRAWKA. Wczesniej zapisano, ze zlecenie 75 USD ma zerowy impact, bo",
+    "miesci sie na pierwszym poziomie ksiegi. To jest prawda dla plynnych, ale",
+    "NIE dla calego uniwersum: na XMR zlecenie 50 USD to 16% szczytu ksiegi po",
+    "stronie ask, na 1000BONK 6.5%, na 1000PEPE 6.3%, na PENGU 4.8%. Dla 7 z 19",
+    "symboli udzial przekracza 2%. Czlon impaktu nie jest wiec zbedny - jest",
+    "liczony wzgledem zlego mianownika.",
+    "",
+    "OGRANICZENIE: to sa POJEDYNCZE snapshoty na zywo (2026-09-03), nie okno",
+    "replayu (czerwiec-sierpien 2026). Historyczny spread wymagalby danych",
+    "tickowych, ktorych nie kupujemy. Uzycie tych wartosci w replayu historycznym",
+    "jest przyblizeniem - lepszym niz stala wzieta znikad, ale nadal przyblizeniem."
+  ],
+  "as_of": "2026-09-03T03:32:00Z - 07:55:00Z",
+  "source": "cryptostruct get_market_snapshot (60-minute averages)",
+  "venue": "binance_swap",
+  "venue_note": "proxy for BloFin; BloFin is smaller, so real cost is higher",
+  "model_constants": {
+    "DEFAULT_SPREAD_FRAC": 0.0004,
+    "DEFAULT_SPREAD_BPS": 4.0,
+    "notional_usd_major": 75.0,
+    "notional_usd_alt": 50.0,
+    "notional_note": "STARTING_CAPITAL 100 x margin_pct x LEVERAGE; w replayu major to tylko BTC/ETH/SOL, bo _volume_rank jest puste"
+  },
+  "spread_bps_range": {
+    "min": {
+      "symbol": "BTC",
+      "bps": 0.01331
+    },
+    "max": {
+      "symbol": "TRUMP",
+      "bps": 4.48
+    },
+    "ratio": 336.6,
+    "constant_bps": 4.0,
+    "symbols_where_constant_overstates": 18,
+    "symbols_where_constant_understates": 1
+  },
+  "order_vs_top_of_book": {
+    "note": "Udzial modelowanego zlecenia w szczycie ksiegi po stronie ask. Powyzej 2% czlon impaktu przestaje byc zaniedbywalny.",
+    "material_symbols": [
+      {
+        "symbol": "XMR",
+        "share_pct": 16.113
+      },
+      {
+        "symbol": "1000BONK",
+        "share_pct": 6.528
+      },
+      {
+        "symbol": "PEPE",
+        "share_pct": 6.26
+      },
+      {
+        "symbol": "PENGU",
+        "share_pct": 4.771
+      },
+      {
+        "symbol": "TAO",
+        "share_pct": 3.943
+      },
+      {
+        "symbol": "ENA",
+        "share_pct": 2.848
+      },
+      {
+        "symbol": "AAVE",
+        "share_pct": 2.693
+      }
+    ],
+    "count_above_2pct": 7,
+    "count_total": 19
+  },
+  "instruments": {
+    "BTC": {
+      "instrument_id": 67824,
+      "code": "BTCUSDT",
+      "as_of": "2026-09-03T03:32:00Z",
+      "price_last": 77733.5,
+      "spread_bps_avg": 0.01331,
+      "top1_depth_usd": {
+        "bid": 480899,
+        "ask": 516255
+      },
+      "top20_depth_usd": {
+        "bid": 702246,
+        "ask": 658622
+      },
+      "turnover_60m_usd": 607685000,
+      "tick_check": {
+        "tick_size": 0.1,
+        "tick_bps": 0.01286,
+        "spread_in_ticks": 1.03
+      },
+      "vs_model": {
+        "notional_usd": 75.0,
+        "constant_over_measured_x": 300.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.015
+      }
+    },
+    "ETH": {
+      "instrument_id": 67825,
+      "code": "ETHUSDT",
+      "as_of": "2026-09-03T07:47:00Z",
+      "price_last": 2407.19,
+      "spread_bps_avg": 0.04175,
+      "top1_depth_usd": {
+        "bid": 443585,
+        "ask": 128108
+      },
+      "top20_depth_usd": {
+        "bid": 599152,
+        "ask": 229576
+      },
+      "turnover_60m_usd": 455769000,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.04154,
+        "spread_in_ticks": 1.01
+      },
+      "vs_model": {
+        "notional_usd": 75.0,
+        "constant_over_measured_x": 95.8,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.059
+      }
+    },
+    "SOL": {
+      "instrument_id": 72842,
+      "code": "SOLUSDT",
+      "as_of": "2026-09-03T07:47:00Z",
+      "price_last": 100.64,
+      "spread_bps_avg": 0.9915,
+      "top1_depth_usd": {
+        "bid": 105479,
+        "ask": 66637.8
+      },
+      "top20_depth_usd": {
+        "bid": 4402110,
+        "ask": 3601520
+      },
+      "turnover_60m_usd": 87370700,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.99364,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 75.0,
+        "constant_over_measured_x": 4.0,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.113
+      }
+    },
+    "XRP": {
+      "instrument_id": 68555,
+      "code": "XRPUSDT",
+      "as_of": "2026-09-03T03:32:00Z",
+      "price_last": 1.3671,
+      "spread_bps_avg": 0.7316,
+      "top1_depth_usd": {
+        "bid": 17129.6,
+        "ask": 24888.8
+      },
+      "top20_depth_usd": {
+        "bid": 901252,
+        "ask": 752254
+      },
+      "turnover_60m_usd": 50795900,
+      "tick_check": {
+        "tick_size": 0.0001,
+        "tick_bps": 0.73148,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 5.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.201
+      }
+    },
+    "ZEC": {
+      "instrument_id": 70952,
+      "code": "ZECUSDT",
+      "as_of": "2026-09-03T03:32:00Z",
+      "price_last": 820.15,
+      "spread_bps_avg": 0.1229,
+      "top1_depth_usd": {
+        "bid": 5002.71,
+        "ask": 6405.26
+      },
+      "top20_depth_usd": {
+        "bid": 41488.4,
+        "ask": 52170
+      },
+      "turnover_60m_usd": 35199300,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.12193,
+        "spread_in_ticks": 1.01
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 32.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.781
+      }
+    },
+    "AAVE": {
+      "instrument_id": 73266,
+      "code": "AAVEUSDT",
+      "as_of": "2026-09-03T07:53:00Z",
+      "price_last": 127.41,
+      "spread_bps_avg": 0.7887,
+      "top1_depth_usd": {
+        "bid": 2024.73,
+        "ask": 1856.51
+      },
+      "top20_depth_usd": {
+        "bid": 138175,
+        "ask": 138184
+      },
+      "turnover_60m_usd": 3409690,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.78487,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 5.1,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 2.693
+      }
+    },
+    "DOGE": {
+      "instrument_id": 72026,
+      "code": "DOGEUSDT",
+      "as_of": "2026-09-03T07:53:00Z",
+      "price_last": 0.08273,
+      "spread_bps_avg": 1.203,
+      "top1_depth_usd": {
+        "bid": 43636.2,
+        "ask": 47157.1
+      },
+      "top20_depth_usd": {
+        "bid": 1042180,
+        "ask": 1178740
+      },
+      "turnover_60m_usd": 31951500,
+      "tick_check": {
+        "tick_size": 1e-05,
+        "tick_bps": 1.20875,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 3.3,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.106
+      }
+    },
+    "LINK": {
+      "instrument_id": 70859,
+      "code": "LINKUSDT",
+      "as_of": "2026-09-03T07:53:00Z",
+      "price_last": 11.157,
+      "spread_bps_avg": 0.8907,
+      "top1_depth_usd": {
+        "bid": 5153.93,
+        "ask": 6854.4
+      },
+      "top20_depth_usd": {
+        "bid": 232320,
+        "ask": 251972
+      },
+      "turnover_60m_usd": 6356700,
+      "tick_check": {
+        "tick_size": 0.001,
+        "tick_bps": 0.8963,
+        "spread_in_ticks": 0.99
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 4.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.729
+      }
+    },
+    "SUI": {
+      "instrument_id": 8182,
+      "code": "SUIUSDT",
+      "as_of": "2026-09-03T07:53:00Z",
+      "price_last": 0.7658,
+      "spread_bps_avg": 1.301,
+      "top1_depth_usd": {
+        "bid": 6006.97,
+        "ask": 7548.12
+      },
+      "top20_depth_usd": {
+        "bid": 312034,
+        "ask": 324567
+      },
+      "turnover_60m_usd": 18598900,
+      "tick_check": {
+        "tick_size": 0.0001,
+        "tick_bps": 1.30582,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 3.1,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.662
+      }
+    },
+    "XMR": {
+      "instrument_id": 70950,
+      "code": "XMRUSDT",
+      "as_of": "2026-09-03T07:53:00Z",
+      "price_last": 512.67,
+      "spread_bps_avg": 0.3398,
+      "top1_depth_usd": {
+        "bid": 409.02,
+        "ask": 310.3
+      },
+      "top20_depth_usd": {
+        "bid": 4630.4,
+        "ask": 4701.2
+      },
+      "turnover_60m_usd": 1439190,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.19506,
+        "spread_in_ticks": 1.74
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 11.8,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 16.113
+      }
+    },
+    "PEPE": {
+      "instrument_id": 8183,
+      "code": "1000PEPEUSDT",
+      "as_of": "2026-09-03T07:54:00Z",
+      "price_last": 0.0034588,
+      "spread_bps_avg": 0.296,
+      "top1_depth_usd": {
+        "bid": 488.96,
+        "ask": 798.75
+      },
+      "top20_depth_usd": {
+        "bid": 27775,
+        "ask": 41458
+      },
+      "turnover_60m_usd": 6424590,
+      "tick_check": {
+        "tick_size": 1e-07,
+        "tick_bps": 0.28912,
+        "spread_in_ticks": 1.02
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 13.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 6.26
+      }
+    },
+    "ENA": {
+      "instrument_id": 8296,
+      "code": "ENAUSDT",
+      "as_of": "2026-09-03T07:54:00Z",
+      "price_last": 0.15136,
+      "spread_bps_avg": 0.6596,
+      "top1_depth_usd": {
+        "bid": 658.86,
+        "ask": 1755.83
+      },
+      "top20_depth_usd": {
+        "bid": 70281,
+        "ask": 70031.2
+      },
+      "turnover_60m_usd": 12816100,
+      "tick_check": {
+        "tick_size": 1e-05,
+        "tick_bps": 0.66068,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 6.1,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 2.848
+      }
+    },
+    "HYPE": {
+      "instrument_id": 8529,
+      "code": "HYPEUSDT",
+      "as_of": "2026-09-03T07:54:00Z",
+      "price_last": 81.864,
+      "spread_bps_avg": 0.1229,
+      "top1_depth_usd": {
+        "bid": 6228.1,
+        "ask": 11155.1
+      },
+      "top20_depth_usd": {
+        "bid": 92794.8,
+        "ask": 55189.4
+      },
+      "turnover_60m_usd": 20861600,
+      "tick_check": {
+        "tick_size": 0.001,
+        "tick_bps": 0.12215,
+        "spread_in_ticks": 1.01
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 32.5,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.448
+      }
+    },
+    "TAO": {
+      "instrument_id": 8304,
+      "code": "TAOUSDT",
+      "as_of": "2026-09-03T07:54:00Z",
+      "price_last": 221.54,
+      "spread_bps_avg": 0.4606,
+      "top1_depth_usd": {
+        "bid": 779.6,
+        "ask": 1267.94
+      },
+      "top20_depth_usd": {
+        "bid": 85015.8,
+        "ask": 85742.2
+      },
+      "turnover_60m_usd": 4995510,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.45139,
+        "spread_in_ticks": 1.02
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 8.7,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 3.943
+      }
+    },
+    "TRUMP": {
+      "instrument_id": 8436,
+      "code": "TRUMPUSDT",
+      "as_of": "2026-09-03T07:54:00Z",
+      "price_last": 2.222,
+      "spread_bps_avg": 4.48,
+      "top1_depth_usd": {
+        "bid": 11933,
+        "ask": 22711.2
+      },
+      "top20_depth_usd": {
+        "bid": 1000610,
+        "ask": 893936
+      },
+      "turnover_60m_usd": 5638640,
+      "tick_check": {
+        "tick_size": 0.001,
+        "tick_bps": 4.50045,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 0.9,
+        "constant_understates": true,
+        "order_share_of_top1_ask_pct": 0.22
+      }
+    },
+    "1000BONK": {
+      "instrument_id": 8241,
+      "code": "1000BONKUSDT",
+      "as_of": "2026-09-03T07:55:00Z",
+      "price_last": 0.002972,
+      "spread_bps_avg": 3.373,
+      "top1_depth_usd": {
+        "bid": 1061.31,
+        "ask": 765.99
+      },
+      "top20_depth_usd": {
+        "bid": 221928,
+        "ask": 225368
+      },
+      "turnover_60m_usd": 1333720,
+      "tick_check": {
+        "tick_size": 1e-06,
+        "tick_bps": 3.36474,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 1.2,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 6.528
+      }
+    },
+    "PENGU": {
+      "instrument_id": 8409,
+      "code": "PENGUUSDT",
+      "as_of": "2026-09-03T07:55:00Z",
+      "price_last": 0.008311,
+      "spread_bps_avg": 1.204,
+      "top1_depth_usd": {
+        "bid": 884.48,
+        "ask": 1047.89
+      },
+      "top20_depth_usd": {
+        "bid": 167226,
+        "ask": 167892
+      },
+      "turnover_60m_usd": 1761360,
+      "tick_check": {
+        "tick_size": 1e-06,
+        "tick_bps": 1.20322,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 3.3,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 4.771
+      }
+    },
+    "PUMP": {
+      "instrument_id": 8559,
+      "code": "PUMPUSDT",
+      "as_of": "2026-09-03T07:55:00Z",
+      "price_last": 0.004251,
+      "spread_bps_avg": 2.326,
+      "top1_depth_usd": {
+        "bid": 2220,
+        "ask": 2615.88
+      },
+      "top20_depth_usd": {
+        "bid": 340359,
+        "ask": 729677
+      },
+      "turnover_60m_usd": 8028650,
+      "tick_check": {
+        "tick_size": 1e-06,
+        "tick_bps": 2.35239,
+        "spread_in_ticks": 0.99
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 1.7,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 1.911
+      }
+    },
+    "XAU": {
+      "instrument_id": 8734,
+      "code": "XAUTUSDT",
+      "as_of": "2026-09-03T07:55:00Z",
+      "price_last": 4422.09,
+      "spread_bps_avg": 0.02268,
+      "top1_depth_usd": {
+        "bid": 12797.5,
+        "ask": 8377.04
+      },
+      "top20_depth_usd": {
+        "bid": 70885.8,
+        "ask": 51020.6
+      },
+      "turnover_60m_usd": 1017890,
+      "tick_check": {
+        "tick_size": 0.01,
+        "tick_bps": 0.02261,
+        "spread_in_ticks": 1.0
+      },
+      "vs_model": {
+        "notional_usd": 50.0,
+        "constant_over_measured_x": 176.4,
+        "constant_understates": false,
+        "order_share_of_top1_ask_pct": 0.597
+      }
+    }
+  },
+  "todo": [
+    "Sciagnac tabele oplat i wielkosci tickow BloFina i dopisac je tutaj - dzis",
+    "te liczby siedza w config.py bez zrodla, a BloFin jest wenue, na ktorym",
+    "bot faktycznie handluje.",
+    "Powtorzyc pomiar w innej porze doby: spread i glebokosc zmieniaja sie",
+    "z plynnoscia, a to jest pojedynczy snapshot."
+  ]
+}
