@@ -7,8 +7,8 @@
     "raised": 0
   },
   "config": {
-    "hash": "ac8946fc879ac185",
-    "keys": 538,
+    "hash": "ceca742c8e936030",
+    "keys": 531,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,
@@ -25,6 +25,7 @@
       "DAYTRADING_HARD_TIME_STOP_HOURS": 10.0,
       "DAYTRADING_V2_HARD_TIME_STOP_HOURS": 48.0,
       "DAYTRADING_V2_TIME_STOP_HOURS": 24.0,
+      "DAYTRADING_BREAK_EVEN_BUFFER_PCT": 0.18,
       "DAYTRADING_INVALIDATION_BARS": 2,
       "DAYTRADING_NET_R_MIN_SAMPLE": 20,
       "REVERSAL_MIN_STRENGTH": 0.32,
