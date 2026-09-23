@@ -155,6 +155,21 @@ class TestAltReplaySlip(unittest.TestCase):
 
     UNMEASURED = "SYMBOL_SPOZA_POMIARU"
 
+    # Od v20.74.0 domyslny plik (BloFin) niesie koszt przejscia przez ksiege,
+    # wiec slip idzie sciezka `round_trip_frac`. Trzy testy ponizej dotycza
+    # sciezki SPREAD + SZCZYT KSIEGI, ktora dalej obsluguje pliki bez tej
+    # tabeli - dlatego laduja proxy (Binance, 2026-09-03) jawnie.
+    PROXY = __import__("pathlib").Path(__file__).resolve().parents[1] / "data" / "venue_microstructure_20260903.json"
+
+    def setUp(self):
+        import venue_microstructure
+        venue_microstructure.reset()
+        venue_microstructure.load(self.PROXY, force=True)
+
+    def tearDown(self):
+        import venue_microstructure
+        venue_microstructure.reset()
+
     def test_measured_symbol_uses_its_own_spread(self):
         # BTC: zmierzony spread 0.01331 bps = 1.331e-6 round-trip.
         self.assertAlmostEqual(replay_slip_round_trip("BTC"), 1.331e-6, places=9)
@@ -210,6 +225,44 @@ class TestAltReplaySlip(unittest.TestCase):
             alt = replay_daytrading_v2(alt_b, sig("PEPE"))["trades"][0]
         self.assertLess(alt.realised_r, btc.realised_r)
         self.assertGreater(alt.slip_rt, btc.slip_rt)
+
+
+class TestWalkedCostSlip(unittest.TestCase):
+    """v20.74.0: slip = koszt przejscia przez realna ksiege BloFina przy
+    planowanym notionale. Zawiera spread i impact naraz."""
+
+    def setUp(self):
+        import venue_microstructure
+        venue_microstructure.reset()
+
+    def tearDown(self):
+        import venue_microstructure
+        venue_microstructure.reset()
+
+    def test_btc_slip_is_the_walked_cost_at_its_planned_size(self):
+        # BTC @75 USD: srednia 0.3543 (09-13) i 0.0408 (09-15) = 0.19755 bps
+        self.assertAlmostEqual(replay_slip_round_trip("BTC"), 0.19755e-4, places=12)
+
+    def test_it_is_a_distribution_not_a_constant(self):
+        btc = replay_slip_round_trip("BTC")
+        sol = replay_slip_round_trip("SOL")
+        trump = replay_slip_round_trip("TRUMP")
+        self.assertGreater(trump, sol)
+        self.assertGreater(sol, btc)
+        # Na BloFinie rozpietosc jest mniejsza niz na proxy (337x), bo BTC
+        # jest tu ~15x drozszy - ale wciaz o wiecej niz rzad wielkosci.
+        self.assertGreater(trump / btc, 50.0)
+
+    def test_the_costly_names_now_cost_more_than_the_old_constant(self):
+        """To, czego proxy nie widzial: na drogich nazwach realny koszt
+        przekracza 4 bps, a nie lezy 300x pod nimi."""
+        for s in ("1000BONK", "PENGU", "PEPE", "PUMP", "TRUMP"):
+            self.assertGreater(replay_slip_round_trip(s), 0.0004, s)
+
+    def test_a_walked_slip_already_contains_the_spread(self):
+        from v2_profiles import slip_includes_spread
+        self.assertTrue(slip_includes_spread("BTC"))
+        self.assertFalse(slip_includes_spread("SYMBOL_SPOZA_POMIARU"))
 
 
 if __name__ == "__main__":

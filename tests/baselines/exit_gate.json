@@ -2192,9 +2192,9 @@
             {
               "symbol": "BTC",
               "exit_price": 96.0,
-              "pnl": -20.6006655,
-              "pnl_pct": -41.201331,
-              "fees_paid": 0.6006655,
+              "pnl": -20.6098775,
+              "pnl_pct": -41.219755,
+              "fees_paid": 0.6098775,
               "size_usd": 500.0
             }
           ],
@@ -2211,15 +2211,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": -20.6006655,
-            "pnl_pct": -41.201331,
+            "pnl": -20.6098775,
+            "pnl_pct": -41.219755,
             "highest_price": 100.0,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 9979.3993345,
+      "capital": 9979.3901225,
       "open_at_end": 0
     },
     {
@@ -2276,9 +2276,9 @@
             {
               "symbol": "BTC",
               "exit_price": 104.0,
-              "pnl": 4.84983362,
-              "pnl_pct": 38.79866896,
-              "fees_paid": 0.15016638,
+              "pnl": 4.84753062,
+              "pnl_pct": 38.78024496,
+              "fees_paid": 0.15246938,
               "size_usd": 125.0
             }
           ],
@@ -2302,7 +2302,7 @@
         }
       ],
       "sl_updates": [],
-      "capital": 10004.84983362,
+      "capital": 10004.84753062,
       "open_at_end": 1
     },
     {
@@ -2327,9 +2327,9 @@
             {
               "symbol": "BTC",
               "exit_price": 104.0,
-              "pnl": 4.84983362,
-              "pnl_pct": 38.79866896,
-              "fees_paid": 0.15016638,
+              "pnl": 4.84753062,
+              "pnl_pct": 38.78024496,
+              "fees_paid": 0.15246938,
               "size_usd": 125.0
             }
           ],
@@ -2370,9 +2370,9 @@
             {
               "symbol": "BTC",
               "exit_price": 108.0,
-              "pnl": 10.34232531,
-              "pnl_pct": 78.79866903,
-              "fees_paid": 0.15767469,
+              "pnl": 10.33990716,
+              "pnl_pct": 78.78024503,
+              "fees_paid": 0.16009284,
               "size_usd": 131.25
             }
           ],
@@ -2396,7 +2396,7 @@
         }
       ],
       "sl_updates": [],
-      "capital": 10015.19215893,
+      "capital": 10015.18743778,
       "open_at_end": 1
     },
     {
@@ -2420,9 +2420,9 @@
             {
               "symbol": "BTC",
               "exit_price": 100.2,
-              "pnl": 0.3993345,
-              "pnl_pct": 0.798669,
-              "fees_paid": 0.6006655,
+              "pnl": 0.3901225,
+              "pnl_pct": 0.780245,
+              "fees_paid": 0.6098775,
               "size_usd": 500.0
             }
           ],
@@ -2439,15 +2439,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": 0.3993345,
-            "pnl_pct": 0.798669,
+            "pnl": 0.3901225,
+            "pnl_pct": 0.780245,
             "highest_price": 100.2,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 10000.3993345,
+      "capital": 10000.3901225,
       "open_at_end": 0
     },
     {
@@ -2471,9 +2471,9 @@
             {
               "symbol": "BTC",
               "exit_price": 101.0,
-              "pnl": 4.3993345,
-              "pnl_pct": 8.798669,
-              "fees_paid": 0.6006655,
+              "pnl": 4.3901225,
+              "pnl_pct": 8.780245,
+              "fees_paid": 0.6098775,
               "size_usd": 500.0
             }
           ],
@@ -2490,15 +2490,15 @@
             "partial_tp2_done": false,
             "partial_stage": 0,
             "size_usd": 500.0,
-            "pnl": 4.3993345,
-            "pnl_pct": 8.798669,
+            "pnl": 4.3901225,
+            "pnl_pct": 8.780245,
             "highest_price": 101.0,
             "lowest_price": 100.0
           }
         }
       ],
       "sl_updates": [],
-      "capital": 10004.3993345,
+      "capital": 10004.3901225,
       "open_at_end": 0
     },
     {

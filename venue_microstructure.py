@@ -14,12 +14,26 @@ data, zrodlo, gielda, wielkosc ticka i jawnie wypisane ograniczenia. Wartosci
 NIE trafiaja do `config.py`, bo tam po pol roku bylyby nieodroznialne od tych,
 ktore wlasnie obalilismy.
 
+OD v20.74.0 domyslny plik to `venue_microstructure_blofin.json` - pomiar
+gieldy, na ktorej bot handluje, budowany przez
+`tools/build_blofin_microstructure.py` z dwoch pelnych dob. Wczesniejszy plik
+(`venue_microstructure_20260903.json`, Binance USDT-M) zostaje w `data/` jako
+proxy i zapis historyczny; na BloFinie stala 4 bps zaniza koszt dla 9 z 19
+symboli, a nie dla 1, jak twierdzil proxy.
+
+KOSZT PRZEJSCIA. Plik BloFina niesie `rt_bps_by_notional`: koszt round-trip
+przechodzony przez realna ksiege przy 50..25000 USD. `round_trip_frac()`
+zwraca go dla konkretnego notionalu i to jest wlasciwa wielkosc dla poslizgu -
+zawiera spread i impact naraz. Plik bez tej tabeli (proxy) daje None i
+wolajacy wraca do przyblizenia spread + szczyt ksiegi.
+
 CZEGO TEN MODUL NIE UDAJE.
-- To Binance USDT-M, a bot handluje na BloFinie. BloFin jest mniejszy, wiec
-  jego spread bedzie szerszy. Te liczby sa DOLNYM ograniczeniem kosztu.
-- To pojedynczy snapshot na zywo, nie okno replayu. Uzycie go w replayie
+- Dwie doby to dwie probki, nie rozklad. `n_days` stoi przy kazdym symbolu.
+- To wrzesien 2026, a okno replayu to czerwiec-sierpien. Uzycie w replayie
   historycznym jest przyblizeniem - lepszym niz stala wzieta znikad, ale
   przyblizeniem.
+- `top1_depth_usd` w pliku BloFina to MINIMUM z migawek - najgorszy moment
+  doby. Nie nadaje sie na test "czy zlecenie miesci sie na szczycie".
 - Symbol spoza pliku dostaje None, a nie zgadniete zero. Wolajacy ma wtedy
   swiadomie wrocic do stalej i to odnotowac.
 """
@@ -31,7 +45,7 @@ from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_PATH = ROOT / "data" / "venue_microstructure_20260903.json"
+DEFAULT_PATH = ROOT / "data" / "venue_microstructure_blofin.json"
 
 _lock = threading.Lock()
 _cache: Optional[dict] = None
@@ -124,6 +138,47 @@ def top1_depth_usd(symbol, side: str = "ask") -> Optional[float]:
     except (TypeError, ValueError):
         return None
     return value if value > 0 else None
+
+
+def round_trip_frac(symbol, notional_usd) -> Optional[float]:
+    """Zmierzony koszt round-trip zlecenia o danym notionale, jako ulamek ceny.
+
+    Liniowa interpolacja miedzy zmierzonymi wielkosciami. Ponizej najmniejszej
+    - koszt najmniejszej (mniejsze zlecenie nie jest tansze niz przejscie
+    spreadu). Powyzej najwiekszej - None: nie ekstrapolujemy ksztaltu ksiegi,
+    ktorego nie zmierzylismy. None takze wtedy, gdy plik nie ma tabeli (proxy)
+    albo symbolu - wolajacy ma swiadomie wrocic do innej sciezki.
+    """
+    row = _instrument(symbol)
+    if not row:
+        return None
+    table = row.get("rt_bps_by_notional") or {}
+    pts = []
+    for k, v in table.items():
+        try:
+            pts.append((float(k), float(v)))
+        except (TypeError, ValueError):
+            continue
+    if not pts:
+        return None
+    pts.sort()
+    try:
+        n = float(notional_usd)
+    except (TypeError, ValueError):
+        return None
+    if n <= pts[0][0]:
+        bps = pts[0][1]
+    elif n > pts[-1][0]:
+        return None
+    else:
+        bps = pts[-1][1]
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            if x0 <= n <= x1:
+                bps = y0 + (y1 - y0) * (n - x0) / (x1 - x0)
+                break
+    if bps < 0:
+        return None
+    return bps / 10000.0
 
 
 def provenance() -> dict:

@@ -101,12 +101,12 @@
           "funding_r": 0.0,
           "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.184717,
+          "net_r": 0.184259,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "expected_r_probabilities": {
@@ -185,12 +185,12 @@
           "funding_r": 0.0,
           "gross_r": 1.0,
           "impact_r": 0.005,
-          "net_r": 0.949967,
+          "net_r": 0.949509,
           "probabilities": "{}",
           "risk_pct": 0.007558,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "size_adapt": {
@@ -279,12 +279,12 @@
           "funding_r": 0.0,
           "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.184717,
+          "net_r": 0.184259,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.014154,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "expected_r_probabilities": {
@@ -381,12 +381,12 @@
           "funding_r": -0.0,
           "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.184717,
+          "net_r": 0.184259,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "expected_r_probabilities": {
@@ -450,12 +450,12 @@
           "funding_r": 0.0,
           "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.194717,
+          "net_r": 0.194259,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "expected_r_probabilities": {
@@ -667,12 +667,12 @@
           "funding_r": 0.0,
           "gross_r": 0.23475,
           "impact_r": 0.005,
-          "net_r": 0.184717,
+          "net_r": 0.184259,
           "probabilities": "{'p_tp1': 0.55, 'p_tp2_given_tp1': 0.45, 'base_p_tp1': 0.55, 'base_p_tp2_given_tp1': 0.45, 'setup_quality_multiplier': 1.0, 'n': 0}",
           "risk_pct": 0.005,
           "sl_dist": 0.04,
           "slip_r": 0.015,
-          "spread_r": 3.3e-05,
+          "spread_r": 0.000491,
           "spread_source": "measured"
         },
         "expected_r_probabilities": {

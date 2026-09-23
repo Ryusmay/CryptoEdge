@@ -13,13 +13,19 @@ gdy ich nie ma.
 
 ## `venue_microstructure_*.json` — zmierzona mikrostruktura
 
-Sześć plików, dwie giełdy. **Kod czyta dokładnie jeden** —
-`venue_microstructure.py` wskazuje na `venue_microstructure_20260903.json`
-(`DEFAULT_PATH`). Pozostałe pięć jest opublikowane jako materiał pomiarowy
-i nie jest przez nic wczytywane.
+Siedem plików, dwie giełdy. **Kod czyta dokładnie jeden** —
+`venue_microstructure.py` wskazuje na `venue_microstructure_blofin.json`
+(`DEFAULT_PATH`, od v20.74.0). Ten plik **nie jest pomiarem**, tylko
+agregatem dwóch pełnych dób BloFina, budowanym przez
+`tools/build_blofin_microstructure.py`; `--check` mówi, czy plik w repo jest
+bajt w bajt tym, co narzędzie by dziś wyprodukowało, a test w
+`tests/test_venue_microstructure.py` pilnuje tego w suicie. Pozostałe sześć
+to surowe pomiary — plik proxy z 2026-09-03 zostaje jako zapis historyczny
+i jako wejście testów ścieżki zapasowej.
 
 | plik | venue | symboli | okno | metoda |
 |---|---|---:|---|---|
+| **`blofin`** (czyta silnik) | blofin | 118 | 2 pełne doby | średnia z `doba1` i `doba2`, `tools/build_blofin_microstructure.py` |
 | `20260903` | binance_swap | 19 | pojedyncze migawki, 03:32–07:55Z | CryptoStruct `get_market_snapshot`, średnie 60-minutowe |
 | `20260907_blofin` | blofin | 55 | 3 minuty | REST `/market/books` size=20, 5 migawek co 12 s |
 | `20260909_blofin` | blofin | 118 | 5 minut | REST `/market/books` size=20, 5 migawek co 12 s |
@@ -43,7 +49,7 @@ ograniczeniem* kosztu. Pliki BloFina pozwalają sprawdzić, o ile dolnym.
 Poniżej koszt round-trip z dwóch pełnych dób BloFina, przy notionale, jaki
 model faktycznie zakłada (75 USD dla BTC/ETH/SOL, 50 USD dla reszty),
 zestawiony ze spreadem z proxy. Tabela jest **wygenerowana z tych plików**,
-nie przepisana:
+nie przepisana. Ostatnia kolumna ocenia **gorszą z dwóch dób**:
 
 | symbol | notional USD | binance spread bps | blofin rt 09-13 | blofin rt 09-15 | stala 4 bps |
 |---|---:|---:|---:|---:|---|
@@ -71,8 +77,21 @@ ZANIZA dla 9 z 19, zawyza dla 10.
 
 **To odwraca wniosek opublikowany w pliku proxy.** Tam zapisano: stała 4 bps
 zawyża dla 18 z 19 symboli i zaniża dla jednego, więc jest błędem *kształtu*
-przez zawyżanie. Na giełdzie, na której bot naprawdę handluje, stała
-**zaniża dla 9 z 19 i zawyża dla 10** — mniej więcej rzut monetą.
+przez zawyżanie. Na giełdzie, na której bot naprawdę handluje, stała zaniża:
+
+| agregacja dwóch dób | zaniża dla |
+|---|---:|
+| gorsza doba (tabela wyżej) | **9 z 19** |
+| średnia (to, co czyta silnik) | **5 z 19** |
+
+**Sprostowanie.** Pierwsza wersja tego pliku, post w
+`docs/posts/2026-09-i-measured-the-wrong-exchange.md` i opis PR #5 podawały
+samo „9 z 19" jako *ten* wynik. To była liczba z gorszej doby, podana bez
+tego zastrzeżenia. Różnica to ENA, SUI, TAO i XRP: w średniej leżą od 0,04
+do 0,48 bps pod stałą, w jednej z dób nad nią. Dwie doby nie wystarczą, żeby
+o nich rozstrzygnąć. Obie liczby pilnuje teraz test
+`test_how_often_the_constant_understates_depends_on_the_aggregation`.
+Co zostaje bez zmian: proxy mówił 1 z 19, BloFin mówi 5–9 z 19.
 
 Błąd kształtu zostaje, ale ma inny znak, niż myśleliśmy. Nie jest tak, że
 model przepłaca i wystarczy go obniżyć; model jest po prostu niezwiązany
@@ -80,10 +99,12 @@ z rynkiem w obie strony, a na najdroższych symbolach (`PUMP` 9–11 bps,
 `TRUMP` 11–13, `1000BONK` 8–10, `PEPE` 5,5–6,9) rozmija się o 2–3×
 w kierunku, który kosztuje pieniądze.
 
-**Nic z tego nie jest wpięte w silnik.** `expected_net_r` dalej czyta plik
-proxy. Podmiana zmieniałaby decyzje wejścia, a ROADMAP zamraża to do M1
-i `AGENTS.md` wymaga dla takiej zmiany walk-forwardu albo bramki parytetu.
-To jest osobne ramię pomiarowe, nie poprawka przy okazji.
+**Od v20.74.0 jest to wpięte w silnik** — na wyraźną decyzję autora, przez
+bramkę parytetu. Poślizg liczony jest z `rt_bps_by_notional` przy planowanym
+notionale, a nie z przybliżenia „spread + czy zlecenie mieści się na szczycie
+księgi": to przybliżenie przy minimalnej głębokości BloFina odesłałoby 12–15
+z 19 symboli, w tym BTC i ETH, po cichu z powrotem do starego modelu
+poślizgu. Zmierzony efekt i sabotaż: `docs/changelog/v20.74.0.md`.
 
 ## Czego te pliki nie mówią
 
@@ -95,6 +116,7 @@ To jest osobne ramię pomiarowe, nie poprawka przy okazji.
   najgorszy moment doby, a nie stan typowy; koszt przejścia liczony przez
   książkę (`koszt_przejscia_wg_notionalu`) jest właściwszą miarą i mówi
   coś znacznie łagodniejszego.
-- Żaden plik nie ma producenta w repozytorium. Powstały narzędziem, którego
-  tu nie ma, więc nie da się ich dziś odtworzyć z samego kodu — w odróżnieniu
-  od wszystkiego innego, co ten projekt publikuje.
+- Surowe pomiary nie mają producenta w repozytorium. Powstały narzędziem,
+  którego tu nie ma, więc nie da się ich dziś odtworzyć z samego kodu.
+  Producenta ma tylko agregat, który czyta silnik — i tylko on jest dziś
+  odtwarzalny z repo.

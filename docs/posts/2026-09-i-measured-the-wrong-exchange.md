@@ -8,9 +8,17 @@ cost for 18 of 19 symbols and understates for 1**.
 I measured Binance. My bot trades on BloFin.
 
 I have now measured BloFin, over two full 24-hour windows. Against the same
-constant, at the same order sizes the model actually assumes:
+constant, at the same order sizes the model actually assumes, it understates
+cost for **5 of 19 symbols on the two-day mean, and for 9 of 19 on the worse
+of the two days**.
 
-> **understates for 9 of 19 symbols, overstates for 10.**
+> *Correction, v20.74.0.* The first version of this post gave "understates
+> for 9 of 19" as the result, without saying it was the worse day. On the
+> two-day mean — which is what the engine now reads — it is 5 of 19. The four
+> in between (ENA, SUI, TAO, XRP) sit 0.04–0.48 bps under the constant on
+> average and over it on one of the two days; two days are not enough to
+> decide them. Both numbers are now pinned by a test. The thesis below does
+> not depend on which one you take: the proxy said 1 of 19.
 
 The shape error I found was real. Its sign was not. This is the write-up of
 how a correction can be both right about the defect and wrong about the
@@ -90,16 +98,18 @@ nothing to do with whether my order fits on the first level of the book. A
 term that reaches the correct answer through an unrelated calculation will
 stop being correct without warning.
 
-**Is the constant too high or too low?** Both, and roughly evenly. At the
-notional the model assumes, comparing the worse of the two measured days
-against 4 bps:
+**Is the constant too high or too low?** Both. At the notional the model
+assumes, against 4 bps:
 
-| | |
-|---|---|
-| understates (real cost > 4 bps) | 9 of 19 |
-| overstates | 10 of 19 |
+| | understates | overstates |
+|---|---:|---:|
+| BloFin, worse of the two days | 9 of 19 | 10 of 19 |
+| BloFin, two-day mean | 5 of 19 | 14 of 19 |
+| Binance proxy | 1 of 19 | 18 of 19 |
 
-Against the proxy the same comparison gave 1 and 18.
+Which BloFin row you quote depends on how you combine two samples, and two
+samples are not a distribution. What does not depend on it: the proxy's
+answer is not either of them.
 
 The names where it understates are the ones that hurt: PUMP measured 9.1–11.1
 bps, TRUMP 10.7–13.1, 1000BONK 7.6–9.6, PEPE 5.5–6.9.
@@ -139,16 +149,29 @@ by me, three weeks later.
 
 The correct statement of the gap is the count: 9 of 19, not a depth ratio.
 
-## What I am not doing with this
+## Wiring it in, and what that cost
 
-Not wiring it in. Swapping these numbers into `expected_net_r` changes which
-trades the bot takes, and my own rules freeze strategy changes behind a
-walk-forward or a decision-parity gate. A measurement that changes entries is
-its own arm with its own report, not a patch that rides along with the data
-it came from.
+The first version of this post ended with "not wiring it in". Since v20.74.0
+the engine does, through the parity gate, and the obvious way to do it would
+have been wrong.
 
-The files are published as data. The engine still prices entries off the
-proxy, wrongly, on purpose, until the replacement has been through the gate.
+The slip model already had a "measured" path: take the spread, and if the
+order fits on the first level of the book, call that the whole round-trip
+cost; if it does not fit, fall back to the old candle-turnover model. Point
+that path at the BloFin file and **12–15 of 19 symbols — BTC and ETH among
+them — silently fall back to the old model**, because BloFin's depth is
+recorded as the minimum across snapshots and 50–75 USD does not fit on the
+worst moment of the day. The swap would have looked like "now using BloFin"
+while quietly reverting most of the universe to the model this project had
+already shown to be the worst of the three.
+
+So the engine now reads the walked round-trip cost at the planned order size
+directly, averaged across the two days, from a file built reproducibly by a
+tool in the repo. On the frozen 30-day replay: 45 trades before and after,
+identical rejection funnel, identical entries; every trade costs slightly
+more; net +9.2340R → +9.0790R, OOS −5.0926R → −5.1052R. No decision flipped
+in this sample. The larger universe, where the costly names live, has not
+been re-run yet.
 
 ## The transferable part
 

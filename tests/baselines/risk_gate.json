@@ -47,7 +47,7 @@
     "Kapital zbyt niski",
     "Max pozycji (10)",
     "NON_POSITIVE_NET_R(-0.17<=0)",
-    "NON_POSITIVE_NET_R(-19.93<=0)",
+    "NON_POSITIVE_NET_R(-20.11<=0)",
     "OK",
     "Pauza (STOP/PAUSE) – kliknij START",
     "RISK_REDUCE_ONLY",
@@ -362,7 +362,7 @@
     {
       "case": "sl_hair_tight",
       "approved": false,
-      "reason": "NON_POSITIVE_NET_R(-19.93<=0)",
+      "reason": "NON_POSITIVE_NET_R(-20.11<=0)",
       "size_mult": null,
       "size_usd": 800.0
     },

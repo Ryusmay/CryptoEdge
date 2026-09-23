@@ -137,10 +137,16 @@ def _measured_slip_round_trip(symbol: str) -> Optional[float]:
         import venue_microstructure
     except Exception:
         return None
+    notional = _planned_notional_usd(symbol)
+    # Najpierw koszt PRZECHODZONY przez realna ksiege przy tym notionale -
+    # zawiera spread i impact naraz, usredniony po migawkach. Dopiero gdy
+    # pliku z taka tabela nie ma (proxy), wracamy do przyblizenia ponizej.
+    walked = venue_microstructure.round_trip_frac(symbol, notional)
+    if walked is not None:
+        return max(0.0, min(0.02, float(walked)))
     spread = venue_microstructure.spread_frac(symbol)
     if spread is None:
         return None
-    notional = _planned_notional_usd(symbol)
     # Bierzemy CIENSZA strone ksiegi - wejscie i wyjscie ida w przeciwne
     # strony, wiec liczy sie ta gorsza z dwoch.
     depths = [d for d in (venue_microstructure.top1_depth_usd(symbol, "ask"),

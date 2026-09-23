@@ -85,6 +85,14 @@ with the tooling in `tools/`.
   ZEC 0.1229) against a modelled flat 4 bps. Top-of-book depth dwarfs the
   modelled order, so market impact is ~zero — the model was charging
   participation against a whole candle's turnover, the wrong quantity entirely.
+  **That measurement was of Binance, a proxy; the bot trades on BloFin.**
+  Measured on BloFin over two full days, the 4 bps constant understates cost
+  for 5 of 19 symbols on the two-day mean and for 9 of 19 on the worse day —
+  not for 1 of 19, as the proxy said. Since v20.74.0 the engine prices slip
+  from BloFin's round-trip cost walked through the real book at the planned
+  order size (`data/venue_microstructure_blofin.json`, built reproducibly by
+  `tools/build_blofin_microstructure.py`). Details in `data/README.md` and
+  `docs/changelog/v20.74.0.md`.
 - **The replay was testing a different exit ladder than the bot executes.**
   Partial fractions were defined in three places with three meanings: the live
   bot closes 50% at TP1 and 50% *of the remainder* at TP2 (so 50/25/25), the
@@ -215,7 +223,7 @@ walk_forward_v2.py      purged folds
 
 | | |
 |---|---|
-| Version | **20.73.0** |
+| Version | **20.74.0** |
 | Tests | 1383, green on 3.10 and 3.12 |
 | Default | PAPER, `LIVE_EXECUTION_ENABLED=False` |
 | License | MIT |

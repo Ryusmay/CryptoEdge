@@ -20,6 +20,12 @@ import config  # noqa: E402
 import venue_microstructure as vm  # noqa: E402
 from expected_net_r import expected_net_r  # noqa: E402
 
+# Od v20.74.0 silnik czyta plik BloFina. Klasy TestLoader i
+# TestWiredIntoExpectedNetR dokumentuja pomiar PROXY (Binance, 2026-09-03)
+# i sciezke zapasowa spread + szczyt ksiegi, ktora dalej istnieje dla plikow
+# bez tabeli kosztu - wiec laduja proxy jawnie, a nie przez DEFAULT_PATH.
+PROXY = ROOT / "data" / "venue_microstructure_20260903.json"
+
 
 def _signal(symbol="BTC", **kw):
     sig = {
@@ -35,9 +41,13 @@ class TestLoader(unittest.TestCase):
 
     def setUp(self):
         vm.reset()
+        vm.load(PROXY, force=True)
+
+    def tearDown(self):
+        vm.reset()
 
     def test_the_real_file_loads_and_covers_the_universe(self):
-        syms = vm.measured_symbols()
+        syms = vm.measured_symbols()   # PROXY, zaladowany w setUp
         self.assertGreaterEqual(len(syms), 19)
         for must in ("BTC", "ETH", "SOL", "XRP", "ZEC"):
             self.assertIn(must, syms)
@@ -93,7 +103,10 @@ class TestLoader(unittest.TestCase):
             self.assertIsNone(vm.spread_frac("BTC"))
         finally:
             vm.reset()
+        # reset() wraca do DEFAULT_PATH - sprawdzane na wskazaniu, bo od
+        # v20.74.0 domyslny plik jest inny niz ten z setUp.
         self.assertIsNotNone(vm.spread_frac("BTC"))
+        self.assertEqual(vm.provenance()["path"], str(vm.DEFAULT_PATH))
 
     def test_provenance_travels_with_the_numbers(self):
         prov = vm.provenance()
@@ -113,6 +126,10 @@ class TestLoader(unittest.TestCase):
 class TestWiredIntoExpectedNetR(unittest.TestCase):
 
     def setUp(self):
+        vm.reset()
+        vm.load(PROXY, force=True)
+
+    def tearDown(self):
         vm.reset()
 
     def test_a_measured_symbol_uses_the_measurement_and_says_so(self):
@@ -149,3 +166,107 @@ class TestWiredIntoExpectedNetR(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+REPLAY_UNIVERSE = ("1000BONK", "AAVE", "BTC", "DOGE", "ENA", "ETH", "HYPE", "LINK",
+                   "PENGU", "PEPE", "PUMP", "SOL", "SUI", "TAO", "TRUMP", "XAU",
+                   "XMR", "XRP", "ZEC")
+
+
+class TestBlofinIsTheDefault(unittest.TestCase):
+    """v20.74.0: silnik czyta pomiar gieldy, na ktorej bot handluje."""
+
+    def setUp(self):
+        vm.reset()
+
+    def tearDown(self):
+        vm.reset()
+
+    def test_default_file_is_blofin_not_the_proxy(self):
+        prov = vm.provenance()
+        self.assertEqual(prov.get("venue"), "blofin")
+        self.assertIn("nie proxy", str(prov.get("venue_note")))
+        self.assertEqual(prov.get("path"), str(vm.DEFAULT_PATH))
+
+    def test_it_covers_the_whole_replay_universe(self):
+        missing = set(REPLAY_UNIVERSE) - vm.measured_symbols()
+        self.assertEqual(missing, set())
+
+    def test_every_replay_symbol_has_a_walked_cost_at_its_planned_size(self):
+        """Bez tego ktorys symbol wrocilby po cichu do starego modelu."""
+        import v2_profiles
+        for s in REPLAY_UNIVERSE:
+            self.assertTrue(v2_profiles.slip_includes_spread(s), s)
+            self.assertIsNotNone(vm.round_trip_frac(s, v2_profiles._planned_notional_usd(s)), s)
+
+    def test_how_often_the_constant_understates_depends_on_the_aggregation(self):
+        """Opublikowana teza jako bramka, nie jako zdanie - z OBIEMA liczbami.
+
+        Proxy mowil: stala 4 bps zaniza dla 1 z 19. Na BloFinie, przy
+        notionale, ktory model zaklada:
+        - srednia z dwoch dob (to, co czyta silnik): zaniza dla 5 z 19,
+        - gorsza z dwoch dob: zaniza dla 9 z 19.
+        Rozjazd to ENA, SUI, TAO, XRP - wszystkie w srednia w odleglosci
+        0.5 bps od stalej, jedna doba nad nia, druga pod. Dwie doby to za malo,
+        zeby o nich rozstrzygnac, i ten test ma to mowic wprost."""
+        import json
+        import v2_profiles
+        const = float(getattr(config, "DEFAULT_SPREAD_FRAC", 0.0004))
+        n = v2_profiles._planned_notional_usd
+
+        on_mean = sorted(s for s in REPLAY_UNIVERSE if vm.round_trip_frac(s, n(s)) > const)
+        self.assertEqual(on_mean, ["1000BONK", "PENGU", "PEPE", "PUMP", "TRUMP"])
+
+        days = [json.loads((ROOT / "data" / f).read_text(encoding="utf-8"))["instruments"]
+                for f in ("venue_microstructure_20260913_doba1_blofin.json",
+                          "venue_microstructure_20260915_doba2_blofin.json")]
+
+        def worst(s):
+            size = str(int(n(s)))
+            return max(d[s]["koszt_przejscia_wg_notionalu"][size]["rt_bps_avg"] for d in days)
+
+        on_worst = sorted(s for s in REPLAY_UNIVERSE if worst(s) / 10000.0 > const)
+        self.assertEqual(on_worst, ["1000BONK", "ENA", "PENGU", "PEPE", "PUMP",
+                                    "SUI", "TAO", "TRUMP", "XRP"])
+        self.assertEqual(set(on_worst) - set(on_mean), {"ENA", "SUI", "TAO", "XRP"})
+
+
+class TestRoundTripFrac(unittest.TestCase):
+
+    def setUp(self):
+        vm.reset()
+
+    def tearDown(self):
+        vm.reset()
+
+    def test_measured_point_is_returned_exactly(self):
+        # BTC @75 USD: srednia z 0.3543 (09-13) i 0.0408 (09-15) = 0.19755 bps
+        self.assertAlmostEqual(vm.round_trip_frac("BTC", 75), 0.19755e-4, places=12)
+
+    def test_between_points_it_interpolates_linearly(self):
+        lo, hi = vm.round_trip_frac("BTC", 75), vm.round_trip_frac("BTC", 250)
+        mid = vm.round_trip_frac("BTC", 162.5)
+        self.assertAlmostEqual(mid, (lo + hi) / 2.0, places=12)
+
+    def test_below_the_smallest_size_it_does_not_get_cheaper(self):
+        self.assertEqual(vm.round_trip_frac("BTC", 1), vm.round_trip_frac("BTC", 50))
+
+    def test_beyond_the_largest_size_it_refuses_to_extrapolate(self):
+        self.assertIsNone(vm.round_trip_frac("BTC", 25001))
+
+    def test_unknown_symbol_is_none_not_zero(self):
+        self.assertIsNone(vm.round_trip_frac("NIE_MA_TAKIEGO", 75))
+
+    def test_the_proxy_has_no_walked_cost_so_it_gives_none(self):
+        vm.load(PROXY, force=True)
+        self.assertIsNone(vm.round_trip_frac("BTC", 75))
+        self.assertIsNotNone(vm.spread_frac("BTC"))
+
+
+class TestTheEngineFileIsReproducible(unittest.TestCase):
+    """Plik, ktory czyta silnik, ma producenta w repo - i jest jego wynikiem."""
+
+    def test_build_tool_reproduces_the_committed_file_byte_for_byte(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        import build_blofin_microstructure as b
+        self.assertEqual(b.render(b.build()), vm.DEFAULT_PATH.read_text(encoding="utf-8"))
