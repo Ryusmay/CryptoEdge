@@ -20,7 +20,13 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
 fi
 
 # System libraries Qt needs in offscreen mode (best effort; skipped if apt is unavailable).
-if command -v apt-get >/dev/null 2>&1 && ! ldconfig -p | grep -q libxkbcommon.so.0; then
+missing_qt_libs() {
+  for lib in libEGL.so.1 libGL.so.1 libxkbcommon.so.0 libdbus-1.so.3; do
+    ldconfig -p | grep -q "$lib" || return 0
+  done
+  return 1
+}
+if command -v apt-get >/dev/null 2>&1 && missing_qt_libs; then
   SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
   $SUDO apt-get update -qq >/dev/null 2>&1 || true
   $SUDO apt-get install -y -qq libegl1 libgl1 libxkbcommon0 libdbus-1-3 >/dev/null 2>&1 \
@@ -28,6 +34,10 @@ if command -v apt-get >/dev/null 2>&1 && ! ldconfig -p | grep -q libxkbcommon.so
 fi
 
 python3 -m pip install --quiet --disable-pip-version-check -r requirements.txt
+# The image's Debian python3-cryptography satisfies requirements.txt but ships
+# without cffi, so anything importing its hazmat bindings fails.
+python3 -c "import _cffi_backend" 2>/dev/null \
+  || python3 -m pip install --quiet --disable-pip-version-check cffi
 
 # npm ci, not npm install: install rewrites the committed package-lock.json.
 # Skipped when node_modules is already present in the cached container.
