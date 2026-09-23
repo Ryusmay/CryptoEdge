@@ -9,7 +9,7 @@ symbolach uniwersum: realne spready ida od 0.0133 bps (BTC) do 4.48 bps
 zawyza dla 18 symboli (do 300x) i zaniza dla jednego. To jest blad ksztaltu:
 jedna liczba na wielkosc zmieniajaca sie o dwa i pol rzedu.
 
-SKAD DANE. `docs/analysis/venue_microstructure_*.json` - plik z proweniencja:
+SKAD DANE. `data/venue_microstructure_*.json` - plik z proweniencja:
 data, zrodlo, gielda, wielkosc ticka i jawnie wypisane ograniczenia. Wartosci
 NIE trafiaja do `config.py`, bo tam po pol roku bylyby nieodroznialne od tych,
 ktore wlasnie obalilismy.
@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Optional
 
 ROOT = Path(__file__).resolve().parent
-DEFAULT_PATH = ROOT / "docs" / "analysis" / "venue_microstructure_20260903.json"
+DEFAULT_PATH = ROOT / "data" / "venue_microstructure_20260903.json"
 
 _lock = threading.Lock()
 _cache: Optional[dict] = None
