@@ -5,6 +5,18 @@ Stala DEFAULT_SPREAD_FRAC = 0.0004 opisywala wielkosc, ktora na uniwersum
 zmienia sie 337-krotnie (BTC 0.0133 bps, TRUMP 4.48 bps). Zastapienie jej
 pomiarem jest poprawa tylko wtedy, gdy widac, KTORE liczby sa zmierzone,
 a ktore nadal pochodza ze stalej.
+
+PODZIAL TYCH TESTOW. Asercja o ZMIERZONEJ WARTOSCI zostaje przy pomiarze:
+biegnie na `venue_microstructure.DEFAULT_PATH`, czyli na pliku z
+`docs/analysis/`, ktorego to repozytorium swiadomie nie publikuje - wiec w CI
+sie POMIJA, z jawnym powodem. Asercja o ZACHOWANIU KODU (normalizacja symbolu,
+degradacja przy braku pliku, lepkosc wskazania, ksztalt proweniencji,
+podpiecie pod expected_net_r) biegnie na FIXTURZE z `tests/fixtures/`, bo
+sprawdza kod, a nie liczby. Fixture jest jawnie oznaczony jako syntetyczny
+i czesc jego wartosci jest ZMYSLONA; nie wolno go cytowac jako pomiaru.
+
+Gdyby plik pomiarowy zostal kiedys opublikowany, kazdy `skipUnless` ponizej
+znika sam - warunek zaczyna byc spelniony i te testy po prostu ruszaja.
 """
 import json
 import sys
@@ -19,6 +31,13 @@ if str(ROOT) not in sys.path:
 import config  # noqa: E402
 import venue_microstructure as vm  # noqa: E402
 from expected_net_r import expected_net_r  # noqa: E402
+
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "venue_microstructure_synthetic.json"
+
+MEASURED_ONLY = unittest.skipUnless(
+    vm.DEFAULT_PATH.exists(),
+    "asercja o zmierzonej wartosci; plik %s nie jest publikowany (AGENTS.md)" % vm.DEFAULT_PATH.name,
+)
 
 
 def _signal(symbol="BTC", **kw):
@@ -35,8 +54,14 @@ class TestLoader(unittest.TestCase):
 
     def setUp(self):
         vm.reset()
+        vm.load(FIXTURE, force=True)
 
+    def tearDown(self):
+        vm.reset()
+
+    @MEASURED_ONLY
     def test_the_real_file_loads_and_covers_the_universe(self):
+        vm.reset()
         syms = vm.measured_symbols()
         self.assertGreaterEqual(len(syms), 19)
         for must in ("BTC", "ETH", "SOL", "XRP", "ZEC"):
@@ -91,9 +116,13 @@ class TestLoader(unittest.TestCase):
             vm.load(bad, force=True)
             vm.load()          # bez argumentu - nie moze wrocic do domyslnego
             self.assertIsNone(vm.spread_frac("BTC"))
+            self.assertEqual(vm.provenance()["path"], str(bad))
         finally:
             vm.reset()
-        self.assertIsNotNone(vm.spread_frac("BTC"))
+        # A reset() MUSI wrocic do domyslnego. Sprawdzane na wskazaniu, nie na
+        # odczycie wartosci - inaczej ten test nie moglby biec bez pliku
+        # pomiarowego, ktorego repozytorium nie publikuje.
+        self.assertEqual(vm.provenance()["path"], str(vm.DEFAULT_PATH))
 
     def test_provenance_travels_with_the_numbers(self):
         prov = vm.provenance()
@@ -113,6 +142,10 @@ class TestLoader(unittest.TestCase):
 class TestWiredIntoExpectedNetR(unittest.TestCase):
 
     def setUp(self):
+        vm.reset()
+        vm.load(FIXTURE, force=True)
+
+    def tearDown(self):
         vm.reset()
 
     def test_a_measured_symbol_uses_the_measurement_and_says_so(self):

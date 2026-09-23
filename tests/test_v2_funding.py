@@ -6,11 +6,22 @@ from daytrading_engine_v2 import DayTradingEngineV2
 from daytrading_backtester import (
     AsOfBlofinFeed, apply_observed_funding, replay_daytrading_v2, ReplayTradeV2,
 )
+import venue_microstructure as vm
 from v2_profiles import replay_slip_round_trip
 from tests.test_daytrading_engine_v2 import (
     FakeFeeder, indicator, _up_swing_1h, _15m_trigger_series, _flat_ohlcv,
 )
 from why_taxonomy import why_bucket
+
+# Te trzy testy sprawdzaja ZMIERZONE wartosci (BTC = 1.331e-6 i porzadek
+# TRUMP > SOL > BTC), a nie zachowanie kodu, wiec zostaja przy pomiarze -
+# a pliku pomiarowego repozytorium swiadomie nie publikuje (AGENTS.md).
+# Sciezka niezmierzona (stary floor alt/metal) biegnie zawsze i to ona
+# pilnuje, ze fallback dalej dziala. Patrz tests/test_venue_microstructure.py.
+MEASURED_ONLY = unittest.skipUnless(
+    vm.DEFAULT_PATH.exists(),
+    "asercja o zmierzonej wartosci; plik %s nie jest publikowany (AGENTS.md)" % vm.DEFAULT_PATH.name,
+)
 
 
 class TestV2FundingSkip(unittest.TestCase):
@@ -155,10 +166,12 @@ class TestAltReplaySlip(unittest.TestCase):
 
     UNMEASURED = "SYMBOL_SPOZA_POMIARU"
 
+    @MEASURED_ONLY
     def test_measured_symbol_uses_its_own_spread(self):
         # BTC: zmierzony spread 0.01331 bps = 1.331e-6 round-trip.
         self.assertAlmostEqual(replay_slip_round_trip("BTC"), 1.331e-6, places=9)
 
+    @MEASURED_ONLY
     def test_measured_slip_is_symbol_specific_not_a_new_constant(self):
         """Sens calej zmiany: to ma byc rozklad, a nie kolejna jedna liczba."""
         btc = replay_slip_round_trip("BTC")
@@ -168,6 +181,7 @@ class TestAltReplaySlip(unittest.TestCase):
         self.assertGreater(sol, btc)
         self.assertGreater(trump / btc, 100.0)
 
+    @MEASURED_ONLY
     def test_measured_slip_is_far_below_the_old_floor(self):
         """Stary floor major to 6 bps; zmierzony BTC to 0.0133 bps."""
         self.assertLess(replay_slip_round_trip("BTC"), 0.0006 / 100.0)
