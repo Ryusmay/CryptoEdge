@@ -14,10 +14,13 @@ obietnica dzialajacej integracji.
 
 Degraduje sie w pelni bezpiecznie: brak pakietu `redis`, brak dzialajacego
 serwera Redis, blad polaczenia - wszystko po prostu skutkuje `publish()`
-zwracajacym False i logiem, NIGDY nie przerywa/spowalnia glownej petli bota.
-Publikacja jest zawsze best-effort i asynchroniczna wzgledem watku wolajacego
-(krotki timeout na polaczenie/zapis), zeby ewentualny martwy Redis nie
-zawiesil bota."""
+zwracajacym False i logiem, NIGDY nie przerywa glownej petli bota.
+Publikacja jest best-effort, ale SYNCHRONICZNA: `client.xadd` wykonuje sie
+w watku wolajacym (persist_cycle w watku `bot`). Ogranicza to wylacznie
+krotki timeout na polaczenie/zapis (1 s), wiec wolny Redis moze opoznic
+cykl o ten czas. (Poprzednia wersja tego opisu mowila "asynchroniczna" -
+kod nigdy taki nie byl; sprostowanie: docs/architecture/JEV_TRADER_AUDIT.md.)
+Nieblokujace ujscie z kolejka: cryptoedge/telemetry/sink.py."""
 
 from __future__ import annotations
 

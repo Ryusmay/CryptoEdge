@@ -77,6 +77,19 @@ class TradingStatus(StrEnum):
     RECONCILIATION_REQUIRED = "RECONCILIATION_REQUIRED"
 
 
+class DecisionValidityStatus(StrEnum):
+    """Czy decyzja wciaz opisuje rynek, na ktorym ma zostac wykonana.
+
+    VALID - mozna wykonac; LATE - minal valid_until; STALE - rynek sie
+    zmienil (nowsza wersja stanu albo dryf ceny ponad limit);
+    INVALIDATED - cena przeszla poziom uniewazniajacy setup (np. SL).
+    """
+    VALID = "VALID"
+    STALE = "STALE"
+    LATE = "LATE"
+    INVALIDATED = "INVALIDATED"
+
+
 class EventType(StrEnum):
     SNAPSHOT = "SNAPSHOT"
     DECISION = "DECISION"
@@ -85,4 +98,13 @@ class EventType(StrEnum):
     FILL = "FILL"
     POSITION = "POSITION"
     HEALTH = "HEALTH"
+    # Rozszerzenie pod wspolny schemat telemetrii (MIGRATION_PLAN, etap 6).
+    # Celowo brak MARKET/FEATURE per tick: 300+ symboli x tick to wolumen,
+    # ktory nie powinien isc przez szyne zdarzen; stan rynku = SNAPSHOT.
+    ORDER_INTENT = "ORDER_INTENT"
+    EXECUTION = "EXECUTION"
+    PNL = "PNL"
+    STRATEGY_HEALTH = "STRATEGY_HEALTH"
+    MODEL = "MODEL"
+    SIMULATION = "SIMULATION"
 
