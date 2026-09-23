@@ -16,8 +16,8 @@
     "slippage_rt": 0.0006
   },
   "config": {
-    "hash": "ac8946fc879ac185",
-    "keys": 538,
+    "hash": "ceca742c8e936030",
+    "keys": 531,
     "watched": {
       "MIN_SIGNAL_STRENGTH": 0.48,
       "MAX_POSITIONS": 10,

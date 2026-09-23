@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -87,16 +88,34 @@ def _scalar(value) -> bool:
     return False
 
 
+def _env_names() -> frozenset:
+    """Nazwy, ktore config.py bierze ze srodowiska (.env, zmienne procesu).
+
+    Czytane ze zrodla, a nie z listy: nowe `X = os.getenv(...)` wypada z
+    odcisku samo, bez pamietania o dopisaniu go tutaj.
+    """
+    src = Path(config.__file__).read_text(encoding="utf-8")
+    return frozenset(re.findall(
+        r"^([A-Z_][A-Z0-9_]*)\s*=[^\n]*\bos\.(?:getenv|environ)\b", src, re.M))
+
+
 def config_fingerprint() -> dict:
     """Hash calego configu + czytelna lista progow.
 
     Hash lapie KAZDA zmiane ustawien, takze taka, o ktorej nikt nie pomyslal.
     Lista WATCHED sluzy tylko do tego, zeby typowa zmiana byla czytelna bez
     kopania w hashu.
+
+    Wartosci ze srodowiska sa pomijane. Klucze API i token sa w .env na
+    maszynie autora i puste wszedzie indziej, wiec ten sam kod dawal dwa
+    rozne hashe i zadna bramka nie mogla przejsc w CI. Drugi powod: hash
+    trafia do publikowanego baseline'u, a sekret nie ma czego szukac nawet
+    w skrocie.
     """
+    env = _env_names()
     items = []
     for name in sorted(dir(config)):
-        if not name.isupper():
+        if not name.isupper() or name in env:
             continue
         value = getattr(config, name, None)
         if not _scalar(value):
